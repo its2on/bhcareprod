@@ -104,7 +104,7 @@ namespace Barangay.Controllers.Api
                         Time = a.AppointmentTime.FormatTime(),
                         a.Status,
                         a.Description,
-                        DoctorName = a.Doctor.UserName
+                        DoctorName = a.Doctor.FullName
                     })
                     .ToListAsync();
 

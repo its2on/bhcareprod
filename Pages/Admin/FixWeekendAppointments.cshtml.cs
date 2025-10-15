@@ -230,7 +230,7 @@ namespace Barangay.Pages.Admin
                 DoctorAvailabilities = availabilities.Select(da => new DoctorAvailabilityViewModel
                 {
                     DoctorId = da.DoctorId,
-                    DoctorName = da.Doctor?.UserName ?? "Unknown",
+                    DoctorName = da.Doctor?.FullName ?? "Unknown",
                     Email = da.Doctor?.Email ?? "Unknown",
                     Monday = da.Monday,
                     Tuesday = da.Tuesday,

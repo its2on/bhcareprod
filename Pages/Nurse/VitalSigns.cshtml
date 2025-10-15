@@ -195,19 +195,22 @@
                 <textarea asp-for="NewVitalSign.Notes" class="form-control" rows="3"></textarea>
             </div>
 
-            <div class="mb-3">
-                <label for="assignedDoctorId" class="form-label">Assign to Doctor <span class="text-danger">*</span></label>
-                <select name="AssignedDoctorId" class="form-select" required>
-                    <option value="" selected disabled>Select a doctor to assign</option>
-                    @if (Model.Doctors != null)
-                    {
-                        @foreach (var doctor in Model.Doctors)
+            @if (User.IsInRole("Doctor"))
+            {
+                <div class="mb-3">
+                    <label for="assignedDoctorId" class="form-label">Assign to Doctor <span class="text-danger">*</span></label>
+                    <select name="AssignedDoctorId" class="form-select" required>
+                        <option value="" selected disabled>Select a doctor to assign</option>
+                        @if (Model.Doctors != null)
                         {
-                            <option value="@doctor.Id">@doctor.FullName</option>
+                            @foreach (var doctor in Model.Doctors)
+                            {
+                                <option value="@doctor.Id">@doctor.FullName</option>
+                            }
                         }
-                    }
-                </select>
-            </div>
+                    </select>
+                </div>
+            }
 
                         <button type="submit" class="btn btn-primary" id="saveVitalSigns" disabled>
                             <i class="bi bi-save"></i> Save Vital Signs
@@ -520,8 +523,8 @@
                 $('#patientSelect').removeClass('is-invalid');
             }
             
-            // Check required fields
-            $('#vitalSignsForm input[required]').each(function() {
+            // Check required fields (input and select)
+            $('#vitalSignsForm input[required], #vitalSignsForm select[required]').each(function() {
                 if (!$(this).val()) {
                     isValid = false;
                     $(this).addClass('is-invalid');
@@ -545,7 +548,7 @@
             });
             
             // Check form validity on input change
-            $('#vitalSignsForm input[required]').on('input', function() {
+            $('#vitalSignsForm input[required], #vitalSignsForm select[required]').on('input change', function() {
                 checkFormValidity();
             });
             
@@ -557,8 +560,8 @@
                     allFilled = false;
                 }
                 
-                // Check if all required fields are filled
-                $('#vitalSignsForm input[required]').each(function() {
+                // Check if all required fields are filled (input and select)
+                $('#vitalSignsForm input[required], #vitalSignsForm select[required]').each(function() {
                     if (!$(this).val()) {
                         allFilled = false;
                         $(this).addClass('is-invalid');
@@ -984,6 +987,12 @@
                 height: parseFloat(document.getElementById('NewVitalSign_Height').value),
                 notes: document.getElementById('NewVitalSign_Notes').value
             };
+            
+            // Add doctor assignment if the field exists (only for Doctor role users)
+            const assignedDoctorSelect = document.querySelector('select[name="AssignedDoctorId"]');
+            if (assignedDoctorSelect) {
+                vitalSignsData.assignedDoctorId = assignedDoctorSelect.value;
+            }
             
             console.log("Submitting data:", vitalSignsData);
             

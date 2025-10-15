@@ -26,6 +26,14 @@ namespace Barangay.Middleware
                 return;
             }
 
+            // Skip token validation for authenticated users accessing their own pages
+            if (context.User.Identity?.IsAuthenticated == true && IsTokenProtectedPath(path))
+            {
+                _logger.LogInformation("Authenticated user accessing protected path {Path}, skipping token validation", path);
+                await _next(context);
+                return;
+            }
+
             // Check if this is a token-protected route
             if (IsTokenProtectedPath(path))
             {

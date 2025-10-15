@@ -167,8 +167,6 @@ namespace Barangay.Pages.Nurse
                     PatientName = patientName,
                     AppointmentDate = appointment.AppointmentDate,
                     AppointmentTime = appointment.AppointmentTime,
-                    DoctorId = appointment.DoctorId,
-                    DoctorName = doctorName,
                     Status = appointment.Status,
                     Type = appointment.Type ?? "General",
                     Description = appointment.Description

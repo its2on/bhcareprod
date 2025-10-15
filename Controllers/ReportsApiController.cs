@@ -236,16 +236,20 @@ namespace Barangay.Controllers
                 {
                     var conditions = await _context.MedicalRecords
                         .Where(m => m.Date >= startDate && m.Date <= endDate && !string.IsNullOrEmpty(m.Diagnosis))
-                        .GroupBy(m => m.Diagnosis)
+                        .ToListAsync();
+                    
+                    // Decrypt and normalize conditions
+                    var normalizedConditions = conditions
+                        .GroupBy(m => ConditionNormalizer.NormalizeCondition(m.Diagnosis))
                         .Select(g => new { 
                             condition = g.Key, 
                             count = g.Count() 
                         })
                         .OrderByDescending(g => g.count)
                         .Take(10)
-                        .ToListAsync();
+                        .ToList();
 
-                    topConditions = conditions.Select(c => new { condition = c.condition, count = c.count }).Cast<object>().ToList();
+                    topConditions = normalizedConditions.Select(c => new { condition = c.condition, count = c.count }).Cast<object>().ToList();
                     _logger.LogInformation($"Retrieved {topConditions.Count} top conditions");
                 }
                 catch (Exception ex)
@@ -301,5 +305,6 @@ namespace Barangay.Controllers
                 return StatusCode(500, new { error = "An error occurred while generating the report", details = ex.Message });
             }
         }
+
     }
 } 

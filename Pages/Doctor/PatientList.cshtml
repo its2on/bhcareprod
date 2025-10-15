@@ -1,7 +1,7 @@
 @page
 @model Barangay.Pages.Doctor.PatientListModel
 @{
-    ViewData["Title"] = "Patient List";
+    ViewData["Title"] = "Family Groups";
     Layout = "_DoctorLayout";
 }
 
@@ -125,7 +125,7 @@
 
 <!-- Header -->
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
-    <h1 class="h2">Patient List</h1>
+    <h1 class="h2">Family Groups</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
             <i class="fas fa-sync-alt me-1"></i> Refresh
@@ -177,59 +177,85 @@
     </div>
 </div>
 
-<!-- Patient List -->
+<!-- Family Groups List -->
 <div class="row">
-    @if (!Model.Patients.Any())
+    @if (!Model.FamilyGroups.Any())
     {
         <div class="col-12">
             <div class="text-center text-muted py-5">
                 <i class="fas fa-users fa-3x mb-3"></i>
-                <h5>No patients found</h5>
+                <h5>No family groups found</h5>
                 <p>Try adjusting your filters or search criteria</p>
             </div>
         </div>
     }
     else
     {
-        @foreach (var patient in Model.Patients)
+        @foreach (var familyGroup in Model.FamilyGroups)
         {
             <div class="col-12">
                 <div class="card patient-card">
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-md-1 text-center">
-                                <i class="fas fa-user-circle fa-2x text-primary"></i>
+                                <i class="fas fa-users fa-2x text-primary"></i>
                             </div>
                             <div class="col-md-3">
-                                <h5 class="card-title mb-1">@patient.FullName</h5>
+                                <h5 class="card-title mb-1">Family @familyGroup.FamilyNumber</h5>
                                 <p class="text-muted mb-0">
                                     <small>
-                                        <i class="fas fa-id-card me-1"></i> @patient.PatientId
+                                        <i class="fas fa-user-friends me-1"></i> @familyGroup.MemberCount member(s)
                                     </small>
                                 </p>
                             </div>
                             <div class="col-md-2">
                                 <p class="mb-0">
                                     <i class="fas fa-map-marker-alt me-1"></i>
-                                    @patient.Barangay
+                                    @familyGroup.PrimaryBarangay
                                 </p>
                             </div>
                             <div class="col-md-2">
                                 <p class="mb-0">
                                     <i class="fas fa-phone me-1"></i>
-                                    @patient.PhoneNumber
+                                    @familyGroup.PrimaryContact
                                 </p>
                             </div>
                             <div class="col-md-2">
-                                <span class="badge bg-@(patient.Status == "Active" ? "success" : 
-                                                     patient.Status == "Pending" ? "warning" : "secondary")">
-                                    @patient.Status
+                                <span class="badge bg-info">
+                                    Family Group
                                 </span>
                             </div>
                             <div class="col-md-2 text-end">
-                                <a href="/Doctor/PatientDetails/@patient.PatientId" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-eye me-1"></i> View Details
-                                </a>
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#family-@familyGroup.FamilyNumber.Replace(".", "-").Replace("-", "")" aria-expanded="false">
+                                    <i class="fas fa-chevron-down me-1"></i> View Members
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Collapsible Family Members -->
+                        <div class="collapse mt-3" id="family-@familyGroup.FamilyNumber.Replace(".", "-").Replace("-", "")">
+                            <div class="card card-body bg-light">
+                                <h6 class="mb-3">Family Members (@familyGroup.MemberCount)</h6>
+                                <div class="row">
+                                    @foreach (var member in familyGroup.FamilyMembers)
+                                    {
+                                        <div class="col-md-6 mb-2">
+                                            <div class="d-flex align-items-center p-2 bg-white rounded border">
+                                                <i class="fas fa-user-circle text-secondary me-2"></i>
+                                                <div class="flex-grow-1">
+                                                    <strong>@member.FullName</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        Age: @member.Age | Status: @member.Status
+                                                    </small>
+                                                </div>
+                                                <a href="/Doctor/PatientDetails/@member.PatientId" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -52,8 +52,6 @@ namespace Barangay.Pages.User
         [BindProperty]
         public IFormFile? ProfilePicture { get; set; }
 
-        [BindProperty]
-        public NotificationSettingsViewModel NotificationSettings { get; set; } = new NotificationSettingsViewModel();
 
         [TempData]
         public string StatusMessage { get; set; }
@@ -90,12 +88,6 @@ namespace Barangay.Pages.User
                 Gender = user.Gender
             };
 
-            NotificationSettings = new NotificationSettingsViewModel
-            {
-                AppointmentReminders = user.AppointmentReminders,
-                PrescriptionAlerts = user.PrescriptionAlerts,
-                HealthTips = user.HealthTips
-            };
 
             return Page();
         }
@@ -262,36 +254,6 @@ namespace Barangay.Pages.User
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostSaveNotificationSettingsAsync()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
-            }
-
-            // Update notification settings in user profile
-            user.AppointmentReminders = NotificationSettings.AppointmentReminders;
-            user.PrescriptionAlerts = NotificationSettings.PrescriptionAlerts;
-            user.HealthTips = NotificationSettings.HealthTips;
-            user.UpdatedAt = DateTime.Now;
-
-            var result = await _userManager.UpdateAsync(user);
-            if (result.Succeeded)
-            {
-                StatusMessage = "Your notification preferences have been saved.";
-            }
-            else
-            {
-                StatusMessage = "Error: Could not save notification preferences.";
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
-            }
-
-            return RedirectToPage();
-        }
     }
 
     public class UserProfileViewModel
@@ -338,15 +300,4 @@ namespace Barangay.Pages.User
         public string ConfirmPassword { get; set; }
     }
 
-    public class NotificationSettingsViewModel
-    {
-        [Display(Name = "Appointment Reminders")]
-        public bool AppointmentReminders { get; set; } = true;
-
-        [Display(Name = "Prescription Alerts")]
-        public bool PrescriptionAlerts { get; set; } = true;
-
-        [Display(Name = "Health Tips & Updates")]
-        public bool HealthTips { get; set; } = false;
-    }
 } 

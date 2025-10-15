@@ -37,77 +37,161 @@
         </div>
     }
 
+    <!-- Elegant Accordion Appointments Section -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Upcoming Appointments</h5>
-                    <a href="/BookAppointment" class="btn btn-primary">
-                        <i class="fa-solid fa-plus me-2"></i>Book New Appointment
-                    </a>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Date & Time</th>
-                                    <th>Consultation Type</th>
-                                    <th>Reason for Visit</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (Model.UpcomingAppointments.Any())
-                                {
-                                    @foreach (var appointment in Model.UpcomingAppointments)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <div class="fw-bold">@appointment.AppointmentDate.ToString("MMMM dd, yyyy")</div>
-                                                <div class="fw-semibold text-primary">@appointment.GetFormattedTime()</div>
-                                                <div class="small text-muted">Age: @appointment.AgeValue</div>
-                                            </td>
-                                            <td>@Model.GetFullConsultationType(appointment.Type)</td>
-                                            <td>@appointment.ReasonForVisit</td>
-                                            <td><span class="badge bg-@GetStatusClass(appointment.Status)">@(appointment.Status == AppointmentStatus.Pending ? "On-Going" : appointment.Status.ToString())</span></td>
-                                            <td>
-                                                @if (appointment.Status == AppointmentStatus.Draft)
-                                                {
-                                                    <a href="@(appointment.AgeValue >= 20 ? $"/User/NCDRiskAssessment?appointmentId={appointment.Id}" : 
-                                                        (appointment.AgeValue >= 10 ? $"/User/HEEADSSSAssessment?appointmentId={appointment.Id}" : "#"))"
-                                                        class="btn btn-sm btn-success me-2 complete-form-btn" 
-                                                        data-appointment-id="@appointment.Id"
-                                                        data-age="@appointment.AgeValue"
-                                                        title="Age: @appointment.AgeValue - @(appointment.AgeValue >= 20 ? "NCD Risk Assessment" : 
-                                                        (appointment.AgeValue >= 10 ? "HEEADSSS Assessment" : "No form available"))"
-                                                        onclick="handleCompleteFormClick(this, @appointment.AgeValue, @appointment.Id, event)">
-                                                        <i class="fa-solid fa-check"></i> Complete Form
-                                                    </a>
-                                                }
-                                                @if (appointment.Status != AppointmentStatus.Cancelled && appointment.Status != AppointmentStatus.Completed)
-                                                {
-                                                    <form method="post" asp-page-handler="CancelAppointment" class="d-inline">
-                                                        <input type="hidden" name="appointmentId" value="@appointment.Id" />
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to cancel this appointment?')">
-                                                            <i class="fa-solid fa-xmark"></i> Cancel
-                                                        </button>
-                                                    </form>
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                                else
-                                {
-                                    <tr>
-                                        <td colspan="5" class="text-center">No upcoming appointments</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+            <div class="appointments-container">
+                <!-- Header with Book Appointment Button -->
+                <div class="appointments-header mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="appointments-title mb-0">
+                            <i class="fa-solid fa-calendar-check me-2 text-primary"></i>
+                            My Appointments
+                        </h4>
+                        <a href="/BookAppointment" class="btn btn-primary btn-book-appointment">
+                            <i class="fa-solid fa-plus me-2"></i>Book New Appointment
+                        </a>
                     </div>
+                </div>
+
+                <!-- Accordion Container -->
+                <div class="accordion appointments-accordion" id="appointmentsAccordion" role="tablist" aria-multiselectable="true">
+                    
+                    <!-- Ongoing Appointments Section -->
+                    <div class="accordion-item appointment-section" data-status="ongoing">
+                        <h2 class="accordion-header" id="ongoingHeader">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#ongoingCollapse" aria-expanded="false" aria-controls="ongoingCollapse"
+                                    aria-label="Toggle ongoing appointments section">
+                                <div class="section-header-content">
+                                    <i class="fa-solid fa-clock me-3 text-info"></i>
+                                    <span class="section-title">Ongoing Appointments</span>
+                                    <span class="badge bg-info ms-auto" id="ongoingCount">0</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="ongoingCollapse" class="accordion-collapse collapse" aria-labelledby="ongoingHeader" 
+                             data-bs-parent="#appointmentsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="table-container">
+                                    <div class="table-responsive">
+                                        <table class="table appointments-table mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Date & Time</th>
+                                                    <th>Consultation Type</th>
+                                                    <th>Reason for Visit</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ongoingAppointmentsTable">
+                                                <!-- Dynamic content will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="empty-state" id="ongoingEmptyState" style="display: none;">
+                                        <div class="text-center py-5">
+                                            <i class="fa-solid fa-clock fa-3x text-muted mb-3"></i>
+                                            <h5 class="text-muted">No ongoing appointments</h5>
+                                            <p class="text-muted">You don't have any appointments in progress at the moment.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draft Appointments Section -->
+                    <div class="accordion-item appointment-section" data-status="draft">
+                        <h2 class="accordion-header" id="draftHeader">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#draftCollapse" aria-expanded="false" aria-controls="draftCollapse"
+                                    aria-label="Toggle draft appointments section">
+                                <div class="section-header-content">
+                                    <i class="fa-solid fa-file-pen me-3 text-warning"></i>
+                                    <span class="section-title">Draft Appointments</span>
+                                    <span class="badge bg-warning text-dark ms-auto" id="draftCount">0</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="draftCollapse" class="accordion-collapse collapse" aria-labelledby="draftHeader" 
+                             data-bs-parent="#appointmentsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="table-container">
+                                    <div class="table-responsive">
+                                        <table class="table appointments-table mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Date & Time</th>
+                                                    <th>Consultation Type</th>
+                                                    <th>Reason for Visit</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="draftAppointmentsTable">
+                                                <!-- Dynamic content will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="empty-state" id="draftEmptyState" style="display: none;">
+                                        <div class="text-center py-5">
+                                            <i class="fa-solid fa-file-pen fa-3x text-muted mb-3"></i>
+                                            <h5 class="text-muted">No draft appointments</h5>
+                                            <p class="text-muted">You don't have any incomplete appointment forms.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cancelled Appointments Section -->
+                    <div class="accordion-item appointment-section" data-status="cancelled">
+                        <h2 class="accordion-header" id="cancelledHeader">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#cancelledCollapse" aria-expanded="false" aria-controls="cancelledCollapse"
+                                    aria-label="Toggle cancelled appointments section">
+                                <div class="section-header-content">
+                                    <i class="fa-solid fa-xmark-circle me-3 text-danger"></i>
+                                    <span class="section-title">Cancelled Appointments</span>
+                                    <span class="badge bg-danger ms-auto" id="cancelledCount">0</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="cancelledCollapse" class="accordion-collapse collapse" aria-labelledby="cancelledHeader" 
+                             data-bs-parent="#appointmentsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="table-container">
+                                    <div class="table-responsive">
+                                        <table class="table appointments-table mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Date & Time</th>
+                                                    <th>Consultation Type</th>
+                                                    <th>Reason for Visit</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cancelledAppointmentsTable">
+                                                <!-- Dynamic content will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="empty-state" id="cancelledEmptyState" style="display: none;">
+                                        <div class="text-center py-5">
+                                            <i class="fa-solid fa-xmark-circle fa-3x text-muted mb-3"></i>
+                                            <h5 class="text-muted">No cancelled appointments</h5>
+                                            <p class="text-muted">You don't have any cancelled appointments.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -186,70 +270,555 @@
     }
 }
 
+@section Styles {
+    <style>
+        /* Elegant Appointments Accordion Styles */
+        .appointments-container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .appointments-header {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            padding: 1.5rem 2rem;
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .appointments-title {
+            font-weight: 600;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .btn-book-appointment {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-book-appointment:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Accordion Styles */
+        .appointments-accordion {
+            border: none;
+            background: transparent;
+        }
+
+        .appointment-section {
+            border: none;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+        }
+
+        .appointment-section:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .accordion-button {
+            background: #ffffff;
+            border: none;
+            padding: 1.25rem 1.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .accordion-button:focus {
+            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+            border-color: transparent;
+        }
+
+        .accordion-button::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-button:not(.collapsed)::after {
+            transform: rotate(180deg);
+        }
+
+        .section-header-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        /* Table Styles */
+        .table-container {
+            background: #ffffff;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .appointments-table {
+            margin: 0;
+            border: none;
+        }
+
+        .appointments-table thead th {
+            background: #f8f9fa;
+            border: none;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .appointments-table tbody td {
+            padding: 1rem 1.5rem;
+            border: none;
+            border-bottom: 1px solid #f1f3f4;
+            vertical-align: middle;
+            transition: background-color 0.2s ease;
+        }
+
+        .appointments-table tbody tr:hover td {
+            background: #f8f9fa;
+        }
+
+        .appointments-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-ongoing {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-draft {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status-cancelled {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-complete {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-complete:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-cancel {
+            background: transparent;
+            color: #d32f2f;
+            border: 1px solid #d32f2f;
+        }
+
+        .btn-cancel:hover {
+            background: #d32f2f;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+        }
+
+        /* Empty State */
+        .empty-state {
+            padding: 3rem 2rem;
+            text-align: center;
+            background: #fafafa;
+        }
+
+        .empty-state i {
+            opacity: 0.5;
+        }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .appointments-header {
+                padding: 1rem;
+                text-align: center;
+            }
+
+            .appointments-title {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+
+            .btn-book-appointment {
+                width: 100%;
+                margin-top: 1rem;
+            }
+
+            .accordion-button {
+                padding: 1rem;
+            }
+
+            .appointments-table thead th,
+            .appointments-table tbody td {
+                padding: 0.75rem 1rem;
+            }
+
+            .section-title {
+                font-size: 1rem;
+            }
+
+            .badge {
+                font-size: 0.75rem;
+                padding: 0.3rem 0.6rem;
+            }
+        }
+
+        /* Animation for accordion collapse */
+        .accordion-collapse {
+            transition: height 0.35s ease;
+        }
+
+        /* Loading states */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #ff6b35;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Smooth transitions for all interactive elements */
+        * {
+            transition: all 0.3s ease;
+        }
+
+        /* Focus states for accessibility */
+        .accordion-button:focus,
+        .action-btn:focus,
+        .btn-book-appointment:focus {
+            outline: 2px solid #ff6b35;
+            outline-offset: 2px;
+        }
+    </style>
+}
+
 @section Scripts {
     <script>
-        function handleCompleteFormClick(element, age, appointmentId, event) {
-            console.log('Complete Form clicked:', { age: age, appointmentId: appointmentId });
-            
-            // Prevent default link behavior
-            if (event) {
-                event.preventDefault();
+        // Appointments Management Class
+        class AppointmentsManager {
+            constructor() {
+                this.appointments = [];
+                this.initializeEventListeners();
+                this.loadAppointments();
             }
-            
-            // Show loading state
-            const originalText = element.innerHTML;
-            element.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';
-            element.disabled = true;
-            
-            // Determine the correct assessment form based on age
-            let redirectUrl;
-            if (age >= 20) {
-                redirectUrl = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
-                console.log('Redirecting to NCD Risk Assessment for age:', age);
-            } else if (age >= 10) {
-                redirectUrl = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
-                console.log('Redirecting to HEEADSSS Assessment for age:', age);
-            } else {
-                alert('No assessment form is required for patients under 10 years old.');
-                // Restore button state
-                element.innerHTML = originalText;
-                element.disabled = false;
-                return;
-            }
-            
-            // Test the URL first
-            console.log('Testing URL accessibility...');
-            fetch(redirectUrl, { method: 'HEAD' })
-                .then(response => {
-                    console.log('URL test response:', response.status, response.statusText);
-                    if (response.ok) {
-                        console.log('URL is accessible, redirecting...');
-                        window.location.href = redirectUrl;
-                    } else {
-                        console.error('URL not accessible:', response.status);
-                        element.innerHTML = originalText;
-                        element.disabled = false;
-                        alert(`Assessment form is not accessible (Status: ${response.status}). Please contact support.`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error testing URL:', error);
-                    element.innerHTML = originalText;
-                    element.disabled = false;
-                    alert('Error accessing assessment form. Please try again or contact support.');
+
+            initializeEventListeners() {
+                // Accordion event listeners
+                document.addEventListener('DOMContentLoaded', () => {
+                    this.setupAccordionEvents();
                 });
+            }
+
+            setupAccordionEvents() {
+                const accordionButtons = document.querySelectorAll('.accordion-button');
+                accordionButtons.forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        // Add smooth animation
+                        const target = document.querySelector(button.getAttribute('data-bs-target'));
+                        if (target) {
+                            target.style.transition = 'height 0.35s ease';
+                        }
+                    });
+                });
+            }
+
+            // Load appointments from server-side data
+            loadAppointments() {
+                // Get appointments from the model data
+                const serverAppointments = this.getServerAppointments();
+                this.appointments = serverAppointments;
+                this.populateTables();
+            }
+
+            getServerAppointments() {
+                // This would typically come from an API call
+                // For now, we'll use the server-side rendered data
+                const appointments = [];
+                
+                // Extract ongoing appointments
+                @foreach (var appointment in Model.OngoingAppointments)
+                {
+                    <text>
+                    appointments.push({
+                        id: @appointment.Id,
+                        date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
+                        time: '@appointment.GetFormattedTime()',
+                        age: @appointment.AgeValue,
+                        consultationType: '@Model.GetFullConsultationType(appointment.Type)',
+                        reason: '@appointment.ReasonForVisit',
+                        status: '@appointment.Status.ToString()',
+                        statusType: 'ongoing',
+                        canComplete: false,
+                        canCancel: true
+                    });
+                    </text>
+                }
+
+                // Extract draft appointments
+                @foreach (var appointment in Model.DraftAppointments)
+                {
+                    <text>
+                    appointments.push({
+                        id: @appointment.Id,
+                        date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
+                        time: '@appointment.GetFormattedTime()',
+                        age: @appointment.AgeValue,
+                        consultationType: '@Model.GetFullConsultationType(appointment.Type)',
+                        reason: '@appointment.ReasonForVisit',
+                        status: '@appointment.Status.ToString()',
+                        statusType: 'draft',
+                        canComplete: true,
+                        canCancel: true
+                    });
+                    </text>
+                }
+
+                // Extract cancelled appointments
+                @{
+                    var cancelledAppointments = Model.UpcomingAppointments.Where(a => a.Status == AppointmentStatus.Cancelled).ToList();
+                }
+                @foreach (var appointment in cancelledAppointments)
+                {
+                    <text>
+                    appointments.push({
+                        id: @appointment.Id,
+                        date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
+                        time: '@appointment.GetFormattedTime()',
+                        age: @appointment.AgeValue,
+                        consultationType: '@Model.GetFullConsultationType(appointment.Type)',
+                        reason: '@appointment.ReasonForVisit',
+                        status: '@appointment.Status.ToString()',
+                        statusType: 'cancelled',
+                        canComplete: false,
+                        canCancel: false
+                    });
+                    </text>
+                }
+
+                return appointments;
+            }
+
+            populateTables() {
+                this.populateTable('ongoing', this.appointments.filter(a => a.statusType === 'ongoing'));
+                this.populateTable('draft', this.appointments.filter(a => a.statusType === 'draft'));
+                this.populateTable('cancelled', this.appointments.filter(a => a.statusType === 'cancelled'));
+            }
+
+            populateTable(type, appointments) {
+                const tableBody = document.getElementById(`${type}AppointmentsTable`);
+                const emptyState = document.getElementById(`${type}EmptyState`);
+                const countBadge = document.getElementById(`${type}Count`);
+
+                if (!tableBody || !emptyState || !countBadge) return;
+
+                // Update count
+                countBadge.textContent = appointments.length;
+
+                if (appointments.length === 0) {
+                    tableBody.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                tableBody.innerHTML = appointments.map(appointment => this.createTableRow(appointment)).join('');
+            }
+
+            createTableRow(appointment) {
+                const statusClass = this.getStatusClass(appointment.statusType);
+                const statusText = this.getStatusText(appointment.statusType);
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="fw-bold">${appointment.date}</div>
+                            <div class="fw-semibold text-primary">${appointment.time}</div>
+                            <div class="small text-muted">Age: ${appointment.age}</div>
+                        </td>
+                        <td>${appointment.consultationType}</td>
+                        <td>${appointment.reason}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            ${this.createActionButtons(appointment)}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            createActionButtons(appointment) {
+                let buttons = '';
+
+                if (appointment.canComplete) {
+                    buttons += `
+                        <button class="action-btn btn-complete" 
+                                onclick="appointmentsManager.handleCompleteForm(${appointment.id}, ${appointment.age})"
+                                title="Age: ${appointment.age} - ${appointment.age >= 20 ? 'NCD Risk Assessment' : 
+                                    (appointment.age >= 10 ? 'HEEADSSS Assessment' : 'No form available')}">
+                            <i class="fa-solid fa-check"></i> Complete Form
+                        </button>
+                    `;
+                }
+
+                if (appointment.canCancel) {
+                    buttons += `
+                        <form method="post" asp-page-handler="CancelAppointment" class="d-inline">
+                            <input type="hidden" name="appointmentId" value="${appointment.id}" />
+                            <button type="submit" class="action-btn btn-cancel" 
+                                    onclick="return confirm('Are you sure you want to cancel this appointment?')">
+                                <i class="fa-solid fa-xmark"></i> Cancel
+                            </button>
+                        </form>
+                    `;
+                }
+
+                return buttons || '<span class="text-muted">No actions available</span>';
+            }
+
+            getStatusClass(statusType) {
+                const classes = {
+                    'ongoing': 'status-ongoing',
+                    'draft': 'status-draft',
+                    'cancelled': 'status-cancelled'
+                };
+                return classes[statusType] || 'status-ongoing';
+            }
+
+            getStatusText(statusType) {
+                const texts = {
+                    'ongoing': 'On-Going',
+                    'draft': 'Draft',
+                    'cancelled': 'Cancelled'
+                };
+                return texts[statusType] || 'Unknown';
+            }
+
+            handleCompleteForm(appointmentId, age) {
+                console.log('Complete Form clicked:', { age: age, appointmentId: appointmentId });
+                
+                // Determine the correct assessment form based on age
+                let redirectUrl;
+                if (age >= 20) {
+                    redirectUrl = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
+                    console.log('Redirecting to NCD Risk Assessment for age:', age);
+                } else if (age >= 10) {
+                    redirectUrl = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
+                    console.log('Redirecting to HEEADSSS Assessment for age:', age);
+                } else {
+                    alert('No assessment form is required for patients under 10 years old.');
+                    return;
+                }
+                
+                // Test the URL first
+                console.log('Testing URL accessibility...');
+                fetch(redirectUrl, { method: 'HEAD' })
+                    .then(response => {
+                        console.log('URL test response:', response.status, response.statusText);
+                        if (response.ok) {
+                            console.log('URL is accessible, redirecting...');
+                            window.location.href = redirectUrl;
+                        } else {
+                            console.error('URL not accessible:', response.status);
+                            alert(`Assessment form is not accessible (Status: ${response.status}). Please contact support.`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error testing URL:', error);
+                        alert('Error accessing assessment form. Please try again or contact support.');
+                    });
+            }
+
+            // Method to refresh appointments (for future API integration)
+            refreshAppointments() {
+                this.loadAppointments();
+            }
         }
-        
-        // Add event listeners for all Complete Form buttons
+
+        // Initialize the appointments manager
+        let appointmentsManager;
         document.addEventListener('DOMContentLoaded', function() {
-            const completeFormButtons = document.querySelectorAll('.complete-form-btn');
-            console.log('Found Complete Form buttons:', completeFormButtons.length);
-            
-            completeFormButtons.forEach(button => {
-                const appointmentId = button.getAttribute('data-appointment-id');
-                const age = parseInt(button.getAttribute('data-age'));
-                console.log('Button details:', { appointmentId, age });
-            });
+            appointmentsManager = new AppointmentsManager();
         });
     </script>
 } 

@@ -628,7 +628,13 @@
                 if (containsBadWord) {
                     $('#reasonForVisit').addClass('is-invalid');
                     isValid = false;
-                    alert('Please remove inappropriate language from the Reason for Visit.');
+                    Swal.fire({
+                        title: 'Inappropriate Language',
+                        text: 'Please remove inappropriate language from the Reason for Visit.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ffc107'
+                    });
                 } else {
                     $('#reasonForVisit').removeClass('is-invalid');
                 }
@@ -646,7 +652,13 @@
                 
                 if (!isValid) {
                     console.error('[BookAppointment] Validation failed - cannot proceed to step 2');
-                    alert('Please fill in all required fields before proceeding.');
+                    Swal.fire({
+                        title: 'Required Fields Missing',
+                        text: 'Please fill in all required fields before proceeding.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ffc107'
+                    });
                     return;
                 }
                 
@@ -675,26 +687,58 @@
                             const age = response.age;
                             console.log('[BookAppointment] Appointment created with ID:', appointmentId);
                             
-                            // Show a message that the form is saved as draft
-                            if (confirm('Your appointment has been saved as a draft. Would you like to complete the assessment form now? (You can also complete it later from your Appointments page)')) {
-                                // Clear session storage only when user chooses to complete the form
-                                sessionStorage.removeItem('appointmentFormData');
-                                
-                                // If user chooses to complete the form now, redirect to the appropriate assessment
-                                if (age >= 20) {
-                                    // Redirect to NCD Risk Assessment for users 20+
-                                    window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
-                                } else if (age >= 10 && age <= 19) {
-                                    // Redirect to HEEADSSS Assessment for users 10-19
-                                    window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
-                                } else {
-                                    // For users under 10, show success message and redirect to appointments
-                                    alert('Appointment details saved! No assessment form is required for patients under 10 years old.');
+                            // Debug SweetAlert2 before using it
+                            console.log('[BookAppointment] About to show SweetAlert2 success message');
+                            console.log('[BookAppointment] Swal available:', typeof Swal !== 'undefined');
+                            console.log('[BookAppointment] Swal.fire available:', typeof Swal?.fire === 'function');
+                            
+                            // Show success message using SweetAlert2 and redirect to appointments page
+                            if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                                console.log('[BookAppointment] Showing SweetAlert2 success message');
+                                Swal.fire({
+                                    title: 'Appointment Saved!',
+                                    text: 'Your appointment has been saved successfully! Continue to the form or cancel the appointment.',
+                                    icon: 'success',
+                                    confirmButtonText: 'Continue to Form',
+                                    cancelButtonText: 'Cancel Appointment',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#28a745',
+                                    cancelButtonColor: '#dc3545',
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        // User clicked "Continue to Form" - redirect to appropriate assessment form
+                                        console.log('[BookAppointment] User chose to continue to form');
+                                        if (age >= 20) {
+                                            // Redirect to NCD Risk Assessment for users 20+
+                                            window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
+                                        } else if (age >= 10 && age <= 19) {
+                                            // Redirect to HEEADSSS Assessment for users 10-19
+                                            window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
+                                        } else {
+                                            // For users under 10, show message and redirect to appointments
+                                            alert('Appointment details saved! No assessment form is required for patients under 10 years old.');
+                                            window.location.href = '/User/Appointments';
+                                        }
+                                    } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                        // User clicked "Cancel Appointment" - redirect to appointments page
+                                        console.log('[BookAppointment] User chose to cancel appointment');
+                                        sessionStorage.removeItem('appointmentFormData');
+                                        window.location.href = '/User/Appointments';
+                                    }
+                                }).catch((error) => {
+                                    console.error('[BookAppointment] SweetAlert2 error:', error);
+                                    // Fallback to alert if SweetAlert2 fails
+                                    alert('Your appointment has been saved successfully! You can complete the assessment form later from your Appointments page.');
+                                    sessionStorage.removeItem('appointmentFormData');
                                     window.location.href = '/User/Appointments';
-                                }
+                                });
                             } else {
-                                // If user chooses to complete later, keep session storage for potential return
-                                // Redirect to appointments page
+                                console.error('[BookAppointment] SweetAlert2 not available, using fallback alert');
+                                // Fallback to alert if SweetAlert2 is not available
+                                alert('Your appointment has been saved successfully! You can complete the assessment form later from your Appointments page.');
+                                sessionStorage.removeItem('appointmentFormData');
                                 window.location.href = '/User/Appointments';
                             }
                         } else {
@@ -712,16 +756,34 @@
                                 updateTimeSlots();
                                 
                                 // Show error alert
-                                alert('Time slot conflict: ' + response.error);
+                                Swal.fire({
+                                    title: 'Time Slot Conflict',
+                                    text: 'Time slot conflict: ' + response.error,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#dc3545'
+                                });
                             } else {
                                 // General error
-                                alert('Error saving appointment details: ' + (response.error || 'Unknown error'));
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Error saving appointment details: ' + (response.error || 'Unknown error'),
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#dc3545'
+                                });
                             }
                         }
                     },
                     error: function(xhr, status, error) {
                         console.error('[BookAppointment] AJAX error:', error);
-                        alert('Error saving appointment details. Please try again.');
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Error saving appointment details. Please try again.',
+                            icon: 'error',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#dc3545'
+                        });
                     }
                 });
             });
@@ -749,6 +811,43 @@
                 $('#birthday').val(formattedDate);
             }
 
+        });
+    </script>
+    
+    <!-- SweetAlert2 for notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Debug SweetAlert2 loading
+        console.log('SweetAlert2 loaded:', typeof Swal !== 'undefined');
+        console.log('Swal object:', Swal);
+        
+        // Add debugger for troubleshooting
+        function debugSweetAlert() {
+            console.log('=== SWEETALERT2 DEBUG ===');
+            console.log('Swal available:', typeof Swal !== 'undefined');
+            console.log('Swal.fire available:', typeof Swal?.fire === 'function');
+            console.log('jQuery available:', typeof $ !== 'undefined');
+            console.log('jQuery version:', $.fn?.jquery);
+            
+            if (typeof Swal === 'undefined') {
+                console.error('SweetAlert2 not loaded!');
+                return false;
+            }
+            return true;
+        }
+        
+        // Test SweetAlert2 on page load
+        $(document).ready(function() {
+            setTimeout(function() {
+                debugSweetAlert();
+                
+                // Test SweetAlert2 functionality
+                if (typeof Swal !== 'undefined') {
+                    console.log('SweetAlert2 is ready to use');
+                } else {
+                    console.error('SweetAlert2 failed to load');
+                }
+            }, 1000);
         });
     </script>
 }

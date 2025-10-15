@@ -31,6 +31,9 @@ namespace Barangay.Pages.User
 
         public List<Appointment> UpcomingAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> PastAppointments { get; set; } = new List<Appointment>();
+        public List<Appointment> DraftAppointments { get; set; } = new List<Appointment>();
+        public List<Appointment> OngoingAppointments { get; set; } = new List<Appointment>();
+        public List<Appointment> ConfirmedAppointments { get; set; } = new List<Appointment>();
         public Dictionary<string, ApplicationUser> Doctors { get; set; } = new Dictionary<string, ApplicationUser>();
 
         public async Task<IActionResult> OnGetAsync()
@@ -118,6 +121,19 @@ namespace Barangay.Pages.User
                         (a.AppointmentDate >= today && a.AppointmentDate <= todayEnd && 
                             a.AppointmentTime < now.TimeOfDay))
                     .ToList();
+
+                // Separate appointments by status for upcoming appointments
+                DraftAppointments = UpcomingAppointments
+                    .Where(a => a.Status == AppointmentStatus.Draft)
+                    .ToList();
+
+                OngoingAppointments = UpcomingAppointments
+                    .Where(a => a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.InProgress)
+                    .ToList();
+
+                ConfirmedAppointments = UpcomingAppointments
+                    .Where(a => a.Status == AppointmentStatus.Confirmed)
+                    .ToList();
             }
             catch (InvalidCastException ex)
             {
@@ -127,6 +143,9 @@ namespace Barangay.Pages.User
                 // Initialize empty lists to avoid null reference exceptions in the view
                 UpcomingAppointments = new List<Appointment>();
                 PastAppointments = new List<Appointment>();
+                DraftAppointments = new List<Appointment>();
+                OngoingAppointments = new List<Appointment>();
+                ConfirmedAppointments = new List<Appointment>();
             }
             catch (Exception ex)
             {
@@ -136,6 +155,9 @@ namespace Barangay.Pages.User
                 // Initialize empty lists to avoid null reference exceptions in the view
                 UpcomingAppointments = new List<Appointment>();
                 PastAppointments = new List<Appointment>();
+                DraftAppointments = new List<Appointment>();
+                OngoingAppointments = new List<Appointment>();
+                ConfirmedAppointments = new List<Appointment>();
             }
 
             return Page();

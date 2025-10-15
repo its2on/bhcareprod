@@ -43,9 +43,6 @@
                         <a class="list-group-item list-group-item-action" id="security-tab" data-bs-toggle="list" href="#security" role="tab">
                             <i class="fa-solid fa-lock me-2"></i> Security
                         </a>
-                        <a class="list-group-item list-group-item-action" id="notifications-tab" data-bs-toggle="list" href="#notifications" role="tab">
-                            <i class="fa-solid fa-bell me-2"></i> Notifications
-                        </a>
                     </div>
                 </div>
             </div>
@@ -150,35 +147,6 @@
                                             <span asp-validation-for="PasswordModel.ConfirmPassword" class="text-danger"></span>
                                         </div>
                                         <button type="submit" class="btn btn-primary">Update Password</button>
-                                    </form>
-                                </div>
-                            </div>
-
-                          
-                        <!-- Notifications Settings -->
-                        <div class="tab-pane fade" id="notifications" role="tabpanel">
-                            <h4 class="mb-4">Notification Settings</h4>
-                            
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="mb-3">Email Notifications</h5>
-                                    <form method="post" asp-page-handler="SaveNotificationSettings">
-                                        <div class="mb-3">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="appointmentReminders" asp-for="NotificationSettings.AppointmentReminders">
-                                                <label class="form-check-label" for="appointmentReminders">Appointment Reminders</label>
-                                            </div>
-                                            <small class="text-muted">Receive email reminders for upcoming appointments</small>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="prescriptionAlerts" asp-for="NotificationSettings.PrescriptionAlerts">
-                                                <label class="form-check-label" for="prescriptionAlerts">Prescription Alerts</label>
-                                            </div>
-                                            <small class="text-muted">Receive notifications when prescriptions are ready or about to expire</small>
-                                        </div>
-                                        
-                                        <button type="submit" class="btn btn-primary mt-3">Save Preferences</button>
                                     </form>
                                 </div>
                             </div>

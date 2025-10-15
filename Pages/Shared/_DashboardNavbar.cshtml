@@ -30,11 +30,6 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item">
-                    <a class="nav-link @isActive("userdashboard")" href="/User/UserDashboard">
-                        <i class="fa-solid fa-chart-line me-1"></i>Dashboard
-                    </a>
-                </li>
                 
                 <!-- Patient Only -->
                 @if (userRoles.Contains("Patient"))

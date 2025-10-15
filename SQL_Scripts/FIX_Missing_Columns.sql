@@ -1,0 +1,255 @@
+-- ============================================
+-- FIX: Add Missing Columns to AspNetUsers
+-- Run this FIRST before other scripts
+-- ============================================
+
+USE [Barangay]
+GO
+
+PRINT 'Adding missing columns to AspNetUsers table...'
+
+-- Check and add Age column
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Age')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Age] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Age column'
+END
+
+-- Check and add HasChangedPassword column
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'HasChangedPassword')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [HasChangedPassword] BIT NOT NULL DEFAULT 0;
+    PRINT 'Added HasChangedPassword column'
+END
+
+-- Check and add IsFirstLogin column
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'IsFirstLogin')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [IsFirstLogin] BIT NOT NULL DEFAULT 0;
+    PRINT 'Added IsFirstLogin column'
+END
+
+-- Check and add LastPasswordChangeDate column
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'LastPasswordChangeDate')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [LastPasswordChangeDate] DATETIME2 NULL;
+    PRINT 'Added LastPasswordChangeDate column'
+END
+
+-- Check and add UserNumber column
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'UserNumber')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [UserNumber] INT NOT NULL DEFAULT 0;
+    PRINT 'Added UserNumber column'
+END
+
+-- Check and add other commonly missing columns
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'FirstName')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [FirstName] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added FirstName column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'MiddleName')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [MiddleName] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added MiddleName column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'LastName')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [LastName] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added LastName column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Gender')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Gender] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Gender column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Address')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Address] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Address column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Barangay')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Barangay] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Barangay column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'BirthDate')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [BirthDate] DATETIME2 NULL;
+    PRINT 'Added BirthDate column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'CreatedAt')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+    PRINT 'Added CreatedAt column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'UpdatedAt')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [UpdatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+    PRINT 'Added UpdatedAt column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Status')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Status] NVARCHAR(MAX) NOT NULL DEFAULT 'Pending';
+    PRINT 'Added Status column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'IsActive')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [IsActive] BIT NOT NULL DEFAULT 0;
+    PRINT 'Added IsActive column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'UserType')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [UserType] INT NOT NULL DEFAULT 0;
+    PRINT 'Added UserType column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Name')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Name] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Name column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'ProfilePicture')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [ProfilePicture] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added ProfilePicture column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'ProfileImage')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [ProfileImage] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added ProfileImage column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Specialization')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Specialization] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added Specialization column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'WorkingDays')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [WorkingDays] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added WorkingDays column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'WorkingHours')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [WorkingHours] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added WorkingHours column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'MaxDailyPatients')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [MaxDailyPatients] INT NOT NULL DEFAULT 20;
+    PRINT 'Added MaxDailyPatients column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'PhilHealthId')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [PhilHealthId] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added PhilHealthId column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'LastActive')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [LastActive] DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+    PRINT 'Added LastActive column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'JoinDate')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [JoinDate] DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+    PRINT 'Added JoinDate column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'HasAgreedToTerms')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [HasAgreedToTerms] BIT NOT NULL DEFAULT 0;
+    PRINT 'Added HasAgreedToTerms column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'AgreedAt')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [AgreedAt] DATETIME2 NULL;
+    PRINT 'Added AgreedAt column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'AppointmentReminders')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [AppointmentReminders] BIT NOT NULL DEFAULT 1;
+    PRINT 'Added AppointmentReminders column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'PrescriptionAlerts')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [PrescriptionAlerts] BIT NOT NULL DEFAULT 1;
+    PRINT 'Added PrescriptionAlerts column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'HealthTips')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [HealthTips] BIT NOT NULL DEFAULT 0;
+    PRINT 'Added HealthTips column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Suffix')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Suffix] NVARCHAR(MAX) NULL;
+    PRINT 'Added Suffix column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Occupation')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Occupation] NVARCHAR(MAX) NULL;
+    PRINT 'Added Occupation column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'CivilStatus')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [CivilStatus] NVARCHAR(MAX) NULL;
+    PRINT 'Added CivilStatus column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'Religion')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [Religion] NVARCHAR(MAX) NULL;
+    PRINT 'Added Religion column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'EncryptedStatus')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [EncryptedStatus] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added EncryptedStatus column'
+END
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'EncryptedFullName')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [EncryptedFullName] NVARCHAR(MAX) NOT NULL DEFAULT '';
+    PRINT 'Added EncryptedFullName column'
+END
+
+-- Add computed column for FullName if it doesn't exist
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'FullName')
+BEGIN
+    ALTER TABLE [AspNetUsers] ADD [FullName] AS TRIM(ISNULL([FirstName] + ' ', '') + ISNULL([MiddleName] + ' ', '') + ISNULL([LastName], '')) PERSISTED;
+    PRINT 'Added FullName computed column'
+END
+
+PRINT ''
+PRINT 'All missing columns have been added successfully!'
+PRINT 'You can now run the application.'
+GO

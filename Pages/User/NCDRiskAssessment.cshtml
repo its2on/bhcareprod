@@ -559,6 +559,8 @@
     </div>
 
 @section Scripts {
+    <!-- SweetAlert2 for notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- CryptoJS for AES encryption -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
@@ -589,8 +591,191 @@
             }
         }
         // Pre-load values from server or URL parameters
+        // Track if form has been modified
+        let formModified = false;
+        
+        // Function to check if form has data
+        function hasFormData() {
+            const inputs = document.querySelectorAll('input, select, textarea');
+            for (let input of inputs) {
+                if (input.type === 'checkbox' || input.type === 'radio') {
+                    if (input.checked) return true;
+                } else if (input.value && input.value.trim() !== '') {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Function to show navigation warning with options
+        function showNavigationWarning(event) {
+            if (event) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+            
+            // Use SweetAlert2 if available, otherwise use confirm
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Leave Assessment Form?',
+                    text: 'You want to leave? Continue later or cancel the appointment.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonText: 'Continue Later',
+                    denyButtonText: 'Cancel Appointment',
+                    cancelButtonText: 'Stay on Form',
+                    confirmButtonColor: '#17a2b8',
+                    denyButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // User chose "Continue Later" - go to appointments page
+                        console.log('User chose to continue later');
+                        window.location.href = '/User/Appointments';
+                    } else if (result.isDenied) {
+                        // User chose "Cancel Appointment" - cancel the appointment and go to appointments page
+                        console.log('User chose to cancel appointment');
+                        
+                        // Get appointment ID from URL
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const appointmentId = urlParams.get('appointmentId');
+                        
+                        if (appointmentId) {
+                            // Call API to cancel the appointment
+                            fetch(`/User/NCDRiskAssessment?handler=CancelAppointment&appointmentId=${appointmentId}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                }
+                            }).then(response => response.json()).then(data => {
+                                console.log('Appointment cancellation response:', data);
+                                if (data.success) {
+                                    console.log('Appointment cancelled successfully');
+                                } else {
+                                    console.error('Failed to cancel appointment:', data.error);
+                                }
+                                // Redirect to appointments page regardless of API response
+                                window.location.href = '/User/Appointments';
+                            }).catch(error => {
+                                console.error('Error cancelling appointment:', error);
+                                // Still redirect even if cancellation fails
+                                window.location.href = '/User/Appointments';
+                            });
+                        } else {
+                            // No appointment ID, just redirect
+                            window.location.href = '/User/Appointments';
+                        }
+                    } else {
+                        // User chose "Stay on Form" - do nothing, stay on page
+                        console.log('User chose to stay on form');
+                    }
+                });
+            } else {
+                // Fallback to browser confirm if SweetAlert2 fails
+                console.error('SweetAlert2 not available, using browser confirm');
+                const choice = confirm('You want to leave? Continue later or cancel the appointment.');
+                if (choice) {
+                    window.location.href = '/User/Appointments';
+                }
+            }
+            
+            return false;
+        }
+        
+        // Function to show assessment completion reminder
+        function showAssessmentCompletionReminder() {
+            // Use SweetAlert2 if available, otherwise use confirm
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Complete Assessment Form',
+                    text: 'Your appointment has been saved as a draft. Would you like to complete the assessment form now? (You can also complete it later from your Appointments page)',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Complete Now',
+                    cancelButtonText: 'Complete Later',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // User wants to complete the assessment now - stay on the page
+                        console.log('User chose to complete assessment now - staying on page');
+                    } else {
+                        // User wants to complete later - stay on page but show info message
+                        console.log('User chose to complete later - staying on page');
+                        Swal.fire({
+                            title: 'Assessment Form Available',
+                            text: 'You can complete this assessment form anytime. It will be saved when you submit it.',
+                            icon: 'info',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#17a2b8'
+                        });
+                    }
+                });
+            } else {
+                // Fallback to browser confirm
+                const confirmed = confirm('Your appointment has been saved as a draft. Would you like to complete the assessment form now? (You can also complete it later from your Appointments page)');
+                if (confirmed) {
+                    console.log('User chose to complete assessment now - staying on page');
+                } else {
+                    console.log('User chose to complete later - staying on page');
+                    alert('You can complete this assessment form anytime. It will be saved when you submit it.');
+                }
+            }
+        }
+        
+        // Add event listeners for form modification tracking
+        function trackFormChanges() {
+            const form = document.getElementById('ncd-form');
+            if (form) {
+                form.addEventListener('input', function() {
+                    formModified = true;
+                });
+                
+                form.addEventListener('change', function() {
+                    formModified = true;
+                });
+            }
+        }
+        
+        // Add beforeunload event listener - DISABLED to remove browser alert
+        function addBeforeUnloadListener() {
+            // Removed browser beforeunload alert as requested
+            // window.addEventListener('beforeunload', function(event) {
+            //     if (formModified || hasFormData()) {
+            //         const message = 'You have unsaved changes. Are you sure you want to leave?';
+            //         event.preventDefault();
+            //         event.returnValue = message;
+            //         return message;
+            //     }
+            // });
+        }
+        
+        // Add click listeners to navigation links
+        function addNavigationListeners() {
+            // Listen for clicks on navigation links
+            document.addEventListener('click', function(event) {
+                const target = event.target.closest('a');
+                if (target && target.href && !target.href.includes('javascript:')) {
+                    // Check if it's a navigation link (not a form submission)
+                    if (!target.closest('form') && !target.classList.contains('btn-submit')) {
+                        showNavigationWarning(event);
+                        return false;
+                    }
+                }
+            });
+        }
+
         // Document ready function
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize form tracking
+            trackFormChanges();
+            addBeforeUnloadListener();
+            addNavigationListeners();
+            
+            // Don't show popup on page load - only show when user tries to leave
+            
             // Initialize wizard
             updateStepIndicator(currentStep);
             
@@ -708,45 +893,190 @@
             
             // Add family number generation event handler
             document.getElementById('generate-family-no').addEventListener('click', async function() {
-                console.log("Generate button clicked"); // Debug logging
+                console.log("=== GENERATE FAMILY NUMBER BUTTON CLICKED ===");
                 const lastName = document.getElementById('last-name').value;
+                console.log("Last name from form:", lastName);
+                
                 if (!lastName) {
+                    console.log("Last name is empty, showing alert");
                     alert('Please enter your last name first to generate a family number.');
                     return;
                 }
                 
                 try {
-                    const response = await fetch('/User/NCDRiskAssessment?handler=GenerateFamilyNumber', {
+                    console.log("Sending request to generate family number for:", lastName);
+                    const healthFacility = document.getElementById('health-facility')?.value || 'Baesa Health Center';
+                    const requestBody = { 
+                        LastName: lastName,
+                        HealthFacility: healthFacility,
+                        PatientCategory: null  // Don't override prefix with NCD
+                    };
+                    console.log("Request body:", requestBody);
+                    
+                    const response = await fetch('/api/FamilyNumber/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    console.log("Response status:", response.status);
+                    console.log("Response ok:", response.ok);
+                    
+                    if (response.ok) {
+                        let result;
+                        try {
+                            const responseText = await response.text();
+                            console.log("Raw response text:", responseText);
+                            result = JSON.parse(responseText);
+                            console.log("Parsed response result:", result);
+                        } catch (jsonError) {
+                            console.error("JSON parsing error:", jsonError);
+                            console.log("Response text that failed to parse:", await response.text());
+                            throw new Error("Failed to parse JSON response");
+                        }
+                        
+                        if (result.success) {
+                            document.getElementById('family-no').value = result.familyNumber;
+                            // Update ID No. to match Family No.
+                            const idNoInput = document.getElementById('id-no');
+                            if (idNoInput) {
+                                idNoInput.value = result.familyNumber;
+                            }
+                            console.log("Generated family number:", result.familyNumber);
+                            
+                            if (result.isPreexisting) {
+                                // Use SweetAlert2 for success message
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        title: 'Family Number Found',
+                                        text: 'You already have a family number: ' + result.familyNumber,
+                                        icon: 'info',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#17a2b8'
+                                    });
+                                } else {
+                                    alert('You already have a family number: ' + result.familyNumber);
+                                }
+                            } else {
+                                // Use SweetAlert2 for success message
+                                console.log("About to show success SweetAlert2");
+                                console.log("Swal available:", typeof Swal !== 'undefined');
+                                console.log("Generated family number:", result.familyNumber);
+                                console.log("Prefix:", result.prefix);
+                                console.log("Sequence number:", result.sequenceNumber);
+                                
+                                if (typeof Swal !== 'undefined') {
+                                    console.log("Showing SweetAlert2 success dialog");
+                                    Swal.fire({
+                                        title: 'Success!',
+                                        text: `Family number generated successfully: ${result.familyNumber}`,
+                                        icon: 'success',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#28a745',
+                                        timer: 3000,
+                                        timerProgressBar: true
+                                    }).then((result) => {
+                                        console.log("SweetAlert2 success dialog closed");
+                                    });
+                                } else {
+                                    console.log("SweetAlert2 not available, using alert");
+                                    alert(`Family number generated successfully: ${result.familyNumber}`);
+                                }
+                            }
+                        } else {
+                            console.log("Backend returned error:", result.error);
+                            console.log("Full result object:", result);
+                            // Use SweetAlert2 for error message
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Error generating family number: ' + result.error,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            } else {
+                                alert('Error generating family number: ' + result.error);
+                            }
+                        }
+                    } else {
+                        console.log("Response not ok, status:", response.status);
+                        const errorText = await response.text();
+                        console.log("Error response text:", errorText);
+                        
+                        // Use SweetAlert2 for error message
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Error generating family number. Please try again.',
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#dc3545'
+                            });
+                        } else {
+                            alert('Error generating family number. Please try again.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('=== ERROR GENERATING FAMILY NUMBER ===');
+                    console.error('Error details:', error);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    
+                    // Use SweetAlert2 for error message
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Error generating family number. Please try again.',
+                            icon: 'error',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#dc3545'
+                        });
+                    } else {
+                        alert('Error generating family number. Please try again.');
+                    }
+                }
+            });
+            
+            // Test button for debugging
+            document.getElementById('test-family-no').addEventListener('click', async function() {
+                console.log("=== TEST BUTTON CLICKED ===");
+                
+                try {
+                    const response = await fetch('/User/NCDRiskAssessment?handler=TestFamilyNumber', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                        },
-                        body: JSON.stringify({ lastName: lastName })
+                        }
                     });
+                    
+                    console.log("Test response status:", response.status);
+                    console.log("Test response ok:", response.ok);
                     
                     if (response.ok) {
                         const result = await response.json();
+                        console.log("Test response result:", result);
+                        
                         if (result.success) {
                             document.getElementById('family-no').value = result.familyNo;
-                            // Update ID No. to match Family No.
-                            document.getElementById('id-no').value = result.familyNo;
-                            console.log("Generated family number:", result.familyNo);
-                            
-                            if (result.isPreexisting) {
-                                alert('You already have a family number: ' + result.familyNo);
-                            } else {
-                                alert('New family number generated: ' + result.familyNo);
-                            }
+                            console.log("Test successful, family number set to:", result.familyNo);
+                            alert('Test successful! Family number: ' + result.familyNo);
                         } else {
-                            alert('Error generating family number: ' + result.error);
+                            console.log("Test failed:", result.error);
+                            alert('Test failed: ' + result.error);
                         }
                     } else {
-                        alert('Error generating family number. Please try again.');
+                        const errorText = await response.text();
+                        console.log("Test error response:", errorText);
+                        alert('Test failed with status: ' + response.status);
                     }
                 } catch (error) {
-                    console.error('Error generating family number:', error);
-                    alert('Error generating family number. Please try again.');
+                    console.error('Test error:', error);
+                    alert('Test error: ' + error.message);
                 }
             });
             

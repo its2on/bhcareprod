@@ -82,7 +82,7 @@ namespace Barangay.Pages.Doctor
                     Treatment = medicalRecord.Treatment,
                     Notes = medicalRecord.Notes,
                     Status = medicalRecord.Status,
-                    DoctorName = medicalRecord.Doctor?.UserName ?? "Unknown"
+                    DoctorName = medicalRecord.Doctor?.FullName ?? "Unknown"
                 };
 
                 // Get any medications associated with this medical record
@@ -98,7 +98,7 @@ namespace Barangay.Pages.Doctor
                     Dosage = m.Dosage,
                     Instructions = m.Instructions,
                     CreatedAt = medicalRecord.Date,
-                    DoctorName = medicalRecord.Doctor?.UserName ?? "Unknown"
+                    DoctorName = medicalRecord.Doctor?.FullName ?? "Unknown"
                 }).ToList();
 
                 _logger.LogInformation("Successfully loaded medical record {RecordId} for printing", id);

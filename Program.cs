@@ -29,6 +29,78 @@ using Microsoft.AspNetCore.Authorization;
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
+// Check for password reset command
+if (args.Length > 0 && (args[0] == "--reset-nurse-password" || args[0] == "--reset-admin-password"))
+{
+    var isAdmin = args[0] == "--reset-admin-password";
+    var userEmail = isAdmin ? "admin@bhcare.com" : "nurse@bhcare.com";
+    var userRole = isAdmin ? "Admin" : "Nurse";
+    
+    Console.WriteLine($"=== Resetting {userRole} Password ===\n");
+    
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var services = new ServiceCollection();
+    
+    // Add logging
+    services.AddLogging(builder => builder.AddConsole());
+    
+    services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(connectionString));
+    
+    services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.Password.RequireDigit = true;
+        options.Password.RequiredLength = 6;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+    
+    var serviceProvider = services.BuildServiceProvider();
+    
+    using var scope = serviceProvider.CreateScope();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    
+    var user = await userManager.FindByEmailAsync(userEmail);
+    
+    if (user == null)
+    {
+        Console.WriteLine($"❌ User {userEmail} not found!");
+        return;
+    }
+    
+    Console.WriteLine($"✓ Found user: {user.Email}");
+    Console.WriteLine($"  Name: {user.Name ?? user.FullName}");
+    
+    // Generate password reset token and reset password
+    var token = await userManager.GeneratePasswordResetTokenAsync(user);
+    var newPassword = "Test123!";
+    var result = await userManager.ResetPasswordAsync(user, token, newPassword);
+    
+    if (result.Succeeded)
+    {
+        Console.WriteLine($"\n✓ Password reset successfully!");
+        Console.WriteLine($"  Email: {userEmail}");
+        Console.WriteLine($"  Password: {newPassword}");
+        
+        // Verify the password works
+        var checkResult = await userManager.CheckPasswordAsync(user, newPassword);
+        Console.WriteLine($"\n✓ Password verification: {(checkResult ? "SUCCESS ✓" : "FAILED ✗")}");
+    }
+    else
+    {
+        Console.WriteLine("\n❌ Password reset failed:");
+        foreach (var error in result.Errors)
+        {
+            Console.WriteLine($"  - {error.Description}");
+        }
+    }
+    
+    return;
+}
+
 // Check for command line arguments to execute SQL
 if (args.Length > 0 && args[0] == "--add-copd-columns")
 {
@@ -149,6 +221,11 @@ builder.Services.AddSession(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.WriteLine($"\n=== DATABASE CONNECTION ===");
+    Console.WriteLine($"Connection String: {connectionString}");
+    Console.WriteLine($"===========================\n");
+    Console.ResetColor();
     options.UseSqlServer(connectionString);
     
     // Enable sensitive data logging only in development
@@ -395,6 +472,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 // Register Protected URL Service
 builder.Services.AddScoped<IProtectedUrlService, ProtectedUrlService>();
 
+// Register Family Number Service
+builder.Services.AddScoped<IFamilyNumberService, FamilyNumberService>();
+
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();
 
@@ -431,7 +511,9 @@ if (app.Environment.IsDevelopment())
     }
 }
 
+// MIGRATIONS DISABLED - Database schema managed via SQL scripts
 // Apply pending EF Core migrations at startup (both contexts)
+/*
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -465,6 +547,8 @@ using (var scope = app.Services.CreateScope())
         // Continue startup to allow the app to run even if migration fails
     }
 }
+*/
+Console.WriteLine("EF Core migrations disabled - using SQL scripts for schema management");
 
 // Idempotent schema repair for missing HEEADSSSAssessments columns
 using (var scope = app.Services.CreateScope())
@@ -563,6 +647,52 @@ app.UseAuthorization();
 
 app.MapRazorPages();
 app.MapControllers();
+
+// ADMIN SEEDING DISABLED - Use manual SQL to create admin accounts
+// Seed admin user from appsettings.json
+/*
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    var config = services.GetRequiredService<IConfiguration>();
+    
+    var adminEmail = config["AdminUser:Email"];
+    var adminPassword = config["AdminUser:Password"];
+    var adminFullName = config["AdminUser:FullName"];
+    
+    if (!string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword))
+    {
+        var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+        if (existingAdmin == null)
+        {
+            var adminUser = new ApplicationUser
+            {
+                UserName = adminEmail,
+                Email = adminEmail,
+                EmailConfirmed = true,
+                Name = adminFullName ?? "Administrator",
+                FirstName = "BHCARE",
+                LastName = "Administrator",
+                Status = "Active",
+                IsActive = true,
+                UserNumber = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+                Console.WriteLine($"Admin user created: {adminEmail}");
+            }
+        }
+    }
+}
+*/
+Console.WriteLine("Admin seeding disabled - create admin accounts manually via SQL");
 
 app.Run();
 

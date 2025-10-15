@@ -44,8 +44,6 @@ namespace Barangay.Pages.Nurse
             public string PatientName { get; set; }
             public DateTime AppointmentDate { get; set; }
             public TimeSpan AppointmentTime { get; set; }
-            public string DoctorId { get; set; }
-            public string DoctorName { get; set; }
             public AppointmentStatus Status { get; set; }
             public string Type { get; set; }
             public string Description { get; set; }
@@ -63,10 +61,9 @@ namespace Barangay.Pages.Nurse
             {
                 _logger.LogInformation("Loading appointments for nurse dashboard");
                 
-                // Get all appointments with eager loading of Patient and Doctor
+                // Get all appointments with eager loading of Patient (Doctor loading removed)
                 var appointments = await _context.Appointments
                     .Include(a => a.Patient)
-                    .Include(a => a.Doctor)
                     .Where(a => a.PatientName != "System Administrator" && a.PatientId != "0e03f06e-ba88-46ed-b047-4974d8b8252a")
                     .OrderByDescending(a => a.AppointmentDate)
                     .ThenBy(a => a.AppointmentTime)
@@ -109,16 +106,12 @@ namespace Barangay.Pages.Nurse
                         appointment.DependentFullName = _encryptionService.DecryptForUser(appointment.DependentFullName, User);
                     }
                     
-                    // Decrypt doctor name
-                    if (appointment.Doctor != null)
-                    {
-                        appointment.Doctor.DecryptSensitiveData(_encryptionService, User);
-                    }
+                    // Doctor data decryption removed - not needed for nurse view
                 }
 
-                // Convert to view models (exclude Draft appointments)
+                // Convert to view models (exclude Draft and Cancelled appointments)
                 Appointments = appointments
-                    .Where(a => a.Status != AppointmentStatus.Draft)
+                    .Where(a => a.Status != AppointmentStatus.Draft && a.Status != AppointmentStatus.Cancelled)
                     .Select(a => new AppointmentViewModel
                     {
                         Id = a.Id,
@@ -126,8 +119,6 @@ namespace Barangay.Pages.Nurse
                         PatientName = !string.IsNullOrEmpty(a.DependentFullName) ? a.DependentFullName : a.PatientName,
                         AppointmentDate = a.AppointmentDate,
                         AppointmentTime = a.AppointmentTime,
-                        DoctorId = a.DoctorId,
-                        DoctorName = a.Doctor?.FullName ?? "Not Assigned",
                         Status = a.Status,
                         Type = a.Type ?? "General",
                         Description = a.Description

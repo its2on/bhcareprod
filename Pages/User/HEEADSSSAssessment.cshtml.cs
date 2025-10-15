@@ -354,6 +354,38 @@ namespace Barangay.Pages.User
             return Page();
         }
 
+        public async Task<IActionResult> OnPostCancelAppointmentAsync(int appointmentId)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return new JsonResult(new { success = false, error = "User not found" });
+            }
+
+            var appointment = await _context.Appointments
+                .FirstOrDefaultAsync(a => a.Id == appointmentId && a.PatientId == user.Id);
+
+            if (appointment == null)
+            {
+                return new JsonResult(new { success = false, error = "Appointment not found" });
+            }
+
+            try
+            {
+                appointment.Status = AppointmentStatus.Cancelled;
+                appointment.UpdatedAt = DateTime.Now;
+                
+                await _context.SaveChangesAsync();
+                
+                return new JsonResult(new { success = true, message = "Appointment cancelled successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling appointment {AppointmentId}", appointmentId);
+                return new JsonResult(new { success = false, error = "Failed to cancel appointment" });
+            }
+        }
+
         public async Task<IActionResult> OnPostAsync()
         {
             try
@@ -1012,11 +1044,17 @@ namespace Barangay.Pages.User
         {
             try
             {
+                _logger.LogInformation("=== HEEADSSS GENERATE FAMILY NUMBER STARTED ===");
+                _logger.LogInformation("Request LastName: {LastName}", request?.LastName);
+                
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
+                    _logger.LogError("User not found");
                     return new JsonResult(new { success = false, error = "User not found" });
                 }
+                
+                _logger.LogInformation("User found: {UserId}", user.Id);
 
                 // Get the patient from the appointment
                 string? patientId = null;
@@ -1086,15 +1124,47 @@ namespace Barangay.Pages.User
                 string lastNameInitial = (targetLastName?.Length > 0) ? targetLastName.Substring(0, 1).ToUpper() : "X";
                 
                 // Find the next sequential number for this letter
-                // Since FamilyNo is encrypted, we need to decrypt all records to check for existing numbers
-                var allAssessments = await _context.HEEADSSSAssessments
+                // Check both NCD and HEEADSSS assessments for existing family numbers
+                var ncdAssessments = await _context.NCDRiskAssessments
                     .Where(a => !string.IsNullOrEmpty(a.FamilyNo))
                     .ToListAsync();
+                    
+                var heeadsssAssessments = await _context.HEEADSSSAssessments
+                    .Where(a => !string.IsNullOrEmpty(a.FamilyNo))
+                    .ToListAsync();
+                    
+                var allAssessments = ncdAssessments.Cast<object>().Concat(heeadsssAssessments.Cast<object>()).ToList();
 
                 int nextNumber = 1;
                 var existingNumbers = new List<int>();
 
-                foreach (var assessment in allAssessments)
+                // Check NCD assessments
+                foreach (var assessment in ncdAssessments)
+                {
+                    try
+                    {
+                        // NCD assessments don't use encryption for FamilyNo
+                        string familyNo = assessment.FamilyNo;
+                        
+                        // Check if this family number starts with our letter
+                        if (!string.IsNullOrEmpty(familyNo) && familyNo.StartsWith($"{lastNameInitial}-"))
+                        {
+                            var parts = familyNo.Split('-');
+                            if (parts.Length == 2 && int.TryParse(parts[1], out int num))
+                            {
+                                existingNumbers.Add(num);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to process FamilyNo for NCD assessment {AssessmentId}", assessment.Id);
+                        // Skip this record if processing fails
+                    }
+                }
+                
+                // Check HEEADSSS assessments
+                foreach (var assessment in heeadsssAssessments)
                 {
                     try
                     {
@@ -1106,9 +1176,9 @@ namespace Barangay.Pages.User
                         }
 
                         // Check if this family number starts with our letter
-                        if (!string.IsNullOrEmpty(decryptedFamilyNo) && decryptedFamilyNo.StartsWith($"{lastNameInitial}."))
+                        if (!string.IsNullOrEmpty(decryptedFamilyNo) && decryptedFamilyNo.StartsWith($"{lastNameInitial}-"))
                         {
-                            var parts = decryptedFamilyNo.Split('.');
+                            var parts = decryptedFamilyNo.Split('-');
                             if (parts.Length == 2 && int.TryParse(parts[1], out int num))
                             {
                                 existingNumbers.Add(num);
@@ -1127,7 +1197,10 @@ namespace Barangay.Pages.User
                     nextNumber = existingNumbers.Max() + 1;
                 }
 
-                string newFamilyNo = $"{lastNameInitial}.{nextNumber:D3}";
+                string newFamilyNo = $"{lastNameInitial}-{nextNumber:D3}";
+                
+                _logger.LogInformation("Generated new family number: {NewFamilyNo}", newFamilyNo);
+                _logger.LogInformation("=== HEEADSSS GENERATE FAMILY NUMBER COMPLETED SUCCESSFULLY ===");
                 
                 return new JsonResult(new { 
                     success = true, 

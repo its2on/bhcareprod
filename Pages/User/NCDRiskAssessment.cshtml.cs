@@ -18,12 +18,14 @@ using Microsoft.AspNetCore.Authorization;
 namespace Barangay.Pages.User
 {
     [Authorize]
+    [IgnoreAntiforgeryToken]
     public class NCDRiskAssessmentModel : PageModel
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<NCDRiskAssessmentModel> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IFamilyNumberService _familyNumberService;
         private static readonly Random _random = new Random();
 
         private static readonly string[] _healthFacilities = new[]
@@ -38,12 +40,14 @@ namespace Barangay.Pages.User
             ApplicationDbContext context,
             ILogger<NCDRiskAssessmentModel> logger,
             UserManager<ApplicationUser> userManager,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IFamilyNumberService familyNumberService)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _encryptionService = encryptionService;
+            _familyNumberService = familyNumberService;
             Assessment = new NCDRiskAssessmentViewModel();
         }
 
@@ -254,13 +258,17 @@ namespace Barangay.Pages.User
                 .DefaultIfEmpty(0)
                 .Max();
                 
-            int lastHEEADSSSNumber = await _context.HEEADSSSAssessments
+            var heeadsssFamilyNos = await _context.HEEADSSSAssessments
                 .Where(a => a.FamilyNo != null && a.FamilyNo.StartsWith(lastNameInitial + "-"))
-                .Select(a => a.FamilyNo.Substring(2))
+                .Select(a => a.FamilyNo)
+                .ToListAsync();
+                
+            int lastHEEADSSSNumber = heeadsssFamilyNos
+                .Select(fn => fn.Substring(2))
                 .Where(n => n.All(char.IsDigit))
                 .Select(n => int.Parse(n))
                 .DefaultIfEmpty(0)
-                .MaxAsync();
+                .Max();
                 
             // Take the highest of the two numbers
             int lastNumber = Math.Max(lastNCDNumber, lastHEEADSSSNumber);
@@ -290,59 +298,111 @@ namespace Barangay.Pages.User
         {
             try
             {
+                _logger.LogInformation("=== GENERATE FAMILY NUMBER STARTED ===");
+                _logger.LogInformation("Request received: {Request}", request != null ? "Not null" : "Null");
+                _logger.LogInformation("Request LastName: {LastName}", request?.LastName);
+                _logger.LogInformation("Request method: {Method}", Request.Method);
+                _logger.LogInformation("Request content type: {ContentType}", Request.ContentType);
+                
+                if (request == null)
+                {
+                    _logger.LogError("Request object is null");
+                    return new JsonResult(new { success = false, error = "Request data is missing" });
+                }
+                
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
+                    _logger.LogError("User not found");
                     return new JsonResult(new { success = false, error = "User not found" });
                 }
+
+                _logger.LogInformation("User found: {UserId}", user.Id);
+                _logger.LogInformation("User LastName: {UserLastName}", user.LastName);
 
                 // Use the last name from the request if provided, otherwise use user's last name
                 string lastName = !string.IsNullOrEmpty(request.LastName) ? request.LastName : user.LastName;
                 if (string.IsNullOrEmpty(lastName))
                 {
+                    _logger.LogError("Last name is empty");
                     return new JsonResult(new { success = false, error = "Last name is required to generate family number" });
                 }
+                
+                _logger.LogInformation("Using lastName: {LastName}", lastName);
 
-                // Generate new family number based on first letter of last name
-                string lastNameInitial = lastName.Substring(0, 1).ToUpper();
-                
-                // Get the highest sequence number for this letter from both assessment types
-                var ncdFamilyNos = await _context.NCDRiskAssessments
-                    .Where(a => a.FamilyNo != null && a.FamilyNo.StartsWith(lastNameInitial + "-"))
-                    .Select(a => a.FamilyNo)
-                    .ToListAsync();
-                
-                int lastNCDNumber = ncdFamilyNos
-                    .Select(fn => fn.Substring(2))
-                    .Where(n => n.All(char.IsDigit))
-                    .Select(n => int.Parse(n))
-                    .DefaultIfEmpty(0)
-                    .Max();
+                // Check if patient already has a family number in either assessment type
+                var existingNCDAssessment = await _context.NCDRiskAssessments
+                    .Where(a => a.UserId == user.Id && !string.IsNullOrEmpty(a.FamilyNo))
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (existingNCDAssessment != null)
+                {
+                    _logger.LogInformation("Found existing NCD assessment with FamilyNo: {FamilyNo}", existingNCDAssessment.FamilyNo);
+                    return new JsonResult(new { 
+                        success = true, 
+                        familyNo = existingNCDAssessment.FamilyNo, 
+                        isPreexisting = true 
+                    });
+                }
+
+                var existingHEEADSSSAssessment = await _context.HEEADSSSAssessments
+                    .Where(a => a.UserId == user.Id && !string.IsNullOrEmpty(a.FamilyNo))
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (existingHEEADSSSAssessment != null)
+                {
+                    _logger.LogInformation("Found existing HEEADSSS assessment with FamilyNo: {FamilyNo}", existingHEEADSSSAssessment.FamilyNo);
+                    // Decrypt FamilyNo if it's encrypted
+                    var decryptedFamilyNo = existingHEEADSSSAssessment.FamilyNo;
+                    if (!string.IsNullOrEmpty(decryptedFamilyNo) && _encryptionService.CanUserDecrypt(User))
+                    {
+                        try
+                        {
+                            decryptedFamilyNo = _encryptionService.Decrypt(decryptedFamilyNo);
+                            _logger.LogInformation("Decrypted FamilyNo: {DecryptedFamilyNo}", decryptedFamilyNo);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to decrypt FamilyNo, using encrypted value");
+                        }
+                    }
+                    return new JsonResult(new { 
+                        success = true, 
+                        familyNo = decryptedFamilyNo, 
+                        isPreexisting = true 
+                    });
+                }
+
+                // Use the new atomic family number service
+                var result = await _familyNumberService.GenerateFamilyNumberAsync(
+                    lastName, 
+                    HealthFacility, 
+                    null // Don't override prefix with PatientCategory - use last name for first-come-first-serve
+                );
+
+                if (result.Success)
+                {
+                    _logger.LogInformation("Generated new family number: {FamilyNumber}", result.FamilyNumber);
+                    _logger.LogInformation("=== GENERATE FAMILY NUMBER COMPLETED SUCCESSFULLY ===");
                     
-                var heeadsssFamilyNos = await _context.HEEADSSSAssessments
-                    .Where(a => a.FamilyNo != null && a.FamilyNo.StartsWith(lastNameInitial + "-"))
-                    .Select(a => a.FamilyNo)
-                    .ToListAsync();
-                
-                int lastHEEADSSSNumber = heeadsssFamilyNos
-                    .Select(fn => fn.Substring(2))
-                    .Where(n => n.All(char.IsDigit))
-                    .Select(n => int.Parse(n))
-                    .DefaultIfEmpty(0)
-                    .Max();
-                    
-                // Take the highest of the two numbers
-                int lastNumber = Math.Max(lastNCDNumber, lastHEEADSSSNumber);
-                
-                // Generate new family number
-                int newSequence = lastNumber + 1;
-                string newFamilyNo = $"{lastNameInitial}-{newSequence:D3}"; // Format: X-001, X-002, etc.
-                
-                return new JsonResult(new { 
-                    success = true, 
-                    familyNo = newFamilyNo, 
-                    isPreexisting = false 
-                });
+                    return new JsonResult(new { 
+                        success = true, 
+                        familyNo = result.FamilyNumber, 
+                        isPreexisting = false,
+                        prefix = result.Prefix,
+                        sequenceNumber = result.SequenceNumber
+                    });
+                }
+                else
+                {
+                    _logger.LogError("Family number generation failed: {Error}", result.Error);
+                    return new JsonResult(new { 
+                        success = false, 
+                        error = result.Error ?? "Error generating family number. Please try again." 
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -361,6 +421,49 @@ namespace Barangay.Pages.User
         {
             _logger.LogInformation("Test endpoint called successfully");
             return new JsonResult(new { success = true, message = "Test endpoint working" });
+        }
+
+        public IActionResult OnPostTestFamilyNumberAsync()
+        {
+            _logger.LogInformation("Test family number endpoint called");
+            return new JsonResult(new { 
+                success = true, 
+                familyNo = "TEST-001", 
+                isPreexisting = false,
+                message = "Test endpoint working" 
+            });
+        }
+
+        public async Task<IActionResult> OnPostCancelAppointmentAsync(int appointmentId)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return new JsonResult(new { success = false, error = "User not found" });
+            }
+
+            var appointment = await _context.Appointments
+                .FirstOrDefaultAsync(a => a.Id == appointmentId && a.PatientId == user.Id);
+
+            if (appointment == null)
+            {
+                return new JsonResult(new { success = false, error = "Appointment not found" });
+            }
+
+            try
+            {
+                appointment.Status = AppointmentStatus.Cancelled;
+                appointment.UpdatedAt = DateTime.Now;
+                
+                await _context.SaveChangesAsync();
+                
+                return new JsonResult(new { success = true, message = "Appointment cancelled successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling appointment {AppointmentId}", appointmentId);
+                return new JsonResult(new { success = false, error = "Failed to cancel appointment" });
+            }
         }
 
         public async Task<IActionResult> OnPostSubmitAssessmentAsync([FromForm] string jsonData)
@@ -954,13 +1057,17 @@ namespace Barangay.Pages.User
                     .DefaultIfEmpty(0)
                     .Max();
                     
-                int lastHEEADSSSNumber = await _context.HEEADSSSAssessments
+                var heeadsssFamilyNos = await _context.HEEADSSSAssessments
                     .Where(a => a.FamilyNo != null && a.FamilyNo.StartsWith(firstLetter + "-"))
-                    .Select(a => a.FamilyNo.Substring(2))
+                    .Select(a => a.FamilyNo)
+                    .ToListAsync();
+                    
+                int lastHEEADSSSNumber = heeadsssFamilyNos
+                    .Select(fn => fn.Substring(2))
                     .Where(n => n.All(char.IsDigit))
                     .Select(n => int.Parse(n))
                     .DefaultIfEmpty(0)
-                    .MaxAsync();
+                    .Max();
                     
                 // Take the highest of the two numbers
                 int lastNumber = Math.Max(lastNCDNumber, lastHEEADSSSNumber);

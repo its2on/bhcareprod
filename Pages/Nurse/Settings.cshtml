@@ -58,10 +58,22 @@
                             <form method="post">
                                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                                 
-                                <div class="mb-3">
-                                    <label asp-for="StaffProfile.Name" class="form-label"></label>
-                                    <input asp-for="StaffProfile.Name" class="form-control">
-                                    <span asp-validation-for="StaffProfile.Name" class="text-danger"></span>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label asp-for="StaffProfile.FirstName" class="form-label"></label>
+                                        <input asp-for="StaffProfile.FirstName" class="form-control">
+                                        <span asp-validation-for="StaffProfile.FirstName" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="StaffProfile.MiddleName" class="form-label"></label>
+                                        <input asp-for="StaffProfile.MiddleName" class="form-control">
+                                        <span asp-validation-for="StaffProfile.MiddleName" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="StaffProfile.LastName" class="form-label"></label>
+                                        <input asp-for="StaffProfile.LastName" class="form-control">
+                                        <span asp-validation-for="StaffProfile.LastName" class="text-danger"></span>
+                                    </div>
                                 </div>
 
                                 <div class="row mb-3">

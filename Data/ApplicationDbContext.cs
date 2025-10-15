@@ -65,6 +65,7 @@ namespace Barangay.Data
 
         public DbSet<UrlToken> UrlTokens { get; set; }
         public DbSet<UserSuspension> UserSuspensions { get; set; }
+        public DbSet<FamilyNumberCounter> FamilyNumberCounters { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

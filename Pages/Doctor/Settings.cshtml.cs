@@ -63,9 +63,17 @@ namespace Barangay.Pages.Doctor
                 return NotFound("Staff member record not found.");
             }
 
+            // Parse the full name into separate components
+            var nameParts = staffMember.Name?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+            var middleName = nameParts.Length > 2 ? string.Join(" ", nameParts.Skip(1).Take(nameParts.Length - 2)) : "";
+            var lastName = nameParts.Length > 1 ? nameParts[nameParts.Length - 1] : "";
+
             StaffProfile = new StaffProfileViewModel
             {
-                Name = staffMember.Name,
+                FirstName = firstName,
+                MiddleName = middleName,
+                LastName = lastName,
                 Email = staffMember.Email,
                 ContactNumber = staffMember.ContactNumber
             };
@@ -111,13 +119,13 @@ namespace Barangay.Pages.Doctor
             }
 
             // Update staff member record
-            staffMember.Name = StaffProfile.Name;
+            staffMember.Name = StaffProfile.FullName;
             staffMember.Email = StaffProfile.Email;
             staffMember.ContactNumber = StaffProfile.ContactNumber;
 
             // Update user record to keep them in sync
-            user.FullName = StaffProfile.Name;
-            user.Name = StaffProfile.Name;
+            user.FullName = StaffProfile.FullName;
+            user.Name = StaffProfile.FullName;
             user.Email = StaffProfile.Email;
             user.UserName = StaffProfile.Email;
             user.PhoneNumber = StaffProfile.ContactNumber;
@@ -450,8 +458,15 @@ namespace Barangay.Pages.Doctor
     public class StaffProfileViewModel
     {
         [Required]
-        [Display(Name = "Full Name")]
-        public string Name { get; set; }
+        [Display(Name = "First Name")]
+        public string FirstName { get; set; }
+
+        [Display(Name = "Middle Name")]
+        public string MiddleName { get; set; }
+
+        [Required]
+        [Display(Name = "Last Name")]
+        public string LastName { get; set; }
 
         [Required]
         [EmailAddress]
@@ -462,6 +477,9 @@ namespace Barangay.Pages.Doctor
         [Phone]
         [Display(Name = "Contact Number")]
         public string ContactNumber { get; set; }
+
+        // Computed property for full name
+        public string FullName => $"{FirstName} {MiddleName} {LastName}".Trim();
     }
 
     public class ChangePasswordViewModel

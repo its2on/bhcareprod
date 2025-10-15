@@ -49,6 +49,7 @@ namespace Barangay.Pages.Doctor
 
         public List<SelectListItem> BarangayList { get; set; }
         public IList<PatientViewModel> Patients { get; set; }
+        public IList<FamilyGroupViewModel> FamilyGroups { get; set; }
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -125,7 +126,7 @@ namespace Barangay.Pages.Doctor
                 })
                 .ToListAsync();
 
-            // Decrypt patient data for authorized users
+            // Decrypt patient data for authorized users and retrieve family numbers
             foreach (var patient in patients)
             {
                 // Get the full user object to decrypt
@@ -141,9 +142,38 @@ namespace Barangay.Pages.Doctor
                     patient.PhoneNumber = user.PhoneNumber;
                     patient.Age = user.Age;
                 }
+
+                // Retrieve and decrypt family number from NCDRiskAssessment or HEEADSSSAssessment
+                var ncdAssessment = await _context.NCDRiskAssessments
+                    .FirstOrDefaultAsync(n => n.UserId == patient.PatientId);
+                
+                var heeadsssAssessment = await _context.HEEADSSSAssessments
+                    .FirstOrDefaultAsync(h => h.UserId == patient.PatientId);
+                
+                string familyNumber = "N/A";
+                
+                // Check NCDRiskAssessment first
+                if (ncdAssessment != null && !string.IsNullOrEmpty(ncdAssessment.FamilyNo))
+                {
+                    // Decrypt the family number
+                    ncdAssessment.DecryptSensitiveData(_encryptionService, User);
+                    familyNumber = ncdAssessment.FamilyNo ?? "N/A";
+                }
+                // If no NCD family number, check HEEADSSSAssessment
+                else if (heeadsssAssessment != null && !string.IsNullOrEmpty(heeadsssAssessment.FamilyNo))
+                {
+                    // Decrypt the family number
+                    heeadsssAssessment.DecryptSensitiveData(_encryptionService, User);
+                    familyNumber = heeadsssAssessment.FamilyNo ?? "N/A";
+                }
+                
+                patient.FamilyNumber = familyNumber;
             }
 
             Patients = patients;
+
+            // Group patients by family number
+            FamilyGroups = GroupPatientsByFamily(patients);
 
             return Page();
         }
@@ -166,6 +196,46 @@ namespace Barangay.Pages.Doctor
 
             return Url.Page("./PatientList", queryParams);
         }
+
+        private IList<FamilyGroupViewModel> GroupPatientsByFamily(IList<PatientViewModel> patients)
+        {
+            var familyGroups = new Dictionary<string, FamilyGroupViewModel>();
+
+            foreach (var patient in patients)
+            {
+                var familyNumber = patient.FamilyNumber;
+                
+                // Skip patients without family numbers
+                if (string.IsNullOrEmpty(familyNumber) || familyNumber == "N/A")
+                    continue;
+
+                if (!familyGroups.ContainsKey(familyNumber))
+                {
+                    familyGroups[familyNumber] = new FamilyGroupViewModel
+                    {
+                        FamilyNumber = familyNumber,
+                        FamilyMembers = new List<PatientViewModel>(),
+                        PrimaryContact = patient.PhoneNumber,
+                        PrimaryBarangay = patient.Barangay
+                    };
+                }
+
+                familyGroups[familyNumber].FamilyMembers.Add(patient);
+                
+                // Update primary contact and barangay if this patient has better info
+                if (string.IsNullOrEmpty(familyGroups[familyNumber].PrimaryContact) && !string.IsNullOrEmpty(patient.PhoneNumber))
+                {
+                    familyGroups[familyNumber].PrimaryContact = patient.PhoneNumber;
+                }
+                
+                if (string.IsNullOrEmpty(familyGroups[familyNumber].PrimaryBarangay) && !string.IsNullOrEmpty(patient.Barangay))
+                {
+                    familyGroups[familyNumber].PrimaryBarangay = patient.Barangay;
+                }
+            }
+
+            return familyGroups.Values.OrderBy(f => f.FamilyNumber).ToList();
+        }
     }
 
     public class PatientViewModel
@@ -177,5 +247,15 @@ namespace Barangay.Pages.Doctor
         public string Barangay { get; set; }
         public string Status { get; set; }
         public string Age { get; set; }
+        public string FamilyNumber { get; set; }
+    }
+
+    public class FamilyGroupViewModel
+    {
+        public string FamilyNumber { get; set; }
+        public List<PatientViewModel> FamilyMembers { get; set; } = new List<PatientViewModel>();
+        public string PrimaryContact { get; set; }
+        public string PrimaryBarangay { get; set; }
+        public int MemberCount => FamilyMembers.Count;
     }
 } 

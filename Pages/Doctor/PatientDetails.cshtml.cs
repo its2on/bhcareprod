@@ -130,7 +130,7 @@ namespace Barangay.Pages.Doctor
                         Treatment = r.Treatment,
                         Notes = r.Notes,
                         Status = r.Status,
-                        DoctorName = r.Doctor?.UserName ?? "Unknown"
+                        DoctorName = r.Doctor?.FullName ?? "Unknown"
                     }).ToList();
                 }
                 catch (Exception ex)
@@ -158,7 +158,7 @@ namespace Barangay.Pages.Doctor
                         Dosage = m.Dosage,
                         Instructions = m.Instructions,
                         CreatedAt = m.MedicalRecord?.Date,
-                        DoctorName = m.MedicalRecord?.Doctor?.UserName ?? "Unknown"
+                        DoctorName = m.MedicalRecord?.Doctor?.FullName ?? "Unknown"
                     }).ToList();
                 }
                 catch (Exception ex)

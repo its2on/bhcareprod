@@ -293,7 +293,7 @@ else
             URL.revokeObjectURL(url);
         });
 
-        // Export PDF with Minimal Pro layout
+        // Export PDF
         document.getElementById('btnExportPdf').addEventListener('click', async () => {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');

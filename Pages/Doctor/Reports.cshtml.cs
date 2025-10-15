@@ -124,6 +124,7 @@ namespace Barangay.Pages.Doctor
             return Page();
         }
 
+
         private async Task LoadMonthlyData(DateTime selectedMonth)
         {
             var culture = CultureInfo.GetCultureInfo("en-US");
@@ -155,16 +156,16 @@ namespace Barangay.Pages.Doctor
                 record.DecryptSensitiveData(_encryptionService, User);
             }
 
-            // Group by decrypted diagnosis
+            // Group by normalized diagnosis (case-insensitive)
             var monthGroups = monthRecords
-                .GroupBy(m => m.Diagnosis)
+                .GroupBy(m => ConditionNormalizer.NormalizeCondition(m.Diagnosis))
                 .Select(g => new { Condition = g.Key, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
                 .Take(10)
                 .ToList();
 
             var lastMonthGroups = lastMonthRecords
-                .GroupBy(m => m.Diagnosis)
+                .GroupBy(m => ConditionNormalizer.NormalizeCondition(m.Diagnosis))
                 .Select(g => new { Condition = g.Key, Count = g.Count() })
                 .ToList();
 
@@ -242,16 +243,16 @@ namespace Barangay.Pages.Doctor
                 record.DecryptSensitiveData(_encryptionService, User);
             }
 
-            // Group by decrypted diagnosis
+            // Group by normalized diagnosis (case-insensitive)
             var yearGroups = yearRecords
-                .GroupBy(m => m.Diagnosis)
+                .GroupBy(m => ConditionNormalizer.NormalizeCondition(m.Diagnosis))
                 .Select(g => new { Condition = g.Key, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
                 .Take(10)
                 .ToList();
 
             var lastYearGroups = lastYearRecords
-                .GroupBy(m => m.Diagnosis)
+                .GroupBy(m => ConditionNormalizer.NormalizeCondition(m.Diagnosis))
                 .Select(g => new { Condition = g.Key, Count = g.Count() })
                 .ToList();
 
