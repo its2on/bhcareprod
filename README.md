@@ -255,4 +255,4 @@ var hasPermission = await _permissionService.UserHasPermissionAsync(userId, "Man
 
 ## Testing Permissions
 
-Use the `TestPermissions.cshtml` page to test if a user has specific permissions. 
+Use the `TestPermissions.cshtml` page to test if a user has specific permissions. # bhcare
