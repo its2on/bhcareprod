@@ -127,7 +127,7 @@
                                             <span class="badge @badgeClass">@appointment.Status</span>
                                         </td>
                                         <td>
-                                            <a class="btn btn-sm btn-primary" asp-page="/Doctor/Consultation" asp-route-id="@appointment.Id" asp-route-startConsultation="true">
+                                            <a class="btn btn-sm btn-primary" href="/Doctor/Consultation?id=@appointment.Id&startConsultation=true">
                                                 <i class="fas fa-play-circle me-1"></i> Start Consultation
                                             </a>
                                         </td>

@@ -299,13 +299,31 @@ namespace Barangay.Pages.User
             appointment.Status = AppointmentStatus.Cancelled;
             appointment.UpdatedAt = DateTimeHelper.Now;
             
+            // Explicitly mark the entity as modified to ensure EF tracks the change
+            _context.Entry(appointment).State = EntityState.Modified;
+            
             Console.WriteLine($"DEBUG: Updated appointment status to: {appointment.Status}");
             
             await _context.SaveChangesAsync();
             
-            Console.WriteLine($"DEBUG: Appointment {appointmentId} cancelled successfully. New status: {appointment.Status}");
+            // Verify the change was saved by reloading from database
+            var verifyAppointment = await _context.Appointments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == appointmentId);
             
-            TempData["Success"] = "Appointment cancelled successfully.";
+            Console.WriteLine($"DEBUG: Verification - Appointment {appointmentId} status in DB: {verifyAppointment?.Status}");
+            
+            if (verifyAppointment?.Status == AppointmentStatus.Cancelled)
+            {
+                Console.WriteLine($"DEBUG: Appointment {appointmentId} cancelled successfully and verified in database.");
+                TempData["Success"] = "Appointment cancelled successfully.";
+            }
+            else
+            {
+                Console.WriteLine($"DEBUG: WARNING - Appointment status not properly saved! Expected: Cancelled, Got: {verifyAppointment?.Status}");
+                TempData["Error"] = "There was an issue cancelling the appointment. Please try again.";
+            }
+            
             return RedirectToPage();
         }
 

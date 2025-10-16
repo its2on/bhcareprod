@@ -544,9 +544,11 @@ namespace Barangay.Pages.Nurse
                 HasAdolescentHealthInfo = false;
                 AdolescentHealthInfo = null;
 
-                // Only check by AppointmentId - no fallback to UserId to prevent showing forms from other appointments
+                try
+                {
+                    // Only check by AppointmentId - no fallback to UserId to prevent showing forms from other appointments
                     var adolescentHealthInfo = await _context.AdolescentHealthInfo
-                    .Where(a => a.AppointmentId == id.ToString())
+                        .Where(a => a.AppointmentId == id.ToString())
                         .FirstOrDefaultAsync();
 
                     if (adolescentHealthInfo != null)
@@ -562,7 +564,13 @@ namespace Barangay.Pages.Nurse
                         {
                             _logger.LogError(ex, "Failed to decrypt Adolescent Health Information {Id}", adolescentHealthInfo.Id);
                             HasAdolescentHealthInfo = false;
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "AdolescentHealthInfo table may not exist or query failed. Skipping this section.");
+                    HasAdolescentHealthInfo = false;
                 }
 
                 _logger.LogInformation("Adolescent Health Info found: {HasAdolescentHealthInfo}", HasAdolescentHealthInfo);

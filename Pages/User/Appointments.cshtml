@@ -882,9 +882,10 @@
                         token: this.getAntiForgeryToken()
                     });
 
-                    // Send AJAX request
-                    console.log('DEBUG: Sending AJAX request to:', window.location.href);
-                    const response = await fetch(window.location.href, {
+                    // Send AJAX request to the correct handler
+                    const cancelUrl = '?handler=CancelAppointment';
+                    console.log('DEBUG: Sending AJAX request to:', cancelUrl);
+                    const response = await fetch(cancelUrl, {
                         method: 'POST',
                         body: formData,
                         headers: {
@@ -899,19 +900,21 @@
                     });
 
                     if (response.ok) {
-                        console.log('DEBUG: Response OK, updating UI');
-                        // Success - update the UI dynamically
-                        this.moveAppointmentToCancelled(appointmentId);
+                        console.log('DEBUG: Response OK, reloading page to reflect changes');
                         
-                        // Show success message using SweetAlert2
-                        Swal.fire({
+                        // Show success message using SweetAlert2 and reload page
+                        await Swal.fire({
                             title: 'Success!',
                             text: 'Appointment cancelled successfully!',
                             icon: 'success',
                             confirmButtonText: 'OK',
-                            timer: 3000,
+                            timer: 2000,
                             timerProgressBar: true
                         });
+                        
+                        // Reload the page to get fresh data from the server
+                        console.log('DEBUG: Reloading page...');
+                        window.location.reload();
                     } else {
                         // Error handling
                         const errorText = await response.text();

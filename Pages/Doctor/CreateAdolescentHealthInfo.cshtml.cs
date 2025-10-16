@@ -96,10 +96,18 @@ namespace Barangay.Pages.Doctor
                 HealthInfo.RecordedBy = User.Identity?.Name ?? "Doctor";
 
                 // Check if health info already exists
-                var existingHealthInfo = await _context.AdolescentHealthInfo
-                    .Where(a => a.UserId == appointment.Patient.UserId)
-                    .OrderByDescending(a => a.CreatedAt)
-                    .FirstOrDefaultAsync();
+                AdolescentHealthInfo? existingHealthInfo = null;
+                try
+                {
+                    existingHealthInfo = await _context.AdolescentHealthInfo
+                        .Where(a => a.UserId == appointment.Patient.UserId)
+                        .OrderByDescending(a => a.CreatedAt)
+                        .FirstOrDefaultAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "AdolescentHealthInfo table may not exist. Will create new record.");
+                }
 
                 if (existingHealthInfo != null)
                 {
@@ -132,11 +140,20 @@ namespace Barangay.Pages.Doctor
                 // Encrypt sensitive data
                 HealthInfo.EncryptSensitiveData(_encryptionService);
 
-                _context.AdolescentHealthInfo.Add(HealthInfo);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    _context.AdolescentHealthInfo.Add(HealthInfo);
+                    await _context.SaveChangesAsync();
 
-                TempData["SuccessMessage"] = "Adolescent Health Information recorded successfully.";
-                return RedirectToPage("/Doctor/Consultation", new { appointmentId = HealthInfo.AppointmentId });
+                    TempData["SuccessMessage"] = "Adolescent Health Information recorded successfully.";
+                    return RedirectToPage("/Doctor/Consultation", new { appointmentId = HealthInfo.AppointmentId });
+                }
+                catch (Exception dbEx)
+                {
+                    _logger.LogError(dbEx, "Failed to save AdolescentHealthInfo. Table may not exist in database.");
+                    TempData["ErrorMessage"] = "Unable to save Adolescent Health Information. The database table may not exist. Please contact your system administrator.";
+                    return Page();
+                }
             }
             catch (Exception ex)
             {

@@ -119,6 +119,9 @@ namespace Barangay.Pages.Doctor
         {
             try
             {
+                _logger.LogInformation("=== OnGetAsync called with id={Id}, startConsultation={StartConsultation}, filterDate={FilterDate} ===", 
+                    id, startConsultation, filterDate);
+                
                 // Get the current authenticated doctor
                 var currentUser = await _userManager.GetUserAsync(User);
                 if (currentUser == null)
@@ -628,42 +631,50 @@ namespace Barangay.Pages.Doctor
                 }
 
                 // Load Adolescent Health Information - ONLY for this specific appointment
-                AdolescentHealthInfo = await _context.AdolescentHealthInfo
-                    .Where(a => a.AppointmentId == AppointmentId.ToString())
-                    .OrderByDescending(a => a.CreatedAt)
-                    .FirstOrDefaultAsync();
-
-                if (AdolescentHealthInfo == null)
+                try
                 {
-                    _logger.LogInformation("No Adolescent Health Information found for appointment {AppointmentId}. Not showing fallback assessment to avoid confusion.", AppointmentId);
+                    AdolescentHealthInfo = await _context.AdolescentHealthInfo
+                        .Where(a => a.AppointmentId == AppointmentId.ToString())
+                        .OrderByDescending(a => a.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (AdolescentHealthInfo == null)
+                    {
+                        _logger.LogInformation("No Adolescent Health Information found for appointment {AppointmentId}. Not showing fallback assessment to avoid confusion.", AppointmentId);
+                    }
+
+                    // Decrypt Adolescent Health Information data for display
+                    if (AdolescentHealthInfo != null)
+                    {
+                        AdolescentHealthInfo.DecryptSensitiveData(_encryptionService, User);
+                        
+                        // Manual decryption fallback for Adolescent Health Info fields
+                        AdolescentHealthInfo.PatientName = SafeDecrypt(AdolescentHealthInfo.PatientName);
+                        AdolescentHealthInfo.PatientAge = SafeDecrypt(AdolescentHealthInfo.PatientAge);
+                        AdolescentHealthInfo.PatientGender = SafeDecrypt(AdolescentHealthInfo.PatientGender);
+                        AdolescentHealthInfo.PatientAddress = SafeDecrypt(AdolescentHealthInfo.PatientAddress);
+                        AdolescentHealthInfo.PatientContact = SafeDecrypt(AdolescentHealthInfo.PatientContact);
+                        AdolescentHealthInfo.HeightCm = SafeDecrypt(AdolescentHealthInfo.HeightCm);
+                        AdolescentHealthInfo.WeightKg = SafeDecrypt(AdolescentHealthInfo.WeightKg);
+                        AdolescentHealthInfo.BMI = SafeDecrypt(AdolescentHealthInfo.BMI);
+                        AdolescentHealthInfo.BMICategory = SafeDecrypt(AdolescentHealthInfo.BMICategory);
+                        AdolescentHealthInfo.MRMMRDateGiven = SafeDecrypt(AdolescentHealthInfo.MRMMRDateGiven);
+                        AdolescentHealthInfo.TdDateGiven = SafeDecrypt(AdolescentHealthInfo.TdDateGiven);
+                        AdolescentHealthInfo.HPVDateGiven = SafeDecrypt(AdolescentHealthInfo.HPVDateGiven);
+                        AdolescentHealthInfo.Temperature = SafeDecrypt(AdolescentHealthInfo.Temperature);
+                        AdolescentHealthInfo.BloodPressure = SafeDecrypt(AdolescentHealthInfo.BloodPressure);
+                        AdolescentHealthInfo.PulseRate = SafeDecrypt(AdolescentHealthInfo.PulseRate);
+                        AdolescentHealthInfo.RespiratoryRate = SafeDecrypt(AdolescentHealthInfo.RespiratoryRate);
+                        AdolescentHealthInfo.ChiefComplaint = SafeDecrypt(AdolescentHealthInfo.ChiefComplaint);
+                        AdolescentHealthInfo.WorkingDiagnosis = SafeDecrypt(AdolescentHealthInfo.WorkingDiagnosis);
+                        AdolescentHealthInfo.ReferredTo = SafeDecrypt(AdolescentHealthInfo.ReferredTo);
+                        AdolescentHealthInfo.RecordedBy = SafeDecrypt(AdolescentHealthInfo.RecordedBy);
+                    }
                 }
-
-                // Decrypt Adolescent Health Information data for display
-                if (AdolescentHealthInfo != null)
+                catch (Exception ex)
                 {
-                    AdolescentHealthInfo.DecryptSensitiveData(_encryptionService, User);
-                    
-                    // Manual decryption fallback for Adolescent Health Info fields
-                    AdolescentHealthInfo.PatientName = SafeDecrypt(AdolescentHealthInfo.PatientName);
-                    AdolescentHealthInfo.PatientAge = SafeDecrypt(AdolescentHealthInfo.PatientAge);
-                    AdolescentHealthInfo.PatientGender = SafeDecrypt(AdolescentHealthInfo.PatientGender);
-                    AdolescentHealthInfo.PatientAddress = SafeDecrypt(AdolescentHealthInfo.PatientAddress);
-                    AdolescentHealthInfo.PatientContact = SafeDecrypt(AdolescentHealthInfo.PatientContact);
-                    AdolescentHealthInfo.HeightCm = SafeDecrypt(AdolescentHealthInfo.HeightCm);
-                    AdolescentHealthInfo.WeightKg = SafeDecrypt(AdolescentHealthInfo.WeightKg);
-                    AdolescentHealthInfo.BMI = SafeDecrypt(AdolescentHealthInfo.BMI);
-                    AdolescentHealthInfo.BMICategory = SafeDecrypt(AdolescentHealthInfo.BMICategory);
-                    AdolescentHealthInfo.MRMMRDateGiven = SafeDecrypt(AdolescentHealthInfo.MRMMRDateGiven);
-                    AdolescentHealthInfo.TdDateGiven = SafeDecrypt(AdolescentHealthInfo.TdDateGiven);
-                    AdolescentHealthInfo.HPVDateGiven = SafeDecrypt(AdolescentHealthInfo.HPVDateGiven);
-                    AdolescentHealthInfo.Temperature = SafeDecrypt(AdolescentHealthInfo.Temperature);
-                    AdolescentHealthInfo.BloodPressure = SafeDecrypt(AdolescentHealthInfo.BloodPressure);
-                    AdolescentHealthInfo.PulseRate = SafeDecrypt(AdolescentHealthInfo.PulseRate);
-                    AdolescentHealthInfo.RespiratoryRate = SafeDecrypt(AdolescentHealthInfo.RespiratoryRate);
-                    AdolescentHealthInfo.ChiefComplaint = SafeDecrypt(AdolescentHealthInfo.ChiefComplaint);
-                    AdolescentHealthInfo.WorkingDiagnosis = SafeDecrypt(AdolescentHealthInfo.WorkingDiagnosis);
-                    AdolescentHealthInfo.ReferredTo = SafeDecrypt(AdolescentHealthInfo.ReferredTo);
-                    AdolescentHealthInfo.RecordedBy = SafeDecrypt(AdolescentHealthInfo.RecordedBy);
+                    _logger.LogWarning(ex, "AdolescentHealthInfo table may not exist in database or query failed. Skipping this section.");
+                    AdolescentHealthInfo = null;
                 }
 
                 _logger.LogInformation("Loaded {MedicalRecordsCount} medical records, vital signs: {HasVitalSigns}, HEEADSSS: {HasHEEADSSS}, NCD: {HasNCD}", 
@@ -680,6 +691,9 @@ namespace Barangay.Pages.Doctor
                 
                 // Only show consultation form if explicitly starting consultation
                 ShowConsultationForm = startConsultation;
+                
+                _logger.LogInformation("=== Consultation page ready: IsDataLoaded={IsDataLoaded}, ShowConsultationForm={ShowConsultationForm}, startConsultation parameter={StartConsultation} ===", 
+                    IsDataLoaded, ShowConsultationForm, startConsultation);
         
                 return Page();
             }
