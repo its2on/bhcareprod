@@ -443,7 +443,7 @@ builder.Services.AddScoped<IImmunizationReminderService, ImmunizationReminderSer
 builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 builder.Services.AddScoped<IDataEncryptionService, DataEncryptionService>();
 builder.Services.AddScoped<IEncryptedDataService, EncryptedDataService>();
-builder.Services.AddScoped<EncryptExistingDataService>();
+// builder.Services.AddScoped<EncryptExistingDataService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Register the custom model binder provider

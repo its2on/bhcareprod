@@ -34,15 +34,22 @@ namespace Barangay.Pages.User
         public List<Appointment> DraftAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> OngoingAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> ConfirmedAppointments { get; set; } = new List<Appointment>();
+        public List<Appointment> CancelledAppointments { get; set; } = new List<Appointment>();
         public Dictionary<string, ApplicationUser> Doctors { get; set; } = new Dictionary<string, ApplicationUser>();
 
         public async Task<IActionResult> OnGetAsync()
         {
+            Console.WriteLine("=== DEBUG: OnGetAsync called ===");
+            Console.WriteLine($"DEBUG: Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
+                Console.WriteLine("DEBUG: User is null, redirecting to login");
                 return RedirectToPage("/Account/Login");
             }
+            
+            Console.WriteLine($"DEBUG: User found: {user.Id} ({user.UserName})");
 
             // Decrypt user data for authorized users
             user = user.DecryptSensitiveData(_encryptionService, User);
@@ -68,6 +75,14 @@ namespace Barangay.Pages.User
                     .OrderBy(a => a.AppointmentDate)
                     .ThenBy(a => a.AppointmentTime)
                     .ToListAsync();
+
+                Console.WriteLine($"DEBUG: Raw appointments from database: {appointments.Count}");
+                
+                // Log each appointment with full details
+                foreach (var apt in appointments)
+                {
+                    Console.WriteLine($"DEBUG: Raw Appointment {apt.Id} - Status: {apt.Status} ({apt.Status.GetType().Name}), Date: {apt.AppointmentDate:yyyy-MM-dd}, Time: {apt.AppointmentTime}, UpdatedAt: {apt.UpdatedAt:yyyy-MM-dd HH:mm:ss}, CreatedAt: {apt.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+                }
 
                 // Ensure all appointments have valid times
                 foreach (var appointment in appointments)
@@ -134,6 +149,37 @@ namespace Barangay.Pages.User
                 ConfirmedAppointments = UpcomingAppointments
                     .Where(a => a.Status == AppointmentStatus.Confirmed)
                     .ToList();
+
+                // Get cancelled appointments from all appointments (not just upcoming)
+                CancelledAppointments = appointments
+                    .Where(a => a.Status == AppointmentStatus.Cancelled)
+                    .ToList();
+
+                // Enhanced debug logging
+                Console.WriteLine($"DEBUG: === APPOINTMENT CATEGORIZATION RESULTS ===");
+                Console.WriteLine($"DEBUG: Total appointments found: {appointments.Count}");
+                Console.WriteLine($"DEBUG: Upcoming appointments: {UpcomingAppointments.Count}");
+                Console.WriteLine($"DEBUG: Past appointments: {PastAppointments.Count}");
+                Console.WriteLine($"DEBUG: Ongoing appointments: {OngoingAppointments.Count}");
+                Console.WriteLine($"DEBUG: Draft appointments: {DraftAppointments.Count}");
+                Console.WriteLine($"DEBUG: Confirmed appointments: {ConfirmedAppointments.Count}");
+                Console.WriteLine($"DEBUG: Cancelled appointments found: {CancelledAppointments.Count}");
+                
+                // Log each cancelled appointment in detail
+                Console.WriteLine($"DEBUG: === CANCELLED APPOINTMENTS DETAIL ===");
+                foreach (var cancelled in CancelledAppointments)
+                {
+                    Console.WriteLine($"DEBUG: Cancelled Appointment {cancelled.Id} - Status: {cancelled.Status}, Date: {cancelled.AppointmentDate:yyyy-MM-dd}, Time: {cancelled.AppointmentTime}, UpdatedAt: {cancelled.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
+                }
+                
+                // Log each ongoing appointment in detail
+                Console.WriteLine($"DEBUG: === ONGOING APPOINTMENTS DETAIL ===");
+                foreach (var ongoing in OngoingAppointments)
+                {
+                    Console.WriteLine($"DEBUG: Ongoing Appointment {ongoing.Id} - Status: {ongoing.Status}, Date: {ongoing.AppointmentDate:yyyy-MM-dd}, Time: {ongoing.AppointmentTime}, UpdatedAt: {ongoing.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
+                }
+                
+                Console.WriteLine($"DEBUG: === END APPOINTMENT CATEGORIZATION ===");
             }
             catch (InvalidCastException ex)
             {
@@ -146,6 +192,7 @@ namespace Barangay.Pages.User
                 DraftAppointments = new List<Appointment>();
                 OngoingAppointments = new List<Appointment>();
                 ConfirmedAppointments = new List<Appointment>();
+                CancelledAppointments = new List<Appointment>();
             }
             catch (Exception ex)
             {
@@ -158,6 +205,7 @@ namespace Barangay.Pages.User
                 DraftAppointments = new List<Appointment>();
                 OngoingAppointments = new List<Appointment>();
                 ConfirmedAppointments = new List<Appointment>();
+                CancelledAppointments = new List<Appointment>();
             }
 
             return Page();
@@ -211,35 +259,94 @@ namespace Barangay.Pages.User
 
         public async Task<IActionResult> OnPostCancelAppointmentAsync(int appointmentId)
         {
+            Console.WriteLine($"DEBUG: OnPostCancelAppointmentAsync called with appointmentId: {appointmentId}");
+            
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
+                Console.WriteLine("DEBUG: User is null, redirecting to login");
                 return RedirectToPage("/Account/Login");
             }
+
+            Console.WriteLine($"DEBUG: User found: {user.Id}");
 
             var appointment = await _context.Appointments
                 .FirstOrDefaultAsync(a => a.Id == appointmentId && a.PatientId == user.Id);
 
             if (appointment == null)
             {
+                Console.WriteLine($"DEBUG: Appointment {appointmentId} not found for user {user.Id}");
                 TempData["Error"] = "Appointment not found.";
                 return RedirectToPage();
             }
 
+            Console.WriteLine($"DEBUG: Found appointment {appointmentId} - Status: {appointment.Status}, Date: {appointment.AppointmentDate}, Time: {appointment.AppointmentTime}");
+
             // Only allow cancellation for future appointments
-            if (appointment.AppointmentDate < DateTime.Now.Date || 
-                (appointment.AppointmentDate == DateTime.Now.Date && appointment.AppointmentTime < DateTime.Now.TimeOfDay))
+            var now = DateTimeHelper.Now;
+            Console.WriteLine($"DEBUG: Current time: {now}, Appointment date: {appointment.AppointmentDate}, Appointment time: {appointment.AppointmentTime}");
+            
+            if (appointment.AppointmentDate < now.Date || 
+                (appointment.AppointmentDate == now.Date && appointment.AppointmentTime < now.TimeOfDay))
             {
+                Console.WriteLine($"DEBUG: Cannot cancel past appointment - Date: {appointment.AppointmentDate}, Time: {appointment.AppointmentTime}");
                 TempData["Error"] = "Cannot cancel past appointments.";
                 return RedirectToPage();
             }
 
+            Console.WriteLine($"DEBUG: Proceeding with cancellation of appointment {appointmentId} - Current status: {appointment.Status}");
+            
             appointment.Status = AppointmentStatus.Cancelled;
-            appointment.UpdatedAt = DateTime.Now;
+            appointment.UpdatedAt = DateTimeHelper.Now;
+            
+            Console.WriteLine($"DEBUG: Updated appointment status to: {appointment.Status}");
             
             await _context.SaveChangesAsync();
             
+            Console.WriteLine($"DEBUG: Appointment {appointmentId} cancelled successfully. New status: {appointment.Status}");
+            
             TempData["Success"] = "Appointment cancelled successfully.";
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnGetCreateTestAppointmentAsync()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return RedirectToPage("/Account/Login");
+            }
+
+            // Get a doctor to assign the appointment to
+            var doctor = await _userManager.Users
+                .FirstOrDefaultAsync(u => _context.UserRoles
+                    .Any(ur => ur.UserId == u.Id && 
+                               _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == "Doctor")));
+
+            if (doctor == null)
+            {
+                TempData["Error"] = "No doctors available for test appointment.";
+                return RedirectToPage();
+            }
+
+            // Create a test appointment for tomorrow
+            var testAppointment = new Appointment
+            {
+                PatientId = user.Id,
+                DoctorId = doctor.Id,
+                AppointmentDate = DateTime.Now.AddDays(1).Date,
+                AppointmentTime = new TimeSpan(10, 0, 0), // 10:00 AM
+                ReasonForVisit = "Test appointment for cancellation testing",
+                Status = AppointmentStatus.Pending,
+                Type = "General Consult",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            _context.Appointments.Add(testAppointment);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Test appointment created successfully with ID: {testAppointment.Id}";
             return RedirectToPage();
         }
 

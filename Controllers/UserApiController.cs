@@ -424,6 +424,68 @@ namespace Barangay.Controllers
             }
         }
 
+        [HttpPost("cancelAppointment/{appointmentId}")]
+        public async Task<IActionResult> CancelAppointment(int appointmentId)
+        {
+            _logger.LogInformation("=== USER API CANCEL APPOINTMENT DEBUG START ===");
+            _logger.LogInformation("Appointment ID: {AppointmentId}", appointmentId);
+            
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) 
+            {
+                _logger.LogWarning("User not authenticated for User API cancellation");
+                return Unauthorized();
+            }
+            
+            _logger.LogInformation("User ID: {UserId}, User Name: {UserName}", user.Id, user.UserName);
+
+            var appointment = await _context.Appointments.FindAsync(appointmentId);
+            if (appointment == null) 
+            {
+                _logger.LogWarning("Appointment not found for User API cancellation: {AppointmentId}", appointmentId);
+                return NotFound();
+            }
+            
+            _logger.LogInformation("Found appointment: ID={AppointmentId}, PatientId={PatientId}, Date={AppointmentDate}, Time={AppointmentTime}, Status={Status}", 
+                appointment.Id, appointment.PatientId, appointment.AppointmentDate, appointment.AppointmentTime, appointment.Status);
+
+            if (appointment.PatientId != user.Id)
+            {
+                _logger.LogWarning("Unauthorized User API cancellation attempt: User {UserId} trying to cancel appointment {AppointmentId} owned by {PatientId}", 
+                    user.Id, appointmentId, appointment.PatientId);
+                return Unauthorized();
+            }
+
+            // Only allow cancellation for future appointments
+            if (appointment.AppointmentDate < DateTime.Now.Date || 
+                (appointment.AppointmentDate == DateTime.Now.Date && appointment.AppointmentTime < DateTime.Now.TimeOfDay))
+            {
+                _logger.LogWarning("Attempted to cancel past appointment via User API: {AppointmentId}", appointmentId);
+                return BadRequest(new { success = false, message = "Cannot cancel past appointments." });
+            }
+
+            try
+            {
+                _logger.LogInformation("Updating appointment status to Cancelled via User API");
+                appointment.Status = AppointmentStatus.Cancelled;
+                appointment.UpdatedAt = DateTime.UtcNow;
+                
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("Appointment cancelled successfully via User API: {AppointmentId}", appointmentId);
+                return Ok(new { success = true, message = "Appointment cancelled successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling appointment via User API {AppointmentId}", appointmentId);
+                return StatusCode(500, new { success = false, message = "Failed to cancel appointment." });
+            }
+            finally
+            {
+                _logger.LogInformation("=== USER API CANCEL APPOINTMENT DEBUG END ===");
+            }
+        }
+
         [HttpDelete("appointments/{id}")]
         public async Task<IActionResult> DeleteAppointment(int id)
         {

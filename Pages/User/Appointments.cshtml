@@ -6,6 +6,8 @@
     Layout = "_UserLayout";
 }
 
+@Html.AntiForgeryToken()
+
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-12">
@@ -470,16 +472,18 @@
         }
 
         .btn-cancel {
-            background: transparent;
-            color: #d32f2f;
-            border: 1px solid #d32f2f;
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+            font-weight: 500;
         }
 
         .btn-cancel:hover {
-            background: #d32f2f;
-            color: white;
+            background: #e9ecef;
+            color: #495057;
+            border-color: #adb5bd;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
         }
 
         /* Empty State */
@@ -575,11 +579,15 @@
 }
 
 @section Scripts {
+    <!-- SweetAlert2 for notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
         // Appointments Management Class
         class AppointmentsManager {
             constructor() {
                 this.appointments = [];
+                this.antiForgeryToken = this.getAntiForgeryTokenFromPage();
                 this.initializeEventListeners();
                 this.loadAppointments();
             }
@@ -606,9 +614,23 @@
 
             // Load appointments from server-side data
             loadAppointments() {
+                console.log('=== DEBUG: loadAppointments called ===');
+                console.log('DEBUG: Timestamp:', new Date().toISOString());
+                
                 // Get appointments from the model data
                 const serverAppointments = this.getServerAppointments();
+                console.log('DEBUG: Server appointments loaded:', serverAppointments.length);
+                console.log('DEBUG: Server appointments data:', serverAppointments);
+                
                 this.appointments = serverAppointments;
+                
+                // Log appointment counts by type
+                const ongoingCount = this.appointments.filter(a => a.statusType === 'ongoing').length;
+                const draftCount = this.appointments.filter(a => a.statusType === 'draft').length;
+                const cancelledCount = this.appointments.filter(a => a.statusType === 'cancelled').length;
+                
+                console.log(`DEBUG: Appointment counts - Ongoing: ${ongoingCount}, Draft: ${draftCount}, Cancelled: ${cancelledCount}`);
+                
                 this.populateTables();
             }
 
@@ -656,10 +678,7 @@
                 }
 
                 // Extract cancelled appointments
-                @{
-                    var cancelledAppointments = Model.UpcomingAppointments.Where(a => a.Status == AppointmentStatus.Cancelled).ToList();
-                }
-                @foreach (var appointment in cancelledAppointments)
+                @foreach (var appointment in Model.CancelledAppointments)
                 {
                     <text>
                     appointments.push({
@@ -711,7 +730,7 @@
                 const statusText = this.getStatusText(appointment.statusType);
 
                 return `
-                    <tr>
+                    <tr data-appointment-id="${appointment.id}">
                         <td>
                             <div class="fw-bold">${appointment.date}</div>
                             <div class="fw-semibold text-primary">${appointment.time}</div>
@@ -743,13 +762,10 @@
 
                 if (appointment.canCancel) {
                     buttons += `
-                        <form method="post" asp-page-handler="CancelAppointment" class="d-inline">
-                            <input type="hidden" name="appointmentId" value="${appointment.id}" />
-                            <button type="submit" class="action-btn btn-cancel" 
-                                    onclick="return confirm('Are you sure you want to cancel this appointment?')">
-                                <i class="fa-solid fa-xmark"></i> Cancel
-                            </button>
-                        </form>
+                        <button type="button" class="action-btn btn-cancel" 
+                                onclick="appointmentsManager.handleCancelAppointment(${appointment.id})">
+                            <i class="fa-solid fa-xmark"></i> Cancel
+                        </button>
                     `;
                 }
 
@@ -812,6 +828,213 @@
             // Method to refresh appointments (for future API integration)
             refreshAppointments() {
                 this.loadAppointments();
+            }
+
+            getAntiForgeryTokenFromPage() {
+                const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+                return tokenElement ? tokenElement.value : '';
+            }
+
+            getAntiForgeryToken() {
+                return this.antiForgeryToken;
+            }
+
+            async handleCancelAppointment(appointmentId) {
+                console.log('DEBUG: handleCancelAppointment called with appointmentId:', appointmentId);
+                
+                // Use SweetAlert2 for confirmation instead of browser confirm
+                const result = await Swal.fire({
+                    title: 'Cancel Appointment',
+                    text: 'Are you sure you want to cancel this appointment?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, cancel it!',
+                    cancelButtonText: 'No, keep it'
+                });
+
+                if (!result.isConfirmed) {
+                    console.log('DEBUG: User cancelled the confirmation dialog');
+                    return;
+                }
+
+                console.log('DEBUG: User confirmed cancellation, proceeding...');
+
+                try {
+                    // Show loading state
+                    const cancelButton = document.querySelector(`button[onclick*="${appointmentId}"]`);
+                    if (cancelButton) {
+                        console.log('DEBUG: Found cancel button, setting loading state');
+                        cancelButton.disabled = true;
+                        cancelButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+                    } else {
+                        console.log('DEBUG: Cancel button not found!');
+                    }
+
+                    // Prepare form data
+                    const formData = new FormData();
+                    formData.append('appointmentId', appointmentId);
+                    formData.append('__RequestVerificationToken', this.getAntiForgeryToken());
+                    
+                    console.log('DEBUG: Prepared form data:', {
+                        appointmentId: appointmentId,
+                        token: this.getAntiForgeryToken()
+                    });
+
+                    // Send AJAX request
+                    console.log('DEBUG: Sending AJAX request to:', window.location.href);
+                    const response = await fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    console.log('DEBUG: Received response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok
+                    });
+
+                    if (response.ok) {
+                        console.log('DEBUG: Response OK, updating UI');
+                        // Success - update the UI dynamically
+                        this.moveAppointmentToCancelled(appointmentId);
+                        
+                        // Show success message using SweetAlert2
+                        Swal.fire({
+                            title: 'Success!',
+                            text: 'Appointment cancelled successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK',
+                            timer: 3000,
+                            timerProgressBar: true
+                        });
+                    } else {
+                        // Error handling
+                        const errorText = await response.text();
+                        console.error('DEBUG: Cancellation failed:', errorText);
+                        
+                        // Show error message using SweetAlert2
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'Failed to cancel appointment. Please try again.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                        
+                        // Reset button state
+                        if (cancelButton) {
+                            cancelButton.disabled = false;
+                            cancelButton.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+                        }
+                    }
+                } catch (error) {
+                    console.error('DEBUG: Error cancelling appointment:', error);
+                    
+                    // Show error message using SweetAlert2
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'An error occurred while cancelling the appointment. Please try again.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    
+                    // Reset button state
+                    const cancelButton = document.querySelector(`button[onclick*="${appointmentId}"]`);
+                    if (cancelButton) {
+                        cancelButton.disabled = false;
+                        cancelButton.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+                    }
+                }
+            }
+
+            moveAppointmentToCancelled(appointmentId) {
+                console.log('Moving appointment to cancelled:', appointmentId);
+                console.log('Current appointments:', this.appointments);
+                
+                // Find the appointment in the current data
+                const appointment = this.appointments.find(a => a.id === appointmentId);
+                if (!appointment) {
+                    console.error('Appointment not found:', appointmentId);
+                    console.log('Available appointment IDs:', this.appointments.map(a => a.id));
+                    return;
+                }
+
+                console.log('Found appointment:', appointment);
+
+                // Update the appointment status
+                appointment.statusType = 'cancelled';
+                appointment.status = 'Cancelled';
+                appointment.canCancel = false;
+
+                console.log('Updated appointment:', appointment);
+
+                // Remove from ongoing table
+                const ongoingTable = document.getElementById('ongoingAppointmentsTable');
+                if (ongoingTable) {
+                    const row = ongoingTable.querySelector(`tr[data-appointment-id="${appointmentId}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                }
+
+                // Add to cancelled table
+                this.populateTable('cancelled', this.appointments.filter(a => a.statusType === 'cancelled'));
+
+                // Update counts
+                this.updateCounts();
+
+                // Expand the cancelled section to show the newly cancelled appointment
+                const cancelledSection = document.getElementById('cancelledAppointments');
+                if (cancelledSection) {
+                    const accordionButton = cancelledSection.querySelector('.accordion-button');
+                    if (accordionButton && accordionButton.classList.contains('collapsed')) {
+                        accordionButton.click();
+                    }
+                }
+            }
+
+            updateCounts() {
+                const counts = {
+                    ongoing: this.appointments.filter(a => a.statusType === 'ongoing').length,
+                    draft: this.appointments.filter(a => a.statusType === 'draft').length,
+                    cancelled: this.appointments.filter(a => a.statusType === 'cancelled').length
+                };
+
+                // Update count badges by ID
+                const ongoingCount = document.getElementById('ongoingCount');
+                const draftCount = document.getElementById('draftCount');
+                const cancelledCount = document.getElementById('cancelledCount');
+
+                if (ongoingCount) ongoingCount.textContent = counts.ongoing;
+                if (draftCount) draftCount.textContent = counts.draft;
+                if (cancelledCount) cancelledCount.textContent = counts.cancelled;
+
+                console.log('Updated counts:', counts);
+            }
+
+            showSuccessMessage(message) {
+                // Create a temporary success message
+                const successDiv = document.createElement('div');
+                successDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+                successDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                successDiv.innerHTML = `
+                    <i class="fa-solid fa-check-circle me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+
+                document.body.appendChild(successDiv);
+
+                // Auto-remove after 3 seconds
+                setTimeout(() => {
+                    if (successDiv.parentNode) {
+                        successDiv.remove();
+                    }
+                }, 3000);
             }
         }
 

@@ -10,12 +10,12 @@ namespace Barangay.Controllers
     [Authorize(Roles = "Admin,System Administrator")]
     public class DataEncryptionController : Controller
     {
-        private readonly EncryptExistingDataService _encryptionService;
+        // private readonly EncryptExistingDataService _encryptionService;
 
-        public DataEncryptionController(EncryptExistingDataService encryptionService)
-        {
-            _encryptionService = encryptionService;
-        }
+        // public DataEncryptionController(EncryptExistingDataService encryptionService)
+        // {
+        //     _encryptionService = encryptionService;
+        // }
 
         [HttpGet]
         public IActionResult Index()
@@ -29,9 +29,9 @@ namespace Barangay.Controllers
         {
             try
             {
-                await _encryptionService.EncryptAllExistingDataAsync();
+                // await _encryptionService.EncryptAllExistingDataAsync();
                 
-                TempData["SuccessMessage"] = "All existing data has been successfully encrypted!";
+                TempData["SuccessMessage"] = "Encryption service temporarily disabled for debugging.";
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)

@@ -84,21 +84,46 @@ namespace Barangay.Controllers
 
                     if (otpEntry == null)
                     {
-                        otpEntry = new EmailVerification
+                        // Try to create a new entry
+                        try
                         {
-                            Email = request.Email,
-                            VerificationCode = otp,
-                            ExpiryTime = DateTime.UtcNow.AddMinutes(10)
-                        };
-                        _context.EmailVerifications.Add(otpEntry);
+                            otpEntry = new EmailVerification
+                            {
+                                Email = request.Email,
+                                VerificationCode = otp,
+                                ExpiryTime = DateTime.UtcNow.AddMinutes(10)
+                            };
+                            _context.EmailVerifications.Add(otpEntry);
+                            await _context.SaveChangesAsync();
+                        }
+                        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx && sqlEx.Number == 2601)
+                        {
+                            // Handle unique constraint violation - another process may have created the record
+                            _logger.LogWarning("Unique constraint violation detected, attempting to update existing record for {Email}", request.Email);
+                            
+                            // Try to find and update the existing record
+                            otpEntry = await _context.EmailVerifications
+                                .FirstOrDefaultAsync(e => e.Email == request.Email);
+                            
+                            if (otpEntry != null)
+                            {
+                                otpEntry.VerificationCode = otp;
+                                otpEntry.ExpiryTime = DateTime.UtcNow.AddMinutes(10);
+                                await _context.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                _logger.LogError("Could not find existing EmailVerification record after unique constraint violation for {Email}", request.Email);
+                            }
+                        }
                     }
                     else
                     {
+                        // Update existing entry
                         otpEntry.VerificationCode = otp;
                         otpEntry.ExpiryTime = DateTime.UtcNow.AddMinutes(10);
+                        await _context.SaveChangesAsync();
                     }
-
-                    await _context.SaveChangesAsync();
                 }
                 catch (Exception dbEx)
                 {
