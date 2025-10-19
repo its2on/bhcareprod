@@ -50,8 +50,8 @@ namespace Barangay.Pages.Nurse
 
             try
             {
-                // Validate that the preferred date is a Wednesday
-                if (DateTime.TryParse(Form.PreferredDate, out DateTime preferredDateTime))
+                // Validate that the preferred date is a Wednesday (only if provided)
+                if (!string.IsNullOrEmpty(Form.PreferredDate) && DateTime.TryParse(Form.PreferredDate, out DateTime preferredDateTime))
                 {
                     if (preferredDateTime.DayOfWeek != DayOfWeek.Wednesday)
                     {
@@ -101,7 +101,7 @@ namespace Barangay.Pages.Nurse
 Thank you for requesting an immunization schedule for {Form.ChildName}.
 
 SCHEDULE DETAILS:
-- Date: {Form.PreferredDate:dddd, MMMM dd, yyyy}
+- Date: {(string.IsNullOrEmpty(Form.PreferredDate) ? "To be scheduled" : DateTime.Parse(Form.PreferredDate).ToString("dddd, MMMM dd, yyyy"))}
 - Time: {Form.PreferredTime ?? "8:00 AM - 12:00 PM"}
 - Location: Baesa Health Center
 - Address: {Form.Address}
