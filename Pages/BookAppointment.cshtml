@@ -55,24 +55,29 @@
                             </div>
                             
                             <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label for="fullName" class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="fullName" name="fullName" required>
+                                <div class="col-md-3">
+                                    <label for="lastName" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" id="lastName" name="lastName" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="firstName" class="form-label">First Name</label>
+                                    <input type="text" class="form-control" id="firstName" name="firstName" required>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="age" class="form-label">Age</label>
                                     <input type="text" class="form-control" id="age" name="age" required inputmode="numeric" pattern="^[0-9]{1,3}$" minlength="1" maxlength="3" aria-describedby="ageHelp">
                                     <div id="ageHelp" class="form-text">Enter a whole number between 0 and 120</div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label for="birthday" class="form-label">Birthday</label>
                                     <input type="date" class="form-control" id="birthday" name="birthday">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label for="phoneNumber" class="form-label">Phone Number</label>
                                     <input type="tel" class="form-control" id="phoneNumber" name="phoneNumber" placeholder="09123456789" pattern="^09[0-9]{9}$" minlength="11" maxlength="11" inputmode="numeric" required>
                                     <div class="form-text">Enter 11-digit mobile number starting with 09</div>
                                 </div>
+                                <input type="hidden" id="fullName" name="fullName">
                             </div>
                             
                             <div class="mb-3" id="relationshipField" style="display: none;">
@@ -157,7 +162,7 @@
                                 <li>Choose your consultation type</li>
                                 <li>Select available time slot</li>
                                 <li>Fill in your details</li>
-                                <li>Complete health assessment (if applicable)</li>
+                                <li>Complete health assessment (General Consult only)</li>
                                 <li>Submit your booking</li>
                             </ol>
                             
@@ -191,6 +196,11 @@
                                 <i class="fa-solid fa-circle-info me-2"></i>
                                 <strong>Note:</strong> Please arrive 15 minutes before your appointment time.
                             </div>
+                            
+                            <div class="alert alert-warning mt-3">
+                                <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                                <strong>Assessment Forms:</strong> Only General Consult appointments require additional health assessment forms. Other consultation types (Dental, Immunization, Prenatal & Family Planning, DOTS Consult) do not require assessment forms.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -208,11 +218,35 @@
             const userDetails = @Html.Raw(Json.Serialize(Model.UserDetails));
             
             if (userDetails) {
+                // Split full name into first and last name
+                const nameParts = (userDetails.fullName || '').split(' ');
+                if (nameParts.length >= 2) {
+                    $('#lastName').val(nameParts[nameParts.length - 1]);
+                    $('#firstName').val(nameParts.slice(0, -1).join(' '));
+                } else if (nameParts.length === 1) {
+                    $('#lastName').val(nameParts[0]);
+                }
                 $('#fullName').val(userDetails.fullName);
                 $('#age').val(userDetails.age);
                 // Calculate birthday from age
                 calculateBirthdayFromAge(userDetails.age);
             }
+            
+            // Auto-populate phone number from user profile
+            const userPhoneNumber = '@Model.BookingModel.PhoneNumber';
+            if (userPhoneNumber && userPhoneNumber !== '') {
+                $('#phoneNumber').val(userPhoneNumber);
+            }
+            
+            // Update fullName hidden field when firstName or lastName changes
+            function updateFullName() {
+                const firstName = $('#firstName').val().trim();
+                const lastName = $('#lastName').val().trim();
+                const fullName = (firstName + ' ' + lastName).trim();
+                $('#fullName').val(fullName);
+            }
+            
+            $('#firstName, #lastName').on('input', updateFullName);
 
             // Handle 'Booking for someone else' checkbox
             $('#bookingForOther').change(function() {
@@ -221,17 +255,32 @@
                 
                 if (isChecked) {
                     // Clear fields for new patient details
-                    $('#fullName').val('').prop('readonly', false);
+                    $('#firstName').val('').prop('readonly', false);
+                    $('#lastName').val('').prop('readonly', false);
+                    $('#fullName').val('');
                     $('#age').val('').prop('readonly', false);
-                    $('#birthday').val('').removeData('manually-entered'); // Clear birthday and reset manual entry flag
+                    $('#birthday').val('').removeData('manually-entered');
+                    $('#phoneNumber').val('').prop('readonly', false);
                     $('#relationshipField').show();
                 } else {
                     // Restore original user details
                     if (userDetails) {
+                        const nameParts = (userDetails.fullName || '').split(' ');
+                        if (nameParts.length >= 2) {
+                            $('#lastName').val(nameParts[nameParts.length - 1]);
+                            $('#firstName').val(nameParts.slice(0, -1).join(' '));
+                        } else if (nameParts.length === 1) {
+                            $('#lastName').val(nameParts[0]);
+                        }
                         $('#fullName').val(userDetails.fullName);
                         $('#age').val(userDetails.age);
-                        $('#birthday').removeData('manually-entered'); // Reset manual entry flag
+                        $('#birthday').removeData('manually-entered');
                         calculateBirthdayFromAge(userDetails.age);
+                    }
+                    // Restore phone number
+                    const userPhoneNumber = '@Model.BookingModel.PhoneNumber';
+                    if (userPhoneNumber && userPhoneNumber !== '') {
+                        $('#phoneNumber').val(userPhoneNumber);
                     }
                     $('#relationshipField').hide();
                 }
@@ -585,10 +634,15 @@
                 
                 // Additional validation for patient details when booking for someone else
                 if ($('#bookingForOther').is(':checked')) {
-                    if (!$('#fullName').val() || $('#fullName').val().trim() === '') {
-                        $('#fullName').addClass('is-invalid');
+                    if (!$('#firstName').val() || $('#firstName').val().trim() === '') {
+                        $('#firstName').addClass('is-invalid');
                         isValid = false;
-                        console.warn('[BookAppointment] Invalid field: fullName when booking for other');
+                        console.warn('[BookAppointment] Invalid field: firstName when booking for other');
+                    }
+                    if (!$('#lastName').val() || $('#lastName').val().trim() === '') {
+                        $('#lastName').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: lastName when booking for other');
                     }
                     if (!$('#age').val() || $('#age').val().trim() === '') {
                         $('#age').addClass('is-invalid');
@@ -695,11 +749,17 @@
                             // Show success message using SweetAlert2 and redirect to appointments page
                             if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
                                 console.log('[BookAppointment] Showing SweetAlert2 success message');
+                                // Check consultation type to determine appropriate message
+                                const consultationType = $('#consultationType').val();
+                                const isGeneralConsult = consultationType === 'general consult';
+                                
                                 Swal.fire({
                                     title: 'Appointment Saved!',
-                                    text: 'Your appointment has been saved successfully! Continue to the form or cancel the appointment.',
+                                    text: isGeneralConsult 
+                                        ? 'Your appointment has been saved successfully! Continue to the assessment form or cancel the appointment.'
+                                        : 'Your appointment has been saved successfully! No additional assessment form is required.',
                                     icon: 'success',
-                                    confirmButtonText: 'Continue to Form',
+                                    confirmButtonText: isGeneralConsult ? 'Continue to Assessment' : 'View Appointments',
                                     cancelButtonText: 'Cancel Appointment',
                                     showCancelButton: true,
                                     confirmButtonColor: '#28a745',
@@ -708,17 +768,27 @@
                                     allowEscapeKey: false
                                 }).then((result) => {
                                     if (result.isConfirmed) {
-                                        // User clicked "Continue to Form" - redirect to appropriate assessment form
+                                        // User clicked "Continue to Form" - check consultation type first
                                         console.log('[BookAppointment] User chose to continue to form');
-                                        if (age >= 20) {
-                                            // Redirect to NCD Risk Assessment for users 20+
-                                            window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
-                                        } else if (age >= 10 && age <= 19) {
-                                            // Redirect to HEEADSSS Assessment for users 10-19
-                                            window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
+                                        const consultationType = $('#consultationType').val();
+                                        
+                                        // Only require assessment forms for General Consult appointments
+                                        if (consultationType === 'general consult') {
+                                            console.log('[BookAppointment] General Consult - redirecting to assessment form');
+                                            if (age >= 20) {
+                                                // Redirect to NCD Risk Assessment for users 20+
+                                                window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
+                                            } else if (age >= 10 && age <= 19) {
+                                                // Redirect to HEEADSSS Assessment for users 10-19
+                                                window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
+                                            } else {
+                                                // For users under 10, show message and redirect to appointments
+                                                alert('Appointment details saved! No assessment form is required for patients under 10 years old.');
+                                                window.location.href = '/User/Appointments';
+                                            }
                                         } else {
-                                            // For users under 10, show message and redirect to appointments
-                                            alert('Appointment details saved! No assessment form is required for patients under 10 years old.');
+                                            // For non-General Consult appointments, skip assessment and go directly to appointments
+                                            console.log('[BookAppointment] Non-General Consult - skipping assessment form');
                                             window.location.href = '/User/Appointments';
                                         }
                                     } else if (result.dismiss === Swal.DismissReason.cancel) {

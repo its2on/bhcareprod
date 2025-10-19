@@ -400,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     try { firstInvalid.focus(); } catch {}
                 }
-                alert('Please fill in all required fields');
+                showValidationError('Please fill in all required fields in Step 1');
                 return;
             }
 
@@ -445,20 +445,20 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!password.value) {
                 password.classList.add('is-invalid');
-                alert('Please enter a password');
+                showValidationError('Please enter a password');
                 return;
             }
             
             if (!confirmPassword.value) {
                 confirmPassword.classList.add('is-invalid');
-                alert('Please confirm your password');
+                showValidationError('Please confirm your password');
                 return;
             }
             
             if (password.value !== confirmPassword.value) {
                 password.classList.add('is-invalid');
                 confirmPassword.classList.add('is-invalid');
-                alert('Passwords do not match');
+                showValidationError('Passwords do not match');
                 return;
             }
             
@@ -602,6 +602,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Helper functions
+    
+    // Show validation error message
+    function showValidationError(message) {
+        // Remove any existing error alert
+        const existingAlert = document.getElementById('validationErrorAlert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+        
+        // Create new error alert
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'validationErrorAlert';
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Validation Error:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Insert at the top of the current visible section
+        const visibleSection = document.querySelector('.section:not(.d-none)');
+        if (visibleSection) {
+            visibleSection.insertBefore(alertDiv, visibleSection.firstChild);
+            
+            // Scroll to the alert
+            alertDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 150);
+                }
+            }, 5000);
+        }
+    }
     
     // Toggle password visibility
     function togglePasswordVisibility(inputElement, buttonElement) {

@@ -65,6 +65,13 @@ namespace Barangay.Models
         
         public DateTime RecordedAt { get; set; } = DateTime.Now;
         
+        [StringLength(450)]
+        public string? RecordedBy { get; set; } = string.Empty;
+        
+        [StringLength(200)]
+        [Encrypted]
+        public string? RecordedByName { get; set; }
+        
         [StringLength(1000)]
         [Encrypted]
         public string? Notes { get; set; }

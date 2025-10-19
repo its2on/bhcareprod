@@ -283,6 +283,55 @@ namespace Barangay.Pages.Account
             };
         }
 
+        // AJAX handler to check if username exists
+        public async Task<IActionResult> OnGetCheckUsernameAsync(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return new JsonResult(new { exists = false });
+            }
+            
+            var existingUser = await _userManager.FindByNameAsync(username);
+            return new JsonResult(new { exists = existingUser != null });
+        }
+        
+        // AJAX handler to check if email exists
+        public async Task<IActionResult> OnGetCheckEmailAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return new JsonResult(new { exists = false });
+            }
+            
+            try
+            {
+                // Only select Email field to improve performance
+                var userEmails = await _userManager.Users
+                    .Select(u => u.Email)
+                    .ToListAsync();
+                
+                var exists = userEmails.Any(encryptedEmail => 
+                {
+                    try
+                    {
+                        var decryptedEmail = _encryptionService.Decrypt(encryptedEmail);
+                        return decryptedEmail?.Equals(email, StringComparison.OrdinalIgnoreCase) == true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+                
+                return new JsonResult(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking email existence");
+                return new JsonResult(new { exists = false, error = true });
+            }
+        }
+
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
             try {
@@ -431,6 +480,42 @@ namespace Barangay.Pages.Account
             try
             {
                 _logger.LogInformation("Creating user account");
+                
+                // Check if username already exists
+                var existingUserByUsername = await _userManager.FindByNameAsync(Input.Username);
+                if (existingUserByUsername != null)
+                {
+                    _logger.LogWarning($"Username {Input.Username} already exists");
+                    ModelState.AddModelError(string.Empty, "This username is already taken. Please choose a different username.");
+                    return Page();
+                }
+                
+                // Check if email already exists (need to check encrypted emails)
+                // Only select Email field to improve performance
+                var userEmails = await _userManager.Users
+                    .Select(u => u.Email)
+                    .ToListAsync();
+                
+                var emailExists = userEmails.Any(encryptedEmail => 
+                {
+                    try
+                    {
+                        var decryptedEmail = _encryptionService.Decrypt(encryptedEmail);
+                        return decryptedEmail?.Equals(Input.Email, StringComparison.OrdinalIgnoreCase) == true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+                
+                if (emailExists)
+                {
+                    _logger.LogWarning($"Email {Input.Email} already exists");
+                    ModelState.AddModelError(string.Empty, "An account with this email address already exists. Please use a different email or try logging in.");
+                    return Page();
+                }
+                
                 var user = new ApplicationUser
                 {
                     UserName = Input.Username,

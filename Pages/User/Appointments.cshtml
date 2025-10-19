@@ -752,7 +752,7 @@
                 if (appointment.canComplete) {
                     buttons += `
                         <button class="action-btn btn-complete" 
-                                onclick="appointmentsManager.handleCompleteForm(${appointment.id}, ${appointment.age})"
+                                onclick="appointmentsManager.handleCompleteForm(${appointment.id}, ${appointment.age}, '${appointment.consultationType}')"
                                 title="Age: ${appointment.age} - ${appointment.age >= 20 ? 'NCD Risk Assessment' : 
                                     (appointment.age >= 10 ? 'HEEADSSS Assessment' : 'No form available')}">
                             <i class="fa-solid fa-check"></i> Complete Form
@@ -790,10 +790,25 @@
                 return texts[statusType] || 'Unknown';
             }
 
-            handleCompleteForm(appointmentId, age) {
-                console.log('Complete Form clicked:', { age: age, appointmentId: appointmentId });
+            handleCompleteForm(appointmentId, age, consultationType) {
+                console.log('Complete Form clicked:', { age: age, appointmentId: appointmentId, consultationType: consultationType });
                 
-                // Determine the correct assessment form based on age
+                // Check if this is a General Consult appointment
+                const isGeneralConsult = consultationType && consultationType.toLowerCase().includes('general consult');
+                
+                if (!isGeneralConsult) {
+                    // For non-General Consult appointments, show message that no assessment is required
+                    Swal.fire({
+                        title: 'No Assessment Required',
+                        text: `${consultationType} appointments do not require additional assessment forms.`,
+                        icon: 'info',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#17a2b8'
+                    });
+                    return;
+                }
+                
+                // Determine the correct assessment form based on age for General Consult only
                 let redirectUrl;
                 if (age >= 20) {
                     redirectUrl = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;

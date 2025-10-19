@@ -138,12 +138,19 @@ namespace Barangay.Pages.User
                     .ToList();
 
                 // Separate appointments by status for upcoming appointments
+                // Consultation types that don't require assessments
+                var noAssessmentTypes = new[] { "immunization", "prenatal & family planning", "prenatal and family planning", "dots consult", "dental" };
+                
                 DraftAppointments = UpcomingAppointments
-                    .Where(a => a.Status == AppointmentStatus.Draft)
+                    .Where(a => a.Status == AppointmentStatus.Draft && 
+                                !noAssessmentTypes.Contains(a.Type?.ToLower() ?? ""))
                     .ToList();
 
                 OngoingAppointments = UpcomingAppointments
-                    .Where(a => a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.InProgress)
+                    .Where(a => a.Status == AppointmentStatus.Pending || 
+                                a.Status == AppointmentStatus.InProgress ||
+                                (a.Status == AppointmentStatus.Draft && 
+                                 noAssessmentTypes.Contains(a.Type?.ToLower() ?? "")))
                     .ToList();
 
                 ConfirmedAppointments = UpcomingAppointments

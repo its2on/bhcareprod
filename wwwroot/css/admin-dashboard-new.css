@@ -2841,9 +2841,13 @@ body {
     width: 100%;
 }
 
-.sidebar.collapsed .sidebar-text,
-.sidebar.collapsed .collapse-btn {
+.sidebar.collapsed .sidebar-text {
     display: none;
+}
+
+/* Keep collapse button visible when sidebar is collapsed so it can be expanded */
+.sidebar.collapsed .collapse-btn {
+    display: flex;
 }
 
 .nav-item.has-submenu .submenu {

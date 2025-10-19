@@ -622,6 +622,12 @@ namespace Barangay.Pages
                 // Use the selected doctor from the booking model
                 var doctor = await _context.Users.FindAsync(bookingModel.DoctorId);
                 
+                // Determine initial status based on consultation type
+                // Consultation types that don't require assessments should be Pending, not Draft
+                var noAssessmentTypes = new[] { "immunization", "prenatal & family planning", "prenatal and family planning", "dots consult", "dental" };
+                var requiresAssessment = !noAssessmentTypes.Contains(selectedConsultationType.ToLower());
+                var initialStatus = requiresAssessment ? AppointmentStatus.Draft : AppointmentStatus.Pending;
+                
                 var newAppointment = new Models.Appointment
                 {
                     ApplicationUserId = userId, // Link to the user who booked the appointment
@@ -635,7 +641,7 @@ namespace Barangay.Pages
                     AppointmentTime = selectedApptTime,
                     Type = selectedConsultationType,
                     ReasonForVisit = bookingModel.ReasonForVisit,
-                    Status = AppointmentStatus.Draft, // Save as Draft instead of Pending
+                    Status = initialStatus, // Set to Pending for non-assessment types, Draft for others
                     DoctorId = doctor?.Id, // Assign a doctor if found
                     BookingForOther = bookingForOther,
                     Relationship = bookingForOther ? bookingModel.Relationship : null

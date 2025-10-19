@@ -133,6 +133,7 @@ namespace Barangay.Pages.Admin
                 // Build the query
                 var query = _userManager.Users
                     .Include(u => u.UserDocuments)
+                    .Include(u => u.GuardianConsents)
                     .Where(u => !excludedUserIds.Contains(u.Id));
 
                 // Apply status filter
@@ -162,6 +163,22 @@ namespace Barangay.Pages.Admin
                     {
                         user.PhoneNumber = user.PhoneNumber.DecryptForUser(_encryptionService, User);
                     }
+                    
+                    // Decrypt guardian names
+                    if (user.GuardianConsents != null)
+                    {
+                        foreach (var guardian in user.GuardianConsents)
+                        {
+                            if (!string.IsNullOrEmpty(guardian.GuardianFirstName) && _encryptionService.IsEncrypted(guardian.GuardianFirstName))
+                            {
+                                guardian.GuardianFirstName = _encryptionService.Decrypt(guardian.GuardianFirstName);
+                            }
+                            if (!string.IsNullOrEmpty(guardian.GuardianLastName) && _encryptionService.IsEncrypted(guardian.GuardianLastName))
+                            {
+                                guardian.GuardianLastName = _encryptionService.Decrypt(guardian.GuardianLastName);
+                            }
+                        }
+                    }
                 }
                     
                 // Reference date for age calculation
@@ -183,19 +200,21 @@ namespace Barangay.Pages.Admin
                         // Check if GuardianInformation table exists and has data
                         GuardianInformation = await _context.GuardianInformation
                             .Where(g => underageUserIds.Contains(g.UserId))
-                            .AsNoTracking() // Add this to prevent tracking issues
-                            .Select(g => new GuardianInformation 
-                            {
-                                GuardianId = g.GuardianId,
-                                UserId = g.UserId,
-                                GuardianFirstName = g.GuardianFirstName ?? g.FirstName ?? "Unknown", // Handle nulls
-                                GuardianLastName = g.LastName ?? "Unknown", // Handle nulls
-                                ResidencyProofPath = g.ResidencyProofPath ?? "",
-                                ConsentStatus = g.ConsentStatus ?? "Pending",
-                                ProofType = g.ProofType ?? "GuardianResidencyProof",
-                                CreatedAt = g.CreatedAt != default ? g.CreatedAt : DateTime.UtcNow
-                            })
+                            .AsNoTracking()
                             .ToListAsync();
+                            
+                        // Decrypt guardian names
+                        foreach (var guardian in GuardianInformation)
+                        {
+                            if (!string.IsNullOrEmpty(guardian.GuardianFirstName) && _encryptionService.IsEncrypted(guardian.GuardianFirstName))
+                            {
+                                guardian.GuardianFirstName = _encryptionService.Decrypt(guardian.GuardianFirstName);
+                            }
+                            if (!string.IsNullOrEmpty(guardian.GuardianLastName) && _encryptionService.IsEncrypted(guardian.GuardianLastName))
+                            {
+                                guardian.GuardianLastName = _encryptionService.Decrypt(guardian.GuardianLastName);
+                            }
+                        }
                             
                         _logger.LogInformation($"Loaded {GuardianInformation.Count} guardian information records");
                     }
@@ -398,6 +417,17 @@ namespace Barangay.Pages.Admin
                 else
                 {
                     _logger.LogInformation("No document found to update for approval");
+                }
+                
+                // Update guardian consent status if user is a minor
+                var guardianInfo = await _context.GuardianInformation
+                    .FirstOrDefaultAsync(g => g.UserId == id);
+                    
+                if (guardianInfo != null)
+                {
+                    guardianInfo.ConsentStatus = "Approved";
+                    _context.GuardianInformation.Update(guardianInfo);
+                    _logger.LogInformation($"Guardian consent approved for user {id}");
                 }
                 
                 // Assign role if needed

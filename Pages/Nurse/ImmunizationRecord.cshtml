@@ -1,0 +1,647 @@
+@page
+@model Barangay.Pages.Nurse.ImmunizationRecordModel
+@using Barangay.Helpers
+@{
+    ViewData["Title"] = "Immunization Record";
+    Layout = "_NurseLayout";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">
+            <i class="fas fa-syringe me-2"></i>Immunization Record
+        </h2>
+        <a href="/Nurse/Appointments" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Back to Appointments
+        </a>
+    </div>
+    
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert @(Model.StatusMessage.Contains("Error") ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+            @Model.StatusMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (Model.Appointment != null)
+    {
+        <!-- Appointment Information -->
+        <div class="card mb-4">
+            <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                <h5 class="mb-0" style="color: white !important;">
+                    <i class="fas fa-calendar-check me-2"></i>Appointment Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Date:</strong> @DateTimeHelper.GetFormattedDatePhilippine(Model.Appointment.AppointmentDate)</p>
+                        <p><strong>Time:</strong> @Model.Appointment.AppointmentTime.Hours.ToString("00"):@Model.Appointment.AppointmentTime.Minutes.ToString("00")</p>
+                        <p><strong>Type:</strong> @Model.Appointment.Type</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Parent/Guardian:</strong> @Model.Appointment.PatientName</p>
+                        @if (!string.IsNullOrEmpty(Model.Appointment.DependentFullName))
+                        {
+                            <p><strong>Child:</strong> @Model.Appointment.DependentFullName</p>
+                        }
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-@(Model.Appointment.Status == AppointmentStatus.Pending ? "warning" : 
+                                                   Model.Appointment.Status == AppointmentStatus.InProgress ? "primary" : "success")">
+                                @Model.Appointment.Status
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Immunization Record Form -->
+    <form method="post" id="immunizationForm">
+        <input type="hidden" asp-for="AppointmentId" />
+        
+        <!-- Child Information -->
+        <div class="card mb-4">
+            <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                <h5 class="mb-0" style="color: white !important;">
+                    <i class="fas fa-child me-2"></i>Child Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="ChildFirstName" class="form-label">Child's First Name <span class="text-danger">*</span></label>
+                            <input asp-for="ChildFirstName" class="form-control" required />
+                            <span asp-validation-for="ChildFirstName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="ChildMiddleName" class="form-label">Child's Middle Name</label>
+                            <input asp-for="ChildMiddleName" class="form-control" />
+                            <span asp-validation-for="ChildMiddleName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="ChildLastName" class="form-label">Child's Last Name <span class="text-danger">*</span></label>
+                            <input asp-for="ChildLastName" class="form-control" required />
+                            <span asp-validation-for="ChildLastName" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="DateOfBirth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                            <input asp-for="DateOfBirth" type="date" class="form-control" required />
+                            <span asp-validation-for="DateOfBirth" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="PlaceOfBirth" class="form-label">Place of Birth</label>
+                            <input asp-for="PlaceOfBirth" class="form-control" />
+                            <span asp-validation-for="PlaceOfBirth" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Current Age</label>
+                            <input type="text" class="form-control" id="currentAge" readonly style="background-color: #f8f9fa;" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label asp-for="Sex" class="form-label">Sex <span class="text-danger">*</span></label>
+                            <select asp-for="Sex" class="form-select" required>
+                                <option value="">Select Sex</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                            <span asp-validation-for="Sex" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label asp-for="BirthWeight" class="form-label">Birth Weight (kg)</label>
+                            <input asp-for="BirthWeight" type="text" class="form-control" placeholder="e.g., 3.2" />
+                            <span asp-validation-for="BirthWeight" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label asp-for="BirthHeight" class="form-label">Birth Height (cm)</label>
+                            <input asp-for="BirthHeight" type="text" class="form-control" placeholder="e.g., 50" />
+                            <span asp-validation-for="BirthHeight" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label asp-for="Address" class="form-label">Address</label>
+                            <textarea asp-for="Address" class="form-control" rows="1"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parent Information -->
+        <div class="card mb-4">
+            <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                <h5 class="mb-0" style="color: white !important;">
+                    <i class="fas fa-users me-2"></i>Parent Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Mother Information -->
+                <h6 class="text-primary mb-3">Mother's Information</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="MotherFirstName" class="form-label">Mother's First Name</label>
+                            <input asp-for="MotherFirstName" class="form-control" />
+                            <span asp-validation-for="MotherFirstName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="MotherMiddleName" class="form-label">Mother's Middle Name</label>
+                            <input asp-for="MotherMiddleName" class="form-control" />
+                            <span asp-validation-for="MotherMiddleName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="MotherLastName" class="form-label">Mother's Last Name</label>
+                            <input asp-for="MotherLastName" class="form-control" />
+                            <span asp-validation-for="MotherLastName" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Father Information -->
+                <h6 class="text-primary mb-3">Father's Information</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="FatherFirstName" class="form-label">Father's First Name</label>
+                            <input asp-for="FatherFirstName" class="form-control" />
+                            <span asp-validation-for="FatherFirstName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="FatherMiddleName" class="form-label">Father's Middle Name</label>
+                            <input asp-for="FatherMiddleName" class="form-control" />
+                            <span asp-validation-for="FatherMiddleName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="FatherLastName" class="form-label">Father's Last Name</label>
+                            <input asp-for="FatherLastName" class="form-control" />
+                            <span asp-validation-for="FatherLastName" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contact Information -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group mb-3">
+                            <label asp-for="ContactNumber" class="form-label">Contact Number</label>
+                            <input asp-for="ContactNumber" type="tel" class="form-control" />
+                            <span asp-validation-for="ContactNumber" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Center Information -->
+        <div class="card mb-4">
+            <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                <h5 class="mb-0" style="color: white !important;">
+                    <i class="fas fa-hospital me-2"></i>Health Center Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="HealthCenter" class="form-label">Health Center</label>
+                            <input asp-for="HealthCenter" class="form-control" value="Barangay Health Care Center" readonly />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="Barangay" class="form-label">Barangay</label>
+                            <select asp-for="Barangay" class="form-select" required>
+                                <option value="">Select Barangay</option>
+                                <option value="158">Barangay 158</option>
+                                <option value="159">Barangay 159</option>
+                                <option value="160">Barangay 160</option>
+                                <option value="161">Barangay 161</option>
+                            </select>
+                            <span asp-validation-for="Barangay" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label asp-for="FamilyNumber" class="form-label">Family Number</label>
+                            <input asp-for="FamilyNumber" class="form-control" readonly style="background-color: #f8f9fa;" />
+                            <small class="form-text text-muted">Auto-generated based on family last name</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vaccines Administered -->
+        <div class="card mb-4">
+            <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                <h5 class="mb-0" style="color: white !important;">
+                    <i class="fas fa-syringe me-2"></i>Vaccines Administered
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Vaccine</th>
+                                <th>Dose</th>
+                                <th>Date Given</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- BCG Vaccine -->
+                            <tr>
+                                <td><strong>BCG Vaccine</strong><br><small class="text-muted">At Birth</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="BCGVaccineDate" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="BCGVaccineRemarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Hepatitis B Vaccine -->
+                            <tr>
+                                <td rowspan="3" class="align-middle"><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At Birth</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="HepBBirthDate" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="HepBBirthRemarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="HepB1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="HepB1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="HepB2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="HepB2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Pentavalent Vaccine -->
+                            <tr>
+                                <td rowspan="3" class="align-middle"><strong>Pentavalent Vaccine</strong><br><small class="text-muted">DPT-Hep B-HIB<br>1, 2, 3 months</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="Pentavalent1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="Pentavalent1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="Pentavalent2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="Pentavalent2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="Pentavalent3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="Pentavalent3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Oral Polio Vaccine (OPV) -->
+                            <tr>
+                                <td rowspan="3" class="align-middle"><strong>Oral Polio Vaccine (OPV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="OPV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="OPV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="OPV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="OPV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="OPV3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="OPV3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Inactivated Polio Vaccine (IPV) -->
+                            <tr>
+                                <td rowspan="2" class="align-middle"><strong>Inactivated Polio Vaccine (IPV)</strong><br><small class="text-muted">3 & 9 months</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="IPV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="IPV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="IPV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="IPV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Pneumococcal Conjugate Vaccine (PCV) -->
+                            <tr>
+                                <td rowspan="3" class="align-middle"><strong>Pneumococcal Conjugate Vaccine (PCV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="PCV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="PCV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="PCV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="PCV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="PCV3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="PCV3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            
+                            <!-- Measles, Mumps, Rubella Vaccine (MMR) -->
+                            <tr>
+                                <td rowspan="2" class="align-middle"><strong>Measles, Mumps, Rubella Vaccine (MMR)</strong><br><small class="text-muted">9 months & 1 year</small></td>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="MMR1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="MMR1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">⚪</td>
+                                <td><input asp-for="MMR2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><input asp-for="MMR2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save me-1"></i>Save Immunization Record
+            </button>
+            <a href="/Nurse/Appointments" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Calculate age automatically
+        function calculateAge() {
+            const dobInput = document.getElementById('DateOfBirth');
+            const ageInput = document.getElementById('currentAge');
+            
+            if (dobInput && dobInput.value) {
+                const dob = new Date(dobInput.value);
+                const today = new Date();
+                
+                let years = today.getFullYear() - dob.getFullYear();
+                let months = today.getMonth() - dob.getMonth();
+                let days = today.getDate() - dob.getDate();
+                
+                if (days < 0) {
+                    months--;
+                    days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+                }
+                
+                if (months < 0) {
+                    years--;
+                    months += 12;
+                }
+                
+                if (ageInput) {
+                    if (years > 0) {
+                        ageInput.value = `${years} year(s), ${months} month(s)`;
+                    } else if (months > 0) {
+                        ageInput.value = `${months} month(s)`;
+                    } else {
+                        ageInput.value = `${days} day(s)`;
+                    }
+                }
+            }
+        }
+        
+        // Real-time validation for name fields
+        function validateNameField(input) {
+            const namePattern = /^[A-Za-z\s]*$/;
+            const value = input.value;
+            
+            if (!namePattern.test(value)) {
+                // Remove invalid characters
+                input.value = value.replace(/[^A-Za-z\s]/g, '');
+                
+                // Show error message
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = 'Only letters and spaces are allowed';
+                    errorSpan.style.display = 'block';
+                }
+            } else {
+                // Clear error message
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+            }
+        }
+        
+        // Real-time validation for place of birth
+        function validatePlaceOfBirth(input) {
+            const placePattern = /^[A-Za-z\s,.-]*$/;
+            const value = input.value;
+            
+            if (!placePattern.test(value)) {
+                input.value = value.replace(/[^A-Za-z\s,.-]/g, '');
+                
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = 'Only letters, spaces, commas, periods, and hyphens are allowed';
+                    errorSpan.style.display = 'block';
+                }
+            } else {
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+            }
+        }
+        
+        // Real-time validation for weight/height
+        function validateNumberField(input) {
+            const numberPattern = /^[0-9.]*$/;
+            const value = input.value;
+            
+            if (!numberPattern.test(value)) {
+                input.value = value.replace(/[^0-9.]/g, '');
+                
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = 'Only numbers and decimal points are allowed';
+                    errorSpan.style.display = 'block';
+                }
+            } else {
+                const errorSpan = input.parentElement.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+            }
+        }
+        
+        // Add event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const dobInput = document.querySelector('input[name="DateOfBirth"]');
+            if (dobInput) {
+                dobInput.addEventListener('change', calculateAge);
+                calculateAge(); // Calculate on page load if date is already set
+            }
+            
+            // Add validation event listeners to all name fields using attribute selectors
+            const nameFieldSelectors = [
+                'input[name="ChildFirstName"]', 'input[name="ChildMiddleName"]', 'input[name="ChildLastName"]',
+                'input[name="MotherFirstName"]', 'input[name="MotherMiddleName"]', 'input[name="MotherLastName"]',
+                'input[name="FatherFirstName"]', 'input[name="FatherMiddleName"]', 'input[name="FatherLastName"]'
+            ];
+            
+            nameFieldSelectors.forEach(selector => {
+                const field = document.querySelector(selector);
+                if (field) {
+                    field.addEventListener('input', function() {
+                        validateNameField(this);
+                    });
+                    field.addEventListener('paste', function(e) {
+                        setTimeout(() => validateNameField(this), 10);
+                    });
+                    field.addEventListener('keypress', function(e) {
+                        // Prevent numbers and special characters from being typed
+                        const char = String.fromCharCode(e.which);
+                        if (!/[A-Za-z\s]/.test(char)) {
+                            e.preventDefault();
+                        }
+                    });
+                }
+            });
+            
+            // Add validation to place of birth
+            const placeField = document.querySelector('input[name="PlaceOfBirth"]');
+            if (placeField) {
+                placeField.addEventListener('input', function() {
+                    validatePlaceOfBirth(this);
+                });
+                placeField.addEventListener('paste', function(e) {
+                    setTimeout(() => validatePlaceOfBirth(this), 10);
+                });
+                placeField.addEventListener('keypress', function(e) {
+                    const char = String.fromCharCode(e.which);
+                    if (!/[A-Za-z\s,.-]/.test(char)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            
+            // Add validation to weight/height fields
+            const weightField = document.querySelector('input[name="BirthWeight"]');
+            const heightField = document.querySelector('input[name="BirthHeight"]');
+            
+            [weightField, heightField].forEach(field => {
+                if (field) {
+                    field.addEventListener('input', function() {
+                        validateNumberField(this);
+                    });
+                    field.addEventListener('paste', function(e) {
+                        setTimeout(() => validateNumberField(this), 10);
+                    });
+                    field.addEventListener('keypress', function(e) {
+                        const char = String.fromCharCode(e.which);
+                        if (!/[0-9.]/.test(char)) {
+                            e.preventDefault();
+                        }
+                    });
+                }
+            });
+            
+            // Add form submission validation
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    let hasErrors = false;
+                    
+                    // Validate all name fields on submit
+                    nameFieldSelectors.forEach(selector => {
+                        const field = document.querySelector(selector);
+                        if (field && field.value) {
+                            const namePattern = /^[A-Za-z\s]*$/;
+                            if (!namePattern.test(field.value)) {
+                                hasErrors = true;
+                                const errorSpan = field.parentElement.querySelector('.text-danger');
+                                if (errorSpan) {
+                                    errorSpan.textContent = 'Only letters and spaces are allowed';
+                                    errorSpan.style.display = 'block';
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Validate place of birth on submit
+                    if (placeField && placeField.value) {
+                        const placePattern = /^[A-Za-z\s,.-]*$/;
+                        if (!placePattern.test(placeField.value)) {
+                            hasErrors = true;
+                            const errorSpan = placeField.parentElement.querySelector('.text-danger');
+                            if (errorSpan) {
+                                errorSpan.textContent = 'Only letters, spaces, commas, periods, and hyphens are allowed';
+                                errorSpan.style.display = 'block';
+                            }
+                        }
+                    }
+                    
+                    // Validate weight/height fields on submit
+                    [weightField, heightField].forEach(field => {
+                        if (field && field.value) {
+                            const numberPattern = /^[0-9.]*$/;
+                            if (!numberPattern.test(field.value)) {
+                                hasErrors = true;
+                                const errorSpan = field.parentElement.querySelector('.text-danger');
+                                if (errorSpan) {
+                                    errorSpan.textContent = 'Only numbers and decimal points are allowed';
+                                    errorSpan.style.display = 'block';
+                                }
+                            }
+                        }
+                    });
+                    
+                    if (hasErrors) {
+                        e.preventDefault();
+                        alert('Please fix the validation errors before submitting the form.');
+                        return false;
+                    }
+                });
+            }
+        });
+    </script>
+}

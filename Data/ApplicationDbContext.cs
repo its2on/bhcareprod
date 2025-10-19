@@ -344,8 +344,8 @@ namespace Barangay.Data
                 
             builder.Entity<GuardianInformation>()
                 .HasOne(g => g.User)
-                .WithOne()
-                .HasForeignKey<GuardianInformation>(g => g.UserId)
+                .WithMany(u => u.GuardianConsents)
+                .HasForeignKey(g => g.UserId)
                 .OnDelete(DeleteBehavior.NoAction)
                 .IsRequired();
 

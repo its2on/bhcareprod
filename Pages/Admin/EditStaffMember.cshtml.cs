@@ -37,8 +37,32 @@ namespace Barangay.Pages.Admin
         public class StaffInputModel
         {
             [Required]
-            [Display(Name = "Full Name")]
-            public string Name { get; set; }
+            [Display(Name = "First Name")]
+            public string FirstName { get; set; }
+
+            [Display(Name = "Middle Name")]
+            public string? MiddleName { get; set; }
+
+            [Required]
+            [Display(Name = "Last Name")]
+            public string LastName { get; set; }
+
+            [Required]
+            [Display(Name = "Gender")]
+            public string Gender { get; set; }
+
+            [Required]
+            [Display(Name = "Date of Birth")]
+            [DataType(DataType.Date)]
+            public DateTime DateOfBirth { get; set; }
+
+            [Required]
+            [Display(Name = "Address")]
+            public string Address { get; set; }
+
+            [Required]
+            [Display(Name = "Civil Status")]
+            public string CivilStatus { get; set; }
 
             [Required]
             [EmailAddress]
@@ -129,7 +153,13 @@ namespace Barangay.Pages.Admin
             // Populate the input model
             Input = new StaffInputModel
             {
-                Name = staffMember.Name,
+                FirstName = staffMember.FirstName,
+                MiddleName = staffMember.MiddleName,
+                LastName = staffMember.LastName,
+                Gender = staffMember.Gender,
+                DateOfBirth = staffMember.DateOfBirth,
+                Address = staffMember.Address,
+                CivilStatus = staffMember.CivilStatus,
                 Email = staffMember.Email,
                 Position = staffMember.Position ?? "Staff",
                 Specialization = staffMember.Specialization ?? "",
@@ -187,7 +217,13 @@ namespace Barangay.Pages.Admin
             }
 
             // Update staff member properties
-            staffMember.Name = Input.Name;
+            staffMember.FirstName = Input.FirstName;
+            staffMember.MiddleName = Input.MiddleName;
+            staffMember.LastName = Input.LastName;
+            staffMember.Gender = Input.Gender;
+            staffMember.DateOfBirth = Input.DateOfBirth;
+            staffMember.Address = Input.Address;
+            staffMember.CivilStatus = Input.CivilStatus;
             staffMember.Email = Input.Email;
             staffMember.Position = Input.Position;
             staffMember.Specialization = Input.Specialization;

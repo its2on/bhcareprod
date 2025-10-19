@@ -331,7 +331,7 @@ function setupBatchOperations() {
         batchOperation = 'approve';
         document.getElementById('batchConfirmationText').textContent = 
             `Are you sure you want to approve ${selectedUserIds.length} users?`;
-        document.getElementById('confirmBatchBtn').className = 'btn btn-success';
+        document.getElementById('confirmBatchBtn').className = 'btn btn-approve-minimal';
         batchConfirmationModal.show();
     });
     
@@ -342,7 +342,7 @@ function setupBatchOperations() {
         batchOperation = 'reject';
         document.getElementById('batchConfirmationText').textContent = 
             `Are you sure you want to reject ${selectedUserIds.length} users?`;
-        document.getElementById('confirmBatchBtn').className = 'btn btn-danger';
+        document.getElementById('confirmBatchBtn').className = 'btn btn-reject-minimal';
         batchConfirmationModal.show();
     });
     
@@ -875,15 +875,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Function to show custom confirmation modal
+    function showConfirmModal(title, message, onConfirm, type = 'approve') {
+        const modal = document.getElementById('confirmationModal');
+        const modalHeader = document.getElementById('confirmModalHeader');
+        const modalTitle = document.getElementById('confirmModalTitle');
+        const modalMessage = document.getElementById('confirmModalMessage');
+        const okBtn = document.getElementById('confirmModalOkBtn');
+        
+        // Set modal content
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        
+        // Style based on action type
+        if (type === 'approve') {
+            modalHeader.className = 'modal-header text-white';
+            modalHeader.style.backgroundColor = '#FF8C42';
+            okBtn.className = 'btn';
+            okBtn.style.backgroundColor = '#FF8C42';
+            okBtn.style.color = '#fff';
+            okBtn.style.border = 'none';
+            okBtn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Approve';
+        } else if (type === 'reject') {
+            modalHeader.className = 'modal-header text-white';
+            modalHeader.style.backgroundColor = '#6c757d';
+            okBtn.className = 'btn btn-reject-minimal';
+            okBtn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i> Reject';
+        }
+        
+        // Remove any existing event listeners
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        
+        // Add new event listener
+        newOkBtn.addEventListener('click', function() {
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+            onConfirm();
+        });
+        
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
     // Function to initialize action buttons
     function initializeActionButtons() {
         // Approve buttons
         document.querySelectorAll('.btn-action.approve').forEach(button => {
             button.addEventListener('click', async function() {
                 const userId = this.getAttribute('data-id');
-                if (confirm('Are you sure you want to approve this user?')) {
-                    await updateUserStatus(userId, 'Verified');
-                }
+                showConfirmModal(
+                    'Confirm Approval',
+                    'Are you sure you want to approve this user?',
+                    async () => {
+                        await updateUserStatus(userId, 'Verified');
+                    },
+                    'approve'
+                );
             });
         });
 
@@ -891,9 +940,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.btn-action.reject').forEach(button => {
             button.addEventListener('click', async function() {
                 const userId = this.getAttribute('data-id');
-                if (confirm('Are you sure you want to reject this user?')) {
-                    await updateUserStatus(userId, 'Rejected');
-                }
+                showConfirmModal(
+                    'Confirm Rejection',
+                    'Are you sure you want to reject this user?',
+                    async () => {
+                        await updateUserStatus(userId, 'Rejected');
+                    },
+                    'reject'
+                );
             });
         });
     }

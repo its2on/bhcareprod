@@ -12,9 +12,45 @@ namespace Barangay.Models
         [Required(AllowEmptyStrings = true)]
         public string UserId { get; set; } = string.Empty;
         
+        // Separate name fields
         [Required]
+        [Display(Name = "First Name")]
+        public string FirstName { get; set; } = string.Empty;
+        
+        [Display(Name = "Middle Name")]
+        public string? MiddleName { get; set; }
+        
+        [Required]
+        [Display(Name = "Last Name")]
+        public string LastName { get; set; } = string.Empty;
+        
+        // Computed full name for backward compatibility
         [Display(Name = "Full Name")]
-        public string Name { get; set; } = string.Empty;
+        [NotMapped]
+        public string Name 
+        { 
+            get => string.IsNullOrEmpty(MiddleName) 
+                ? $"{FirstName} {LastName}" 
+                : $"{FirstName} {MiddleName} {LastName}";
+            set { } // Setter for model binding compatibility
+        }
+        
+        [Required]
+        [Display(Name = "Gender")]
+        public string Gender { get; set; } = string.Empty;
+        
+        [Required]
+        [Display(Name = "Date of Birth")]
+        [DataType(DataType.Date)]
+        public DateTime DateOfBirth { get; set; }
+        
+        [Required]
+        [Display(Name = "Address")]
+        public string Address { get; set; } = string.Empty;
+        
+        [Required]
+        [Display(Name = "Civil Status")]
+        public string CivilStatus { get; set; } = string.Empty;
         
         [Required]
         [EmailAddress]

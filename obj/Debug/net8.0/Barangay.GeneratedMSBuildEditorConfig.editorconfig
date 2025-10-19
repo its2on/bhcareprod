@@ -180,6 +180,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cU3RhZmZQZXJtaXNzaW9ucy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/UpdateAppointmentStatus.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cVXBkYXRlQXBwb2ludG1lbnRTdGF0dXMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/UpdatePatientName.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cVXBkYXRlUGF0aWVudE5hbWUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -394,6 +398,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Nurse/Immunization.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTnVyc2VcSW1tdW5pemF0aW9uLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Nurse/ImmunizationRecord.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTnVyc2VcSW1tdW5pemF0aW9uUmVjb3JkLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Nurse/ImmunizationRecords.cshtml]

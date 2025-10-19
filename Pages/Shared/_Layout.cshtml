@@ -28,7 +28,7 @@
     
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body class="@(_isUserArea ? "user-theme" : null) enhanced-theme">
+<body class="@(_isUserArea ? "user-theme" : null) enhanced-theme d-flex flex-column min-vh-100">
     <header>
         <nav class="navbar navbar-expand-md navbar-dark bg-primary">
             <div class="container-fluid">
@@ -75,7 +75,7 @@
         </nav>
     </header>
 
-    <main role="main" class="pb-3">
+    <main role="main" class="pb-3 flex-grow-1">
         @RenderBody()
     </main>
 

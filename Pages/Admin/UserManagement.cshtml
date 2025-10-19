@@ -13,15 +13,93 @@
 <script src="~/js/file-preview.js" defer></script>
 <script src="~/js/user-management.js" defer></script>
 
+<style>
+    /* Badge color improvements for better visibility */
+    .badge.status-verified {
+        background-color: #28a745 !important;
+        color: #fff !important;
+    }
+    
+    .badge.status-warning {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+        font-weight: 600;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+        color: #fff !important;
+    }
+    
+    .badge.bg-danger {
+        background-color: #dc3545 !important;
+        color: #fff !important;
+    }
+    
+    .guardian-badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+    
+    .status-badge {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75em;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Minimal approve and reject buttons */
+    .btn-approve-minimal {
+        background-color: #FF8C42;
+        color: white;
+        border: none;
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-approve-minimal:hover {
+        background-color: #e67a30;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(255, 140, 66, 0.3);
+    }
+    
+    .btn-reject-minimal {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-reject-minimal:hover {
+        background-color: #5a6268;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+    }
+    
+    /* Action buttons container - display buttons inline */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .action-buttons .btn {
+        white-space: nowrap;
+    }
+</style>
+
 @Html.AntiForgeryToken()
 
 <div class="container-fluid px-4">
     <!-- Header section with Back button -->
     <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
         <h1 class="m-0">User Management</h1>
-        <a href="/Admin/AdminDashboard" class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left me-2"></i>Back to Dashboard
-        </a>
     </div>
     
     <div class="card mb-4 dashboard-card">
@@ -105,10 +183,8 @@
                                                 <span class="badge pill status-verified guardian-badge">
                                                     <i class="fa-solid fa-circle-check me-1"></i> Approved
                                                 </span>
-                                                <div class="small mt-1">
-                                                    <a href="/Admin/UserDetails?id=@user.Id" class="text-primary">
-                                                        <i class="fa-solid fa-user-shield me-1"></i>@guardian.GuardianFirstName @guardian.GuardianLastName
-                                                    </a>
+                                                <div class="small mt-1 text-muted">
+                                                    <i class="fa-solid fa-user-shield me-1"></i>@guardian.GuardianFirstName @guardian.GuardianLastName
                                                 </div>
                                             }
                                             else if (guardian.ConsentStatus?.ToLower() == "rejected")
@@ -116,10 +192,8 @@
                                                 <span class="badge pill status-warning guardian-badge">
                                                     <i class="fa-solid fa-circle-xmark me-1"></i> Rejected
                                                 </span>
-                                                <div class="small mt-1">
-                                                    <a href="/Admin/UserDetails?id=@user.Id" class="text-primary">
-                                                        <i class="fa-solid fa-user-shield me-1"></i>@guardian.GuardianFirstName @guardian.GuardianLastName
-                                                    </a>
+                                                <div class="small mt-1 text-muted">
+                                                    <i class="fa-solid fa-user-shield me-1"></i>@guardian.GuardianFirstName @guardian.GuardianLastName
                                                 </div>
                                             }
                                             else
@@ -127,10 +201,8 @@
                                                 <span class="badge pill status-warning guardian-badge">
                                                     <i class="fa-solid fa-clock me-1"></i> Pending
                                                 </span>
-                                                <div class="small mt-1">
-                                                    <a href="/Admin/UserDetails?id=@user.Id" class="text-primary">
-                                                        <i class="fa-solid fa-user-shield me-1"></i>View Details
-                                                    </a>
+                                                <div class="small mt-1 text-muted">
+                                                    <i class="fa-solid fa-user-shield me-1"></i>@guardian.GuardianFirstName @guardian.GuardianLastName
                                                 </div>
                                             }
                                         }
@@ -159,10 +231,10 @@
                                         </button>
                                         @if (user.Status.ToLower() == "pending")
                                         {
-                                            <button type="button" class="btn action action-secondary btn-sm btn-action approve" data-id="@user.Id" aria-label="Approve user">
+                                            <button type="button" class="btn btn-sm btn-action approve btn-approve-minimal" data-id="@user.Id" aria-label="Approve user">
                                                 <i class="fa-solid fa-check"></i> Approve
                                             </button>
-                                            <button type="button" class="btn action action-secondary btn-sm btn-action reject" data-id="@user.Id" aria-label="Reject user">
+                                            <button type="button" class="btn btn-sm btn-action reject btn-reject-minimal" data-id="@user.Id" aria-label="Reject user">
                                                 <i class="fa-solid fa-xmark"></i> Reject
                                             </button>
                                         }
@@ -220,6 +292,32 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" id="confirmModalHeader">
+                <h5 class="modal-title" id="confirmationModalLabel">
+                    <i class="fa-solid fa-circle-question me-2"></i>
+                    <span id="confirmModalTitle">Confirm Action</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmModalOkBtn">
+                    <i class="fa-solid fa-check me-1"></i> OK
+                </button>
             </div>
         </div>
     </div>

@@ -232,7 +232,7 @@
                     {
                         <div class="d-flex align-items-center mb-3">
                             <div>
-                                <h5 class="mb-0">@Model.SelectedPatient.FullName</h5>
+                                <h5 class="mb-0">@(Model.SelectedPatientAppointmentName ?? Model.SelectedPatient.FullName)</h5>
                                 <p class="text-muted mb-0">ID: @Model.SelectedPatient.UserId</p>
                             </div>
                             <div class="ms-auto">
@@ -348,6 +348,7 @@
                     <tr>
                         <th>Patient Name</th>
                         <th>Date & Time</th>
+                        <th>Recorded By</th>
                         <th>Blood Pressure</th>
                         <th>Heart Rate</th>
                         <th>Temperature</th>
@@ -364,6 +365,7 @@
                             <tr>
                                 <td>@record.PatientName</td>
                                 <td>@DateTimeHelper.GetFormattedDateTimePhilippine(record.RecordedAt)</td>
+                                <td>@(string.IsNullOrEmpty(record.RecordedByName) ? "Unknown" : record.RecordedByName)</td>
                                 <td>@record.BloodPressure</td>
                                 <td>@(!string.IsNullOrEmpty(record.HeartRate) ? $"{record.HeartRate} bpm" : "N/A")</td>
                                 <td>@(!string.IsNullOrEmpty(record.Temperature) ? $"{record.Temperature} °C" : "N/A")</td>
@@ -374,6 +376,7 @@
                                     {
                                         patientName = record.PatientName,
                                         recordedAt = DateTimeHelper.GetFormattedDateTimePhilippine(record.RecordedAt),
+                                        recordedBy = string.IsNullOrEmpty(record.RecordedByName) ? "Unknown" : record.RecordedByName,
                                         bloodPressure = record.BloodPressure,
                                         heartRate = record.HeartRate,
                                         temperature = record.Temperature,
@@ -416,6 +419,10 @@
                 <div class="row mb-3">
                     <div class="col-4 fw-bold">Date & Time:</div>
                     <div class="col-8" id="modalDateTime"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Recorded By:</div>
+                    <div class="col-8" id="modalRecordedBy"></div>
                 </div>
                 <div class="row mb-3">
                     <div class="col-4 fw-bold">Blood Pressure:</div>
@@ -504,11 +511,14 @@
     </div>
 </div>
 
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     
+    
     <script>
+
         // Form validation function - moved to global scope
         function validateForm() {
             var isValid = true;
@@ -598,6 +608,9 @@
             // Enable form submission only when a patient is selected
             $('#patientSelect').on('change', function() {
                 if ($(this).val()) {
+                    // Update patient information panel dynamically
+                    updatePatientInfoPanel($(this).val());
+                    
                     // Only redirect if not already viewing this patient's data
                     var currentPatientId = '@Model.SelectedPatientId';
                     if ($(this).val() !== currentPatientId) {
@@ -608,6 +621,8 @@
                     checkFormValidity();
                 } else {
                     $('#saveVitalSigns').prop('disabled', true);
+                    // Clear patient information panel
+                    clearPatientInfoPanel();
                 }
             });
             
@@ -779,11 +794,8 @@
                     hour12: true
                 });
                 
-                const patientSelect = document.getElementById('patientSelect');
-                const patientName = patientSelect.options[patientSelect.selectedIndex].text;
-                
                 row.innerHTML = `
-                    <td>${patientName}</td>
+                    <td>${record.patientName}</td>
                     <td>${formattedDateTime}</td>
                     <td>${record.bloodPressure || 'N/A'}</td>
                     <td>${record.heartRate ? record.heartRate + ' bpm' : 'N/A'}</td>
@@ -792,7 +804,7 @@
                     <td>${record.height ? record.height + ' cm' : 'N/A'}</td>
                     <td>
                         <button type="button" class="btn btn-sm btn-info" onclick='showVitalSignDetails(${JSON.stringify({
-                            patientName: patientName,
+                            patientName: record.patientName,
                             recordedAt: formattedDateTime,
                             bloodPressure: record.bloodPressure,
                             heartRate: record.heartRate,
@@ -813,6 +825,7 @@
         function showVitalSignDetails(vitalSign) {
             document.getElementById('modalPatientName').textContent = vitalSign.patientName;
             document.getElementById('modalDateTime').textContent = vitalSign.recordedAt;
+            document.getElementById('modalRecordedBy').textContent = vitalSign.recordedBy || 'Unknown';
             document.getElementById('modalBloodPressure').textContent = vitalSign.bloodPressure || 'N/A';
             document.getElementById('modalHeartRate').textContent = vitalSign.heartRate ? vitalSign.heartRate + ' bpm' : 'N/A';
             document.getElementById('modalTemperature').textContent = vitalSign.temperature ? vitalSign.temperature + ' °C' : 'N/A';
@@ -952,6 +965,82 @@
                 });
         });
 
+        // Function to update patient information panel dynamically
+        function updatePatientInfoPanel(patientId) {
+            if (!patientId) {
+                clearPatientInfoPanel();
+                return;
+            }
+            
+            fetch(`/api/NurseApi/patient/${patientId}/vitals-info`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch patient information');
+                    }
+                    return response.json();
+                })
+                .then(patientInfo => {
+                    // Update patient name (use appointment name)
+                    $('.card-body h5').text(patientInfo.appointmentPatientName);
+                    
+                    // Update patient ID
+                    $('.card-body p.text-muted').text(`ID: ${patientInfo.patientId}`);
+                    
+                    // Update age and gender badges
+                    $('.badge.bg-primary').text(`${patientInfo.age} years`);
+                    $('.badge.bg-secondary').text(patientInfo.gender);
+                    
+                    // Update patient details
+                    $('dt:contains("Date of Birth:")').next('dd').text(patientInfo.dateOfBirth || '-');
+                    $('dt:contains("Contact:")').next('dd').text(patientInfo.contactNumber || '-');
+                    $('dt:contains("Address:")').next('dd').text(patientInfo.address || '-');
+                    $('dt:contains("Barangay:")').next('dd').text(patientInfo.barangay || '-');
+                    
+                    // Update blood type if exists
+                    if (patientInfo.bloodType) {
+                        if ($('dt:contains("Blood Type:")').length === 0) {
+                            $('.card-body dl').append(`
+                                <dt class="col-sm-4">Blood Type:</dt>
+                                <dd class="col-sm-8">${patientInfo.bloodType}</dd>
+                            `);
+                        } else {
+                            $('dt:contains("Blood Type:")').next('dd').text(patientInfo.bloodType);
+                        }
+                    }
+                    
+                    // Update allergies if exists
+                    if (patientInfo.allergies) {
+                        if ($('dt:contains("Allergies:")').length === 0) {
+                            $('.card-body dl').append(`
+                                <dt class="col-sm-4">Allergies:</dt>
+                                <dd class="col-sm-8">${patientInfo.allergies}</dd>
+                            `);
+                        } else {
+                            $('dt:contains("Allergies:")').next('dd').text(patientInfo.allergies);
+                        }
+                    }
+                    
+                    // Update assessment form info
+                    $('.assessment-section h6').text(patientInfo.assessmentFormType);
+                    const statusBadge = patientInfo.isAssessmentCompleted ? 
+                        '<span class="badge bg-success">Completed</span>' : 
+                        '<span class="badge bg-warning">Pending</span>';
+                    $('.assessment-section .badge').replaceWith(statusBadge);
+                    
+                    // Show the patient information panel
+                    $('.card-body').show();
+                })
+                .catch(error => {
+                    console.error('Error fetching patient information:', error);
+                    clearPatientInfoPanel();
+                });
+        }
+        
+        // Function to clear patient information panel
+        function clearPatientInfoPanel() {
+            $('.card-body').hide();
+        }
+
         // Allow pressing Enter in the search input to trigger search
         document.getElementById('patientSearchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -1028,10 +1117,37 @@
                 // Reset form
                 document.getElementById('vitalSignsForm').reset();
                 
+                // Clear patient selection specifically
+                const patientSelect = document.getElementById('patientSelect');
+                if (patientSelect) {
+                    patientSelect.value = '';
+                    patientSelect.dispatchEvent(new Event('change'));
+                    
+                    // Trigger Select2 update if it's being used
+                    if (patientSelect.hasAttribute('data-select2-id')) {
+                        $(patientSelect).trigger('change');
+                    }
+                    
+                    // Also clear any Select2 placeholder text
+                    $(patientSelect).val(null).trigger('change');
+                }
+                
                 // Refresh vital signs table
                 refreshTable();
                 
-                // Reset button state
+                // Clear patient information panel
+                const patientInfoPanel = document.querySelector('.card-body');
+                if (patientInfoPanel) {
+                    // Hide patient-specific information
+                    const patientDetails = patientInfoPanel.querySelectorAll('.card');
+                    patientDetails.forEach(card => {
+                        if (card.querySelector('.card-header')?.textContent.includes('Patient Information')) {
+                            card.style.display = 'none';
+                        }
+                    });
+                }
+                
+                // Reset button state and disable it since no patient is selected
                 saveButton.disabled = true;
                 saveButton.innerHTML = '<i class="bi bi-save"></i> Save Vital Signs';
             })

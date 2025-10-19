@@ -77,6 +77,7 @@ namespace Barangay.Pages.Nurse
         public AdolescentHealthInfo AdolescentHealthInfo { get; set; }
         public int PatientAge { get; set; }
         public bool HasNCDAssessment { get; set; }
+        public string DependentName { get; set; }
         public bool HasHEEADSSSAssessment { get; set; }
         public bool HasAdolescentHealthInfo { get; set; }
 
@@ -171,6 +172,19 @@ namespace Barangay.Pages.Nurse
                     Type = appointment.Type ?? "General",
                     Description = appointment.Description
                 };
+
+                // Step 6: Set dependent name for immunization appointments
+                if (!string.IsNullOrEmpty(appointment.DependentFullName))
+                {
+                    if (_encryptionService.IsEncrypted(appointment.DependentFullName))
+                    {
+                        DependentName = _encryptionService.DecryptForUser(appointment.DependentFullName, User);
+                    }
+                    else
+                    {
+                        DependentName = appointment.DependentFullName;
+                    }
+                }
 
                 _logger.LogInformation("Step 5 Complete: View model created");
 

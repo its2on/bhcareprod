@@ -1,0 +1,72 @@
+@page
+@model Barangay.Pages.Admin.UpdateAppointmentStatusModel
+@{
+    ViewData["Title"] = "Update Appointment Status";
+    Layout = "_AdminLayout";
+}
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0">Update Draft Appointments to Pending</h4>
+        </div>
+        <div class="card-body">
+            <p>This tool will update existing Draft appointments for consultation types that don't require assessments.</p>
+            <p><strong>Affected consultation types:</strong></p>
+            <ul>
+                <li>Immunization</li>
+                <li>Dental</li>
+                <li>DOTS Consult</li>
+                <li>Prenatal & Family Planning</li>
+            </ul>
+            
+            @if (!string.IsNullOrEmpty(Model.Message))
+            {
+                <div class="alert @(Model.Success ? "alert-success" : "alert-danger")">
+                    @Model.Message
+                </div>
+            }
+            
+            @if (Model.UpdatedAppointments != null && Model.UpdatedAppointments.Any())
+            {
+                <div class="alert alert-info">
+                    <h5>Updated Appointments (@Model.UpdatedAppointments.Count)</h5>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Patient</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>Old Status</th>
+                                <th>New Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var apt in Model.UpdatedAppointments)
+                            {
+                                <tr>
+                                    <td>@apt.Id</td>
+                                    <td>@apt.PatientName</td>
+                                    <td>@apt.Type</td>
+                                    <td>@apt.AppointmentDate.ToString("MMM dd, yyyy")</td>
+                                    <td><span class="badge bg-secondary">Draft</span></td>
+                                    <td><span class="badge bg-warning">Pending</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            
+            <form method="post">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to update these appointments?')">
+                    <i class="fas fa-sync"></i> Update Appointments
+                </button>
+                <a href="/Admin/AdminDashboard" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </form>
+        </div>
+    </div>
+</div>

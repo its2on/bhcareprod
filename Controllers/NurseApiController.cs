@@ -252,6 +252,71 @@ namespace Barangay.Controllers
             }
         }
 
+        [HttpGet("patient/{userId}/vitals-info")]
+        public async Task<IActionResult> GetPatientVitalsInfo(string userId)
+        {
+            try
+            {
+                _logger.LogInformation($"Fetching patient vitals info for userId: {userId}");
+
+                // Get patient from Patients table
+                var patient = await _context.Patients
+                    .Include(p => p.User)
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (patient == null)
+                {
+                    _logger.LogWarning($"Patient not found for userId: {userId}");
+                    return NotFound("Patient not found");
+                }
+
+                // Get appointment patient name (the name used when booking)
+                var appointmentPatientName = await _context.Appointments
+                    .Where(a => a.PatientId == userId)
+                    .OrderByDescending(a => a.AppointmentDate)
+                    .Select(a => a.PatientName)
+                    .FirstOrDefaultAsync() ?? patient.Name;
+
+                // Get user information for barangay
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                
+                // Decrypt patient data
+                patient.DecryptSensitiveData(_encryptionService, User);
+                if (user != null)
+                {
+                    user.DecryptSensitiveData(_encryptionService, User);
+                }
+
+                var patientInfo = new
+                {
+                    PatientId = userId,
+                    AppointmentPatientName = appointmentPatientName,
+                    AccountPatientName = patient.Name,
+                    Age = patient.Age,
+                    Gender = patient.Gender,
+                    DateOfBirth = patient.BirthDate.ToString("MMMM dd, yyyy"),
+                    Address = patient.Address,
+                    ContactNumber = patient.ContactNumber,
+                    Barangay = user?.Barangay ?? "-",
+                    BloodType = patient.BloodType,
+                    Allergies = patient.Allergies,
+                    // Assessment form info
+                    AssessmentFormType = patient.Age >= 20 ? "NCD Risk Assessment" : "HEEADSSS Assessment",
+                    IsAssessmentCompleted = patient.Age >= 20 ? 
+                        await _context.NCDRiskAssessments.AnyAsync(n => n.UserId == userId) :
+                        await _context.HEEADSSSAssessments.AnyAsync(h => h.UserId == userId)
+                };
+
+                _logger.LogInformation($"Returning vitals info for: {appointmentPatientName}");
+                return Ok(patientInfo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching patient vitals info");
+                return StatusCode(500, "Error fetching patient information");
+            }
+        }
+
         [HttpGet("patient/{userId}")]
         public async Task<IActionResult> GetPatientInformation(string userId)
         {

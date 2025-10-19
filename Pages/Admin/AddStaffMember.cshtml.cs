@@ -79,16 +79,8 @@ namespace Barangay.Pages.Admin
                     CreatedAt = DateTime.Now
                 };
                 
-                // Generate time slots for dropdown (30-minute intervals)
-                for (int hour = 6; hour < 22; hour++)
-                {
-                    string period = hour < 12 ? "AM" : "PM";
-                    int displayHour = hour <= 12 ? hour : hour - 12;
-                    if (displayHour == 0) displayHour = 12;
-                    
-                    TimeSlots.Add($"{displayHour}:00 {period}");
-                    TimeSlots.Add($"{displayHour}:30 {period}");
-                }
+                // Generate time slots - only 5:00 PM as requested
+                TimeSlots.Add("5:00 PM");
 
                 // Ensure essential simplified permissions exist (align with StaffPermissions page)
                 await EnsureEssentialPermissionsAsync();
@@ -164,32 +156,21 @@ namespace Barangay.Pages.Admin
 
                 CategorizedPermissions = ordered;
 
-                // Filter permissions based on selected role/position
-                var role = (StaffMember.Role ?? string.Empty).Trim();
-                var position = (StaffMember.Position ?? string.Empty).Trim();
-                
-                // Use position if available, otherwise fall back to role
-                var selectedRole = !string.IsNullOrEmpty(position) ? position : role;
+                // Filter permissions based on selected role
+                var selectedRole = (StaffMember.Role ?? string.Empty).Trim();
                 
                 if (!string.IsNullOrEmpty(selectedRole))
                 {
                     var roleToCategories = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase)
                     {
                         // Doctor positions
-                        ["Doctor"] = new HashSet<string>(new [] { "Doctor", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
                         ["Head Doctor"] = new HashSet<string>(new [] { "Doctor", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
                         
                         // Nurse positions  
-                        ["Nurse"] = new HashSet<string>(new [] { "Nurse", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
                         ["Head Nurse"] = new HashSet<string>(new [] { "Nurse", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
                         
                         // Admin positions
-                        ["Admin Staff"] = new HashSet<string>(new [] { "User Management", "Reports", "Reporting", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
-                        ["Admin"] = new HashSet<string>(new [] { "User Management", "Reports", "Reporting", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
-                        
-                        // Other positions - show minimal permissions
-                        ["Receptionist"] = new HashSet<string>(new [] { "Appointments", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase),
-                        ["IT"] = new HashSet<string>(new [] { "User Management", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase)
+                        ["Admin Staff"] = new HashSet<string>(new [] { "User Management", "Reports", "Reporting", "Dashboard Access" }, StringComparer.OrdinalIgnoreCase)
                     };
 
                     if (roleToCategories.TryGetValue(selectedRole, out var allowed))
@@ -456,13 +437,12 @@ namespace Barangay.Pages.Admin
                 }
 
                 // Normalize and enforce permission selection when a role/position is chosen
-                // If no permissions were selected, auto-grant essential permissions for the chosen role/position
+                // If no permissions were selected, auto-grant essential permissions for the chosen role
                 // Also ensure "Access Dashboard" is included
-                var role = StaffMember.Role ?? string.Empty;
-                var position = StaffMember.Position ?? string.Empty;
+                var selectedRole = StaffMember.Role ?? string.Empty;
                 
-                // Use position if available, otherwise fall back to role
-                var selectedRole = !string.IsNullOrEmpty(position) ? position : role;
+                // Set Position from Role for backward compatibility
+                StaffMember.Position = selectedRole;
                 
                 if (!string.IsNullOrWhiteSpace(selectedRole))
                 {
@@ -542,17 +522,17 @@ namespace Barangay.Pages.Admin
                         return Page();
                     }
 
-                    // Map position to appropriate role
-                    string roleToAssign = StaffMember.Role;
-                    if (StaffMember.Position == "Head Doctor" || StaffMember.Position == "Doctor")
+                    // Map role to appropriate Identity role
+                    string roleToAssign = "Admin Staff"; // Default
+                    if (StaffMember.Role == "Head Doctor")
                     {
                         roleToAssign = "Doctor";
                     }
-                    else if (StaffMember.Position == "Head Nurse" || StaffMember.Position == "Nurse")
+                    else if (StaffMember.Role == "Head Nurse")
                     {
                         roleToAssign = "Nurse";
                     }
-                    else if (StaffMember.Position == "Admin Staff" || StaffMember.Position == "Receptionist" || StaffMember.Position == "IT")
+                    else if (StaffMember.Role == "Admin Staff")
                     {
                         roleToAssign = "Admin Staff";
                     }
@@ -571,7 +551,7 @@ namespace Barangay.Pages.Admin
                     }
 
                     // Assign role to user
-                    _logger.LogInformation("Assigning role {Role} to user {Email} (mapped from position {Position})", roleToAssign, StaffMember.Email, StaffMember.Position);
+                    _logger.LogInformation("Assigning role {Role} to user {Email} (mapped from role {OriginalRole})", roleToAssign, StaffMember.Email, StaffMember.Role);
                     var roleAssignResult = await _userManager.AddToRoleAsync(user, roleToAssign);
                     if (!roleAssignResult.Succeeded)
                     {

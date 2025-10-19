@@ -11,11 +11,6 @@
             <i class="fa-solid fa-user-plus text-primary me-2"></i>
             Add Staff Member
         </h1>
-        <div>
-            <a asp-page="./AdminDashboard" class="btn btn-secondary">
-                <i class="fa-solid fa-arrow-left"></i> Back to Staff List
-            </a>
-        </div>
     </div>
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -40,15 +35,101 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Name" class="form-label">Full Name <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-                                <input asp-for="StaffMember.Name" class="form-control" placeholder="Enter full name" required
-                                       pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
-                                       title="Only letters, spaces, hyphen (-), and apostrophe ('). No numbers or symbols. No 3+ repeated letters." />
+                        <!-- Name Fields Row -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label asp-for="StaffMember.FirstName" class="form-label">First Name <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
+                                        <input asp-for="StaffMember.FirstName" class="form-control" placeholder="First name" required
+                                               pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                    </div>
+                                    <span asp-validation-for="StaffMember.FirstName" class="text-danger"></span>
+                                </div>
                             </div>
-                            <span asp-validation-for="StaffMember.Name" class="text-danger"></span>
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label asp-for="StaffMember.MiddleName" class="form-label">Middle Name</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
+                                        <input asp-for="StaffMember.MiddleName" class="form-control" placeholder="Middle name (optional)"
+                                               pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]*$"
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                    </div>
+                                    <span asp-validation-for="StaffMember.MiddleName" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group mb-3">
+                                    <label asp-for="StaffMember.LastName" class="form-label">Last Name <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
+                                        <input asp-for="StaffMember.LastName" class="form-control" placeholder="Last name" required
+                                               pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                    </div>
+                                    <span asp-validation-for="StaffMember.LastName" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gender and Civil Status Row -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="StaffMember.Gender" class="form-label">Gender <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-venus-mars"></i></span>
+                                        <select asp-for="StaffMember.Gender" class="form-select" required>
+                                            <option value="">-- Select Gender --</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Prefer not to say">Prefer not to say</option>
+                                        </select>
+                                    </div>
+                                    <span asp-validation-for="StaffMember.Gender" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="StaffMember.CivilStatus" class="form-label">Civil Status <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-heart"></i></span>
+                                        <select asp-for="StaffMember.CivilStatus" class="form-select" required>
+                                            <option value="">-- Select Civil Status --</option>
+                                            <option value="Single">Single</option>
+                                            <option value="Married">Married</option>
+                                            <option value="Widowed">Widowed</option>
+                                            <option value="Separated">Separated</option>
+                                        </select>
+                                    </div>
+                                    <span asp-validation-for="StaffMember.CivilStatus" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date of Birth and Age Row -->
+                        <!-- Date of Birth Field -->
+                        <div class="form-group mb-3">
+                            <label asp-for="StaffMember.DateOfBirth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                                <input asp-for="StaffMember.DateOfBirth" class="form-control" type="date" id="dateOfBirth" required 
+                                       max="@DateTime.Now.AddYears(-18).ToString("yyyy-MM-dd")" />
+                            </div>
+                            <span asp-validation-for="StaffMember.DateOfBirth" class="text-danger"></span>
+                        </div>
+
+                        <!-- Address Field -->
+                        <div class="form-group mb-3">
+                            <label asp-for="StaffMember.Address" class="form-label">Address <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
+                                <textarea asp-for="StaffMember.Address" class="form-control" rows="2" placeholder="Enter complete address" required></textarea>
+                            </div>
+                            <span asp-validation-for="StaffMember.Address" class="text-danger"></span>
                         </div>
 
                         <div class="form-group mb-3">
@@ -86,10 +167,10 @@
                             <label asp-for="StaffMember.Role" class="form-label">Role <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-user-tag"></i></span>
-                                <select asp-for="StaffMember.Role" class="form-select" required>
+                                <select asp-for="StaffMember.Role" class="form-select" id="StaffMember_Role" required>
                                     <option value="">-- Select Role --</option>
-                                    <option value="Doctor">Doctor</option>
-                                    <option value="Nurse">Nurse</option>
+                                    <option value="Head Doctor">Doctor</option>
+                                    <option value="Head Nurse">Nurse</option>
                                     <option value="Admin Staff">Admin Staff</option>
                                 </select>
                             </div>
@@ -98,23 +179,6 @@
 
 
 
-                        <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Position" class="form-label">Position <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fa-solid fa-briefcase"></i></span>
-                                <select asp-for="StaffMember.Position" class="form-select" id="positionSelect" required>
-                                    <option value="">-- Select Position --</option>
-                                    <option value="Admin Staff">Admin Staff</option>
-                                    <option value="Head Doctor">Head Doctor</option>
-                                    <option value="Doctor">Doctor</option>
-                                    <option value="Head Nurse">Head Nurse</option>
-                                    <option value="Nurse">Nurse</option>
-                                    <option value="Receptionist">Receptionist</option>
-                                    <option value="IT">IT</option>
-                                </select>
-                            </div>
-                            <span asp-validation-for="StaffMember.Position" class="text-danger"></span>
-                        </div>
 
                         <div class="form-group mb-3">
                             <label asp-for="StaffMember.Specialization" class="form-label">Specialization</label>
@@ -720,14 +784,8 @@
                 </div>
 
                 <div class="card-footer bg-light d-flex justify-content-end align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
-                        <i class="fa-solid fa-xmark me-1"></i> Cancel
-                    </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-floppy-disk me-1"></i> Create Staff Member
-                    </button>
-                    <button type="button" class="btn btn-success" id="grantEssentialPermissions">
-                        <i class="fa-solid fa-shield-halved me-1"></i> Grant Essential Permissions
                     </button>
                 </div>
             </div>
@@ -780,11 +838,7 @@
             const specializationGroup = document.getElementById('StaffMember_Specialization')?.closest('.form-group');
             const licenseGroup = document.getElementById('StaffMember_LicenseNumber')?.closest('.form-group');
             function updateRoleSpecificFields() {
-                const roleValue = roleSelect?.value || '';
-                const positionValue = document.getElementById('positionSelect')?.value || '';
-                
-                // Use position if available, otherwise fall back to role
-                const selectedRole = positionValue || roleValue;
+                const selectedRole = roleSelect?.value || '';
                 const val = selectedRole.toLowerCase();
                 
                 const isDoctor = val === 'doctor' || val === 'head doctor';
@@ -831,13 +885,9 @@
             startTimeSelect.addEventListener('change', updateWorkingHours);
             endTimeSelect.addEventListener('change', updateWorkingHours);
 
-            // Show/hide permissions section based on role/position
+            // Show/hide permissions section based on role
             function updatePermissionsVisibility() {
-                const roleValue = roleSelect?.value || '';
-                const positionValue = document.getElementById('positionSelect')?.value || '';
-                
-                // Use position if available, otherwise fall back to role
-                const selectedRole = positionValue || roleValue;
+                const selectedRole = roleSelect?.value || '';
                 
                 if (selectedRole) {
                     permissionsSection.style.display = 'block';
@@ -845,23 +895,16 @@
                     permissionsSection.style.display = 'none';
                 }
 
-                // Define allowed categories for each position/role
+                // Define allowed categories for each role
                 const allowedByPosition = {
                     // Doctor positions
-                    'doctor': new Set(['doctor', 'dashboard access']),
                     'head doctor': new Set(['doctor', 'dashboard access']),
                     
                     // Nurse positions
-                    'nurse': new Set(['nurse', 'dashboard access']),
                     'head nurse': new Set(['nurse', 'dashboard access']),
                     
                     // Admin positions
-                    'admin': new Set(['user management', 'reports', 'reporting', 'dashboard access']),
-                    'admin staff': new Set(['user management', 'reports', 'reporting', 'dashboard access']),
-                    
-                    // Other positions
-                    'receptionist': new Set(['appointments', 'dashboard access']),
-                    'it': new Set(['user management', 'dashboard access'])
+                    'admin staff': new Set(['user management', 'reports', 'reporting', 'dashboard access'])
                 };
                 
                 const allowed = allowedByPosition[selectedRole.toLowerCase()] || null;
@@ -890,27 +933,6 @@
                 updatePermissionCounts();
             });
             
-            // Add event listener for position select
-            const positionSelect = document.getElementById('positionSelect');
-            if (positionSelect) {
-                positionSelect.addEventListener('change', function(){
-                    // Auto-sync role based on position
-                    const positionValue = positionSelect.value;
-                    if (positionValue && roleSelect) {
-                        if (positionValue === 'Head Doctor' || positionValue === 'Doctor') {
-                            roleSelect.value = 'Doctor';
-                        } else if (positionValue === 'Head Nurse' || positionValue === 'Nurse') {
-                            roleSelect.value = 'Nurse';
-                        } else if (positionValue === 'Admin Staff' || positionValue === 'Receptionist' || positionValue === 'IT') {
-                            roleSelect.value = 'Admin Staff';
-                        }
-                    }
-                    
-                    updatePermissionsVisibility();
-                    updatePermissionCounts();
-                    updateRoleSpecificFields();
-                });
-            }
 
             // Permission counts
             function updatePermissionCounts() {
@@ -958,28 +980,16 @@
 
             // Grant essential permissions
             document.getElementById('grantEssentialPermissions').addEventListener('click', async function () {
-                const roleValue = roleSelect.value;
-                const positionValue = document.getElementById('positionSelect')?.value || '';
-                
-                // Use position if available, otherwise fall back to role
-                const selectedRole = positionValue || roleValue;
+                const selectedRole = roleSelect.value;
                 
                 if (!selectedRole) {
-                    // Inline hint instead of alert
-                    if (positionValue) {
-                        document.getElementById('positionSelect').focus();
-                        document.getElementById('positionSelect').classList.add('is-invalid');
-                    } else {
-                        roleSelect.focus();
-                        roleSelect.classList.add('is-invalid');
-                    }
+                    roleSelect.focus();
+                    roleSelect.classList.add('is-invalid');
                     return;
                 }
                 
                 // Remove invalid styling
                 roleSelect.classList.remove('is-invalid');
-                const positionSelect = document.getElementById('positionSelect');
-                if (positionSelect) positionSelect.classList.remove('is-invalid');
 
                 try {
                     const response = await fetch('?handler=GrantEssentialPermissions', {
@@ -1058,23 +1068,61 @@
             updateWorkingDays();
             updateWorkingHours();
 
-            // Name: disallow 3+ repeated letters
-            function validateNameRepeats() {
-                if (!nameInput) return;
-                const v = (nameInput.value || '').trim();
-                const repeats = /([A-Za-z])\1{2,}/;
-                if (repeats.test(v)) {
-                    nameInput.setCustomValidity('Full name cannot contain 3 or more repeated letters in a row.');
-                    nameInput.classList.add('is-invalid');
-                } else {
-                    nameInput.setCustomValidity('');
-                    nameInput.classList.remove('is-invalid');
+            // Age calculation from Date of Birth
+            const dobInput = document.getElementById('dateOfBirth');
+            const ageDisplay = document.getElementById('ageDisplay');
+            
+            function calculateAge() {
+                if (!dobInput || !dobInput.value) {
+                    if (ageDisplay) ageDisplay.value = '';
+                    return;
+                }
+                
+                const birthDate = new Date(dobInput.value);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                if (ageDisplay) {
+                    ageDisplay.value = age >= 0 ? age + ' years old' : '';
                 }
             }
-            if (nameInput) {
-                nameInput.addEventListener('input', validateNameRepeats);
-                nameInput.addEventListener('blur', validateNameRepeats);
+            
+            if (dobInput) {
+                dobInput.addEventListener('change', calculateAge);
+                dobInput.addEventListener('input', calculateAge);
+                // Calculate on page load if value exists
+                calculateAge();
             }
+
+            // Name fields: disallow 3+ repeated letters
+            const firstNameInput = document.querySelector('input[name="StaffMember.FirstName"]');
+            const middleNameInput = document.querySelector('input[name="StaffMember.MiddleName"]');
+            const lastNameInput = document.querySelector('input[name="StaffMember.LastName"]');
+            
+            function validateNameRepeats(input) {
+                if (!input) return;
+                const v = (input.value || '').trim();
+                const repeats = /([A-Za-z])\1{2,}/;
+                if (repeats.test(v)) {
+                    input.setCustomValidity('Name cannot contain 3 or more repeated letters in a row.');
+                    input.classList.add('is-invalid');
+                } else {
+                    input.setCustomValidity('');
+                    input.classList.remove('is-invalid');
+                }
+            }
+            
+            [firstNameInput, middleNameInput, lastNameInput].forEach(input => {
+                if (input) {
+                    input.addEventListener('input', () => validateNameRepeats(input));
+                    input.addEventListener('blur', () => validateNameRepeats(input));
+                }
+            });
 
             // Phone: enforce +639 prefix and numeric remainder (max 9 digits)
             function sanitizeAndValidatePhone() {

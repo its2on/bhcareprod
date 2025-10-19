@@ -123,6 +123,75 @@
                 </div>
             </div>
 
+            <!-- Immunization Section (only for immunization appointments) -->
+            @if (Model.Appointment.Type?.ToLower() == "immunization")
+            {
+                <div class="card mb-4">
+                    <div class="card-header" style="background-color: #ff8c42 !important; color: white !important;">
+                        <h5 class="mb-0" style="color: white !important;">
+                            <i class="fas fa-syringe me-2"></i>Immunization Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.DependentName))
+                        {
+                            <div class="alert alert-info">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="mb-1"><i class="fas fa-baby me-1"></i> Child Information</h6>
+                                        <p class="mb-1"><strong>Child's Name:</strong> @Model.DependentName</p>
+                                        <p class="mb-1"><strong>Parent/Guardian:</strong> @Model.Appointment.PatientName</p>
+                                        <p class="mb-0"><small class="text-muted">This appointment is for immunization services for the child.</small></p>
+                                    </div>
+                                    <div class="col-md-4 text-md-end">
+                                        <a href="/Nurse/ImmunizationRecord?appointmentId=@Model.Appointment.Id" class="btn btn-success">
+                                            <i class="fas fa-syringe me-1"></i>Complete Immunization Record
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="mb-1"><i class="fas fa-exclamation-triangle me-1"></i> Missing Child Information</h6>
+                                        <p class="mb-0">This immunization appointment does not have child information. Please verify the appointment details.</p>
+                                    </div>
+                                    <div class="col-md-4 text-md-end">
+                                        <a href="/Nurse/ImmunizationRecord?appointmentId=@Model.Appointment.Id" class="btn btn-outline-success">
+                                            <i class="fas fa-syringe me-1"></i>Create Immunization Record
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6 class="text-primary mb-2">Important Reminders:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-check text-success me-2"></i>Verify child's identity and age</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Check vaccination history</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Record all vaccines administered</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Schedule next vaccination if needed</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-warning mb-2">Safety Guidelines:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-shield-alt text-warning me-2"></i>Check for allergies or reactions</li>
+                                    <li><i class="fas fa-shield-alt text-warning me-2"></i>Verify vaccine expiration dates</li>
+                                    <li><i class="fas fa-shield-alt text-warning me-2"></i>Follow proper dosage guidelines</li>
+                                    <li><i class="fas fa-shield-alt text-warning me-2"></i>Monitor for adverse reactions</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <!-- Forms Summary Card -->
             <div class="card mb-4">
                 <div class="card-header bg-success text-white">

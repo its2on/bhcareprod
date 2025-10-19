@@ -74,8 +74,10 @@ namespace Barangay.Pages.Doctor
                 var today = SelectedDate;
                 var endOfToday = today.AddDays(1).AddTicks(-1);
 
+                // Exclude Immunization appointments - those are only for nurses
                 var appointmentsQuery = _context.Appointments
-                                                  .Where(a => a.DoctorId == user.Id)
+                                                  .Where(a => a.DoctorId == user.Id && 
+                                                         (a.Type == null || a.Type.ToLower() != "immunization"))
                                                   .Include(a => a.Patient)
                                                   .AsNoTracking();
 

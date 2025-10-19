@@ -23,7 +23,7 @@
             <small id="progressText" class="text-muted">Step 1: Personal Information</small>
         </div>
         
-        <form method="post" enctype="multipart/form-data" id="signupForm">
+        <form method="post" enctype="multipart/form-data" id="signupForm" novalidate>
 
             
             <!-- Personal Information Section -->
@@ -38,10 +38,9 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-user"></i>
                                 </span>
-                                <input asp-for="Input.Username" class="form-control" placeholder="Username (min. 3 characters)" aria-label="Username input" required />
+                                <input asp-for="Input.Username" class="form-control" placeholder="Username (min. 3 characters)" aria-label="Username input" />
                             </div>
                             <div class="invalid-feedback" id="usernameError">Username is required</div>
-                            <span asp-validation-for="Input.Username" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -51,10 +50,9 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-envelope"></i>
                                 </span>
-                                <input asp-for="Input.Email" class="form-control" placeholder="Email address" type="email" aria-label="Email input" required />
+                                <input asp-for="Input.Email" class="form-control" placeholder="Email address" type="email" aria-label="Email input" />
                             </div>
                             <div class="invalid-feedback" id="emailError">Email address is required</div>
-                            <span asp-validation-for="Input.Email" class="text-danger"></span>
                         </div>
                         <!-- Simplified Email Verification Status -->
                         <div id="emailVerificationStatus" class="mt-3 d-none">
@@ -83,24 +81,21 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.FirstName" class="form-label">First Name <span class="required">*</span></label>
-                            <input asp-for="Input.FirstName" class="form-control" placeholder="First name" aria-label="First name input" required />
+                            <input asp-for="Input.FirstName" class="form-control" placeholder="First name" aria-label="First name input" />
                             <div class="invalid-feedback" id="firstNameError">First name is required</div>
-                            <span asp-validation-for="Input.FirstName" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.MiddleName" class="form-label">Middle Name <span class="text-muted">(Optional)</span></label>
                             <input asp-for="Input.MiddleName" class="form-control" placeholder="Middle name (optional)" aria-label="Middle name input (optional)" />
-                            <span asp-validation-for="Input.MiddleName" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.LastName" class="form-label">Last Name <span class="required">*</span></label>
-                            <input asp-for="Input.LastName" class="form-control" placeholder="Last name" required aria-label="Last name input" />
+                            <input asp-for="Input.LastName" class="form-control" placeholder="Last name" aria-label="Last name input" />
                             <div class="invalid-feedback" id="lastNameError">Last name is required</div>
-                            <span asp-validation-for="Input.LastName" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -110,7 +105,6 @@
                         <div class="form-group">
                             <label asp-for="Input.Suffix" class="form-label">Suffix <span class="text-muted">(Optional)</span></label>
                             <input asp-for="Input.Suffix" class="form-control" placeholder="Suffix (optional)" aria-label="Suffix input (optional)" />
-                            <span asp-validation-for="Input.Suffix" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -120,11 +114,10 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-phone"></i>
                                 </span>
-                                <input asp-for="Input.ContactNumber" class="form-control" placeholder="e.g., 09171234567" required aria-label="Contact number input" />
+                                <input asp-for="Input.ContactNumber" class="form-control" placeholder="e.g., 09171234567" aria-label="Contact number input" />
                             </div>
                             <div class="invalid-feedback" id="contactNumberError">Contact number is required</div>
                             <small class="form-text text-muted">Valid formats: 09XXXXXXXXX or +639XXXXXXXXX</small>
-                            <span asp-validation-for="Input.ContactNumber" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -137,11 +130,10 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-map-marker-alt"></i>
                                 </span>
-                                <textarea asp-for="Input.Address" class="form-control" rows="2" placeholder="House No., Street, Barangay, City" required aria-label="Complete address input"></textarea>
+                                <textarea asp-for="Input.Address" class="form-control" rows="2" placeholder="House No., Street, Barangay, City" aria-label="Complete address input"></textarea>
                             </div>
                             <div class="invalid-feedback" id="addressError">Complete address is required</div>
                             <small class="form-text text-muted">Please provide your complete address including house number, street, barangay, and city</small>
-                            <span asp-validation-for="Input.Address" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -154,20 +146,18 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-calendar-alt"></i>
                                 </span>
-                                <input asp-for="Input.Age" class="form-control" placeholder="e.g., 25" required aria-label="Age input" maxlength="3" />
+                                <input asp-for="Input.Age" class="form-control" placeholder="e.g., 25" aria-label="Age input" maxlength="3" />
                             </div>
                             <div class="invalid-feedback" id="ageError">Age is required</div>
                             <small class="form-text text-muted">Enter your age in years</small>
-                            <span asp-validation-for="Input.Age" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.BirthDate" class="form-label">Birth Date <span class="required">*</span></label>
-                            <input asp-for="Input.BirthDate" class="form-control" type="date" required aria-label="Birth date input" id="Input_BirthDate" />
+                            <input asp-for="Input.BirthDate" class="form-control" type="date" aria-label="Birth date input" id="Input_BirthDate" />
                             <div class="invalid-feedback" id="birthDateError">Birth date is required</div>
                             <small class="form-text text-muted">For users under 18, parent/guardian consent is required</small>
-                            <span asp-validation-for="Input.BirthDate" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -176,14 +166,13 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.Barangay" class="form-label">Barangay <span class="required">*</span></label>
-                            <select asp-for="Input.Barangay" class="form-select" required aria-label="Barangay selection">
+                            <select asp-for="Input.Barangay" class="form-select" aria-label="Barangay selection">
                                 <option value="">Select barangay</option>
                                 <option value="158">158</option>
                                 <option value="159">159</option>
                                 <option value="160">160</option>
                                 <option value="161">161</option>
                             </select>
-                            <span asp-validation-for="Input.Barangay" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -195,19 +184,18 @@
                             <label asp-for="Input.Gender" class="form-label">Gender <span class="required">*</span></label>
                             <div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderMale" value="Male" required>
+                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderMale" value="Male">
                                     <label class="form-check-label" for="genderMale">Male</label>
                                 </div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderFemale" value="Female" required>
+                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderFemale" value="Female">
                                     <label class="form-check-label" for="genderFemale">Female</label>
                                 </div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderOther" value="Other" required>
+                                    <input class="form-check-input" type="radio" asp-for="Input.Gender" id="genderOther" value="Other">
                                     <label class="form-check-label" for="genderOther">Other</label>
                                 </div>
                             </div>
-                            <span asp-validation-for="Input.Gender" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -227,7 +215,6 @@
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
                             <input asp-for="Input.GuardianFirstName" class="form-control" id="guardianFirstName" data-required="true" placeholder="Enter guardian's first name" />
                         </div>
-                        <span asp-validation-for="Input.GuardianFirstName" class="text-danger"></span>
                     </div>
                     
                     <div class="form-group mb-3">
@@ -236,18 +223,14 @@
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
                             <input asp-for="Input.GuardianLastName" class="form-control" id="guardianLastName" data-required="true" placeholder="Enter guardian's last name" />
                         </div>
-                        <span asp-validation-for="Input.GuardianLastName" class="text-danger"></span>
                     </div>
 
                     <div class="form-group mb-3">
                         <label asp-for="Input.GuardianResidencyProof" class="form-label">Guardian's Residency Proof <span class="text-danger">*</span></label>
                         <input asp-for="Input.GuardianResidencyProof" class="form-control" type="file" id="guardianResidencyProof" accept=".jpg,.jpeg,.png,.pdf" data-required="true" />
-                        <span asp-validation-for="Input.GuardianResidencyProof" class="text-danger"></span>
                         <small class="form-text text-muted">Accepted formats: JPG, JPEG, PNG, PDF (Max size: 5MB)</small>
                     </div>
                 </div>
-
-                
 
                 <!-- Navigation: Step 1 -->
                 <div class="d-flex justify-content-end mt-3">
@@ -269,7 +252,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-lock"></i>
                                 </span>
-                                <input asp-for="Input.Password" class="form-control" type="password" id="password" aria-label="Password input" aria-describedby="passwordRequirements" required />
+                                <input asp-for="Input.Password" class="form-control" type="password" id="password" aria-label="Password input" aria-describedby="passwordRequirements" />
                                 <button class="btn btn-outline-secondary toggle-password" type="button" id="togglePassword" tabindex="0" aria-label="Toggle password visibility">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -310,7 +293,6 @@
                                 <span>This password appears in known data breaches. Please choose a different password.</span>
                             </div>
                             
-                            <span asp-validation-for="Input.Password" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -320,7 +302,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-lock"></i>
                                 </span>
-                                <input asp-for="Input.ConfirmPassword" class="form-control" type="password" id="confirmPassword" aria-label="Confirm password input" required />
+                                <input asp-for="Input.ConfirmPassword" class="form-control" type="password" id="confirmPassword" aria-label="Confirm password input" />
                                 <button class="btn btn-outline-secondary toggle-password" type="button" id="toggleConfirmPassword" tabindex="0" aria-label="Toggle confirm password visibility">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -337,7 +319,6 @@
                                 </div>
                             </div>
                             
-                            <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -359,7 +340,7 @@
                 
                 <div class="form-group">
                     <label asp-for="Input.ResidencyProof" class="form-label">Residency Proof <span class="required">*</span></label>
-                    <input asp-for="Input.ResidencyProof" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg" id="residencyProofFile" required aria-label="Residency proof file input" />
+                    <input asp-for="Input.ResidencyProof" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg" id="residencyProofFile" aria-label="Residency proof file input" />
                     <div class="invalid-feedback" id="fileError">Please upload your residency proof document</div>
                     <div id="fileNameDisplay" class="file-info mt-2 d-none"></div>
                     <div class="mt-2">
@@ -371,34 +352,31 @@
                             </ul>
                         </small>
                     </div>
-                    <span asp-validation-for="Input.ResidencyProof" class="text-danger"></span>
                 </div>
                 
                 <p class="mb-2 text-dark">Your document will be reviewed by an administrator for verification.</p>
                 
                 <div class="form-group">
                     <div class="form-check">
-                        <input type="checkbox" name="Input.AgreeToTerms" id="privacyTerms" class="form-check-input" aria-label="Agree to terms checkbox" required value="true" />
+                        <input type="checkbox" name="Input.AgreeToTerms" id="privacyTerms" class="form-check-input" aria-label="Agree to terms checkbox" value="true" />
                         <label class="form-check-label text-dark" for="privacyTerms">
                             I have read and agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Data Privacy Terms</a> (Republic Act 10173)
                         </label>
                         <div class="invalid-feedback" id="privacyTermsError">
                             You must agree to the Data Privacy Terms to continue
                         </div>
-                        <span asp-validation-for="Input.AgreeToTerms" class="text-danger"></span>
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <div class="form-check">
-                        <input type="checkbox" name="Input.ConfirmResidency" id="residencyConfirm" class="form-check-input" aria-label="Confirm residency checkbox" required value="true" />
+                        <input type="checkbox" name="Input.ConfirmResidency" id="residencyConfirm" class="form-check-input" aria-label="Confirm residency checkbox" value="true" />
                         <label class="form-check-label text-dark" for="residencyConfirm">
                             I confirm that I am a resident of Barangay 158, 159, 160, 161 and all information provided is correct
                         </label>
                         <div class="invalid-feedback" id="residencyConfirmError">
                             You must confirm your residency to continue
                         </div>
-                        <span asp-validation-for="Input.ConfirmResidency" class="text-danger"></span>
                     </div>
                 </div>
                 
@@ -468,9 +446,9 @@
 
                     setupStepNavigation() {
                         // Step 1 to Step 2
-                        document.getElementById('nextToSecurity')?.addEventListener('click', (e) => {
+                        document.getElementById('nextToSecurity')?.addEventListener('click', async (e) => {
                             e.preventDefault();
-                            if (this.validateStep1()) {
+                            if (await this.validateStep1()) {
                                 this.goToStep(2);
                             }
                         });
@@ -496,17 +474,21 @@
                     }
 
                     setupRealTimeValidation() {
-                        // Username validation
+                        // Username validation - only validate on blur to avoid too many AJAX calls
                         const usernameInput = document.getElementById('Input_Username');
                         if (usernameInput) {
-                            usernameInput.addEventListener('blur', () => this.validateUsername());
+                            usernameInput.addEventListener('blur', async () => {
+                                await this.validateUsername();
+                            });
                             usernameInput.addEventListener('input', () => this.clearError('username'));
                         }
 
-                        // Email validation
+                        // Email validation - only validate on blur to avoid too many AJAX calls
                         const emailInput = document.getElementById('Input_Email');
                         if (emailInput) {
-                            emailInput.addEventListener('blur', () => this.validateEmail());
+                            emailInput.addEventListener('blur', async () => {
+                                await this.validateEmail();
+                            });
                             emailInput.addEventListener('input', () => this.clearError('email'));
                         }
 
@@ -573,9 +555,12 @@
                         }
 
                         // File validation
-                        const fileInput = document.getElementById('residencyProofFile');
+                        const fileInput = document.getElementById('Input_ResidencyProof');
                         if (fileInput) {
-                            fileInput.addEventListener('change', () => this.validateFile());
+                            fileInput.addEventListener('change', () => {
+                                this.validateFile();
+                                this.updateRegisterButtonState();
+                            });
                         }
 
                         // Checkbox validation
@@ -598,17 +583,16 @@
                     setupFormSubmission() {
                         const form = document.getElementById('signupForm');
                         if (form) {
-                            form.addEventListener('submit', (e) => {
-                                if (!this.validateAllSteps()) {
-                                    e.preventDefault();
-                                    this.showValidationSummary();
-                                }
+                            form.addEventListener('submit', async (e) => {
+                                // Let the form submit naturally - server-side validation will handle any issues
+                                // Client-side validation is just for user experience
+                                console.log('Form submitted - server will validate');
                             });
                         }
                     }
 
                     // Validation Methods
-                    validateUsername() {
+                    async validateUsername() {
                         const input = document.getElementById('Input_Username');
                         const value = input?.value?.trim();
                         
@@ -627,11 +611,24 @@
                             return false;
                         }
                         
+                        // Check if username already exists via AJAX
+                        try {
+                            const response = await fetch(`/Account/SignUp?handler=CheckUsername&username=${encodeURIComponent(value)}`);
+                            const data = await response.json();
+                            
+                            if (data.exists) {
+                                this.showError('username', 'This username is already taken. Please choose a different username.');
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('Error checking username:', error);
+                        }
+                        
                         this.clearError('username');
                         return true;
                     }
 
-                    validateEmail() {
+                    async validateEmail() {
                         const input = document.getElementById('Input_Email');
                         const value = input?.value?.trim();
                         
@@ -644,6 +641,19 @@
                         if (!emailRegex.test(value)) {
                             this.showError('email', 'Please enter a valid email address');
                             return false;
+                        }
+                        
+                        // Check if email already exists via AJAX
+                        try {
+                            const response = await fetch(`/Account/SignUp?handler=CheckEmail&email=${encodeURIComponent(value)}`);
+                            const data = await response.json();
+                            
+                            if (data.exists) {
+                                this.showError('email', 'An account with this email address already exists. Please use a different email or try logging in.');
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('Error checking email:', error);
                         }
                         
                         this.clearError('email');
@@ -867,20 +877,12 @@
                         const registerButton = document.getElementById('signupButton');
                         if (!registerButton) return;
                         
-                        const fileValid = this.validateFile();
-                        const checkboxesValid = this.validateCheckboxes();
-                        
-                        if (fileValid && checkboxesValid) {
-                            registerButton.disabled = false;
-                            registerButton.classList.remove('btn-secondary');
-                            registerButton.classList.add('btn-primary');
-                            registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
-                        } else {
-                            registerButton.disabled = true;
-                            registerButton.classList.remove('btn-primary');
-                            registerButton.classList.add('btn-secondary');
-                            registerButton.innerHTML = '<i class="fas fa-lock me-2"></i> Complete Requirements First';
-                        }
+                        // Always enable the button and show "Register Account"
+                        // Server-side validation will handle any missing requirements
+                        registerButton.disabled = false;
+                        registerButton.classList.remove('btn-secondary');
+                        registerButton.classList.add('btn-primary');
+                        registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
                     }
 
                     updatePasswordStrength(password) {
@@ -954,31 +956,27 @@
                     }
 
                     validateFile() {
-                        const input = document.getElementById('residencyProofFile');
-                        const file = input?.files[0];
+                        const fileInput = document.getElementById('Input_ResidencyProof');
+                        const file = fileInput?.files?.[0];
                         
                         if (!file) {
                             this.showError('file', 'Please upload your residency proof document');
-                            this.updateRegisterButtonState();
                             return false;
                         }
                         
                         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
                         if (!allowedTypes.includes(file.type)) {
                             this.showError('file', 'Please upload a PDF, JPG, or PNG file');
-                            this.updateRegisterButtonState();
                             return false;
                         }
                         
                         const maxSize = 5 * 1024 * 1024; // 5MB
                         if (file.size > maxSize) {
                             this.showError('file', 'File size must be less than 5MB');
-                            this.updateRegisterButtonState();
                             return false;
                         }
                         
                         this.clearError('file');
-                        this.updateRegisterButtonState();
                         return true;
                     }
 
@@ -988,20 +986,20 @@
                         
                         if (!termsChecked || !residencyChecked) {
                             this.showError('checkboxes', 'You must agree to the terms and confirm your residency');
-                            this.updateRegisterButtonState();
                             return false;
                         }
                         
                         this.clearError('checkboxes');
-                        this.updateRegisterButtonState();
                         return true;
                     }
 
                     // Step Validation Methods
-                    validateStep1() {
+                    async validateStep1() {
+                        const usernameValid = await this.validateUsername();
+                        const emailValid = await this.validateEmail();
                         const isValid = 
-                            this.validateUsername() &&
-                            this.validateEmail() &&
+                            usernameValid &&
+                            emailValid &&
                             this.validateName('FirstName') &&
                             this.validateName('LastName') &&
                             this.validateContactNumber() &&
@@ -1010,10 +1008,7 @@
                             this.validateBirthDate() &&
                             this.validateGender();
                         
-                        if (!isValid) {
-                            this.showStepError('Please fix the errors in Step 1 before proceeding');
-                        }
-                        
+                        // Don't show duplicate error - signup.js already handles this
                         return isValid;
                     }
 
@@ -1027,13 +1022,7 @@
                         
                         const isValid = passwordValid && confirmPasswordValid && allRequirementsMet;
                         
-                        if (!isValid) {
-                            if (!allRequirementsMet) {
-                                this.showStepError('Password must meet ALL requirements before proceeding to the next step');
-                            } else {
-                                this.showStepError('Please fix the errors in Step 2 before proceeding');
-                            }
-                        }
+                        // Don't show duplicate error - signup.js already handles this
                         
                         return isValid;
                     }
@@ -1058,9 +1047,7 @@
                         
                         const isValid = fileValid && checkboxesValid;
                         
-                        if (!isValid) {
-                            this.showStepError('Please complete all requirements before registering your account');
-                        }
+                        // Don't show duplicate error - validation feedback is already shown inline
                         
                         // Update register button state
                         this.updateRegisterButtonState();
@@ -1068,8 +1055,9 @@
                         return isValid;
                     }
 
-                    validateAllSteps() {
-                        return this.validateStep1() && this.validateStep2() && this.validateStep3();
+                    async validateAllSteps() {
+                        const step1Valid = await this.validateStep1();
+                        return step1Valid && this.validateStep2() && this.validateStep3();
                     }
 
                     // UI Helper Methods
@@ -1133,43 +1121,40 @@
                     }
 
                     showValidationSummary() {
-                        const errorCount = Object.keys(this.validationErrors).length;
-                        if (errorCount > 0) {
-                            alert(`Please fix ${errorCount} error(s) before submitting the form.`);
-                        }
+                        // Validation errors are already shown inline - no need for summary
                     }
 
-                    goToStep(step) {
-                        // Hide all sections
-                        document.querySelectorAll('.section').forEach(section => {
-                            section.classList.add('d-none');
+                    goToStep(stepNumber) {
+                        // Hide all steps
+                        document.querySelectorAll('.step-content').forEach(step => {
+                            step.classList.remove('active');
                         });
                         
-                        // Show target section
-                        const targetSection = document.getElementById(`section${step}`);
-                        if (targetSection) {
-                            targetSection.classList.remove('d-none');
+                        // Show selected step
+                        const targetStep = document.getElementById(`step${stepNumber}`);
+                        if (targetStep) {
+                            targetStep.classList.add('active');
                         }
                         
-                        // Update progress indicators
+                        // Update step indicators
                         document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
-                            indicator.classList.remove('active');
-                            if (index < step) {
+                            if (index + 1 < stepNumber) {
                                 indicator.classList.add('completed');
+                                indicator.classList.remove('active');
+                            } else if (index + 1 === stepNumber) {
+                                indicator.classList.add('active');
+                                indicator.classList.remove('completed');
+                            } else {
+                                indicator.classList.remove('active', 'completed');
                             }
                         });
                         
-                        if (step <= 3) {
-                            document.getElementById(`step${step}Indicator`)?.classList.add('active');
-                        }
+                        this.currentStep = stepNumber;
                         
-                        // Update progress bar
-                        const progressBar = document.getElementById('registrationProgress');
-                        if (progressBar) {
-                            progressBar.style.width = `${(step - 1) * 50}%`;
+                        // Update register button state when navigating to step 3
+                        if (stepNumber === 3) {
+                            this.updateRegisterButtonState();
                         }
-                        
-                        // Update progress text
                         const progressText = document.getElementById('progressText');
                         if (progressText) {
                             const stepTexts = {
@@ -1177,10 +1162,10 @@
                                 2: 'Step 2: Account Security',
                                 3: 'Step 3: Residency Verification'
                             };
-                            progressText.textContent = stepTexts[step] || '';
+                            progressText.textContent = stepTexts[stepNumber] || '';
                         }
                         
-                        this.currentStep = step;
+                        this.currentStep = stepNumber;
                         
                         // Remove any existing step error alerts
                         const existingAlert = document.getElementById('stepErrorAlert');
@@ -1194,13 +1179,6 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     console.log('DOM Content Loaded - initializing SignUp page');
                     new SignUpValidator();
-                    
-                    // Initialize password toggle functionality with delay to ensure DOM is ready
-                    setTimeout(() => {
-                        setupPasswordToggle();
-                        initPasswordToggles();
-                        initPasswordTogglesSimple();
-                    }, 500);
                 });
                 
                 // Password toggle functionality
@@ -1701,10 +1679,32 @@
                     }
 
                     // Send verification email
-                    function sendVerificationEmail() {
+                    async function sendVerificationEmail() {
                         if (!emailInput || !emailInput.value) {
-                            alert('Please enter a valid email address');
+                            showEmailError('Please enter an email address');
                             return;
+                        }
+                        
+                        // Validate email format
+                        const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+                        if (!emailRegex.test(emailInput.value.trim())) {
+                            showEmailError('Please enter a valid email address');
+                            emailInput.focus();
+                            return;
+                        }
+                        
+                        // Check if email already exists before sending OTP
+                        try {
+                            const checkResponse = await fetch(`/Account/SignUp?handler=CheckEmail&email=${encodeURIComponent(emailInput.value)}`);
+                            const checkData = await checkResponse.json();
+                            
+                            if (checkData.exists) {
+                                showEmailError('An account with this email address already exists. Please use a different email or try logging in.');
+                                return;
+                            }
+                        } catch (error) {
+                            console.error('Error checking email:', error);
+                            // Continue with sending OTP if check fails
                         }
                         
                         fetch('/api/OTP/send', {
@@ -1739,26 +1739,26 @@
                                     alert('Verification code sent! Please enter the 6-digit code below.');
                                 }
                             } else {
-                                alert(data.message || 'Failed to send verification email');
+                                showEmailError(data.message || 'Failed to send verification email');
                             }
                         })
                         .catch(error => {
                             console.error('Error sending verification email:', error);
-                            alert('Failed to send verification email. Please try again.');
+                            showEmailError('Failed to send verification email. Please try again.');
                         });
                     }
 
                     // Verify email with OTP
                     function verifyEmail() {
                         if (!emailInput || !emailInput.value) {
-                            alert('Please enter a valid email address');
+                            showEmailError('Please enter a valid email address');
                             return;
                         }
 
                         const activeOtpInput = document.getElementById('otpModalInput') || document.getElementById('otpInput');
                         const otp = activeOtpInput ? activeOtpInput.value.trim() : '';
                         if (!/^[0-9]{6}$/.test(otp)) {
-                            alert('Please enter a valid 6-digit verification code');
+                            showOtpError('Please enter a valid 6-digit verification code');
                             if (activeOtpInput) activeOtpInput.focus();
                             return;
                         }
@@ -1803,7 +1803,7 @@
                                     bootstrap.Modal.getOrCreateInstance(modalEl).hide();
                                 }
                             } else {
-                                alert(data.message || 'Invalid verification code');
+                                showOtpError(data.message || 'Invalid verification code');
                                 if (activeOtpInput) {
                                     activeOtpInput.value = '';
                                     activeOtpInput.focus();
@@ -1812,7 +1812,7 @@
                         })
                         .catch(error => {
                             console.error('Error verifying OTP:', error);
-                            alert('Failed to verify code. Please try again.');
+                            showOtpError('Failed to verify code. Please try again.');
                         });
                     }
 
@@ -1857,6 +1857,37 @@
                     wireAutoVerify(document.getElementById('otpModalInput'));
                     wireAutoVerify(document.getElementById('otpInput'));
 
+                    // Helper function to show email error
+                    function showEmailError(message) {
+                        const errorElement = document.getElementById('emailError');
+                        if (errorElement) {
+                            errorElement.textContent = message;
+                            errorElement.style.display = 'block';
+                        }
+                        if (emailInput) {
+                            emailInput.classList.add('is-invalid');
+                            emailInput.classList.remove('is-valid');
+                        }
+                    }
+                    
+                    // Helper function to show OTP error
+                    function showOtpError(message) {
+                        const modalEl = document.getElementById('otpModal');
+                        let errorDiv = document.getElementById('otpErrorMessage');
+                        if (!errorDiv && modalEl) {
+                            errorDiv = document.createElement('div');
+                            errorDiv.id = 'otpErrorMessage';
+                            errorDiv.className = 'alert alert-danger mt-2 py-2';
+                            const modalBody = modalEl.querySelector('.modal-body');
+                            if (modalBody) modalBody.appendChild(errorDiv);
+                        }
+                        if (errorDiv) {
+                            errorDiv.textContent = message;
+                            errorDiv.style.display = 'block';
+                            setTimeout(() => { errorDiv.style.display = 'none'; }, 5000);
+                        }
+                    }
+                    
                     // Auto-send verification email when email field loses focus
                     if (emailInput) {
                         emailInput.addEventListener('blur', () => {

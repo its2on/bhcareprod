@@ -17,22 +17,106 @@
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                 <input type="hidden" asp-for="Id" />
 
+                <!-- Personal Information Section -->
+                <h5 class="text-primary mb-3"><i class="fas fa-user me-2"></i>Personal Information</h5>
+                
+                <!-- Name Fields Row -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label asp-for="Input.FirstName" class="form-label"></label>
+                            <input asp-for="Input.FirstName" class="form-control" required />
+                            <span asp-validation-for="Input.FirstName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label asp-for="Input.MiddleName" class="form-label"></label>
+                            <input asp-for="Input.MiddleName" class="form-control" />
+                            <span asp-validation-for="Input.MiddleName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label asp-for="Input.LastName" class="form-label"></label>
+                            <input asp-for="Input.LastName" class="form-control" required />
+                            <span asp-validation-for="Input.LastName" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gender and Civil Status Row -->
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label asp-for="Input.Name" class="form-label"></label>
-                            <input asp-for="Input.Name" class="form-control" />
-                            <span asp-validation-for="Input.Name" class="text-danger"></span>
+                            <label asp-for="Input.Gender" class="form-label"></label>
+                            <select asp-for="Input.Gender" class="form-select" required>
+                                <option value="">-- Select Gender --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Prefer not to say">Prefer not to say</option>
+                            </select>
+                            <span asp-validation-for="Input.Gender" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
+                            <label asp-for="Input.CivilStatus" class="form-label"></label>
+                            <select asp-for="Input.CivilStatus" class="form-select" required>
+                                <option value="">-- Select Civil Status --</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Widowed">Widowed</option>
+                                <option value="Separated">Separated</option>
+                            </select>
+                            <span asp-validation-for="Input.CivilStatus" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Date of Birth and Age Row -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label asp-for="Input.DateOfBirth" class="form-label"></label>
+                            <input asp-for="Input.DateOfBirth" class="form-control" type="date" id="dateOfBirth" required 
+                                   max="@DateTime.Now.AddYears(-18).ToString("yyyy-MM-dd")" />
+                            <span asp-validation-for="Input.DateOfBirth" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Age</label>
+                            <input type="text" class="form-control" id="ageDisplay" readonly placeholder="Auto-calculated" />
+                            <small class="text-muted">Calculated from Date of Birth</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Address Field -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label asp-for="Input.Address" class="form-label"></label>
+                            <textarea asp-for="Input.Address" class="form-control" rows="2" required></textarea>
+                            <span asp-validation-for="Input.Address" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Field -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
                             <label asp-for="Input.Email" class="form-label"></label>
-                            <input asp-for="Input.Email" class="form-control" />
+                            <input asp-for="Input.Email" class="form-control" type="email" required />
                             <span asp-validation-for="Input.Email" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
+
+                <hr class="my-4" />
+                <h5 class="text-primary mb-3"><i class="fas fa-briefcase me-2"></i>Professional Information</h5>
 
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -145,9 +229,6 @@
                 </div>
 
                 <div class="d-flex justify-content-between mt-4">
-                    <a asp-page="/Admin/AdminDashboard" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
-                    </a>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save me-2"></i> Save Changes
                     </button>
@@ -249,6 +330,36 @@
                     }
                 }
             });
+
+            // Age calculation from Date of Birth
+            function calculateAge() {
+                const dobInput = document.getElementById('dateOfBirth');
+                const ageDisplay = document.getElementById('ageDisplay');
+                
+                if (!dobInput || !dobInput.value) {
+                    if (ageDisplay) ageDisplay.value = '';
+                    return;
+                }
+                
+                const birthDate = new Date(dobInput.value);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                if (ageDisplay) {
+                    ageDisplay.value = age >= 0 ? age + ' years old' : '';
+                }
+            }
+            
+            // Attach age calculation to DOB field
+            $('#dateOfBirth').on('change input', calculateAge);
+            
+            // Calculate age on page load
+            calculateAge();
 
             // Form validation before submit
             $('form').on('submit', function(e) {

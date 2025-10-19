@@ -1496,8 +1496,9 @@ function initializeNavGroups() {
         }
     });
     
-    // Handle manual sidebar collapsing
-    if (collapseSidebarBtn) {
+    // Handle manual sidebar collapsing (only if not already handled by layout)
+    if (collapseSidebarBtn && !collapseSidebarBtn.hasAttribute('data-handler-attached')) {
+        collapseSidebarBtn.setAttribute('data-handler-attached', 'true');
         collapseSidebarBtn.addEventListener('click', function() {
             const sidebar = document.querySelector('.sidebar');
             const mainContent = document.querySelector('.main-content');
@@ -1507,9 +1508,15 @@ function initializeNavGroups() {
                 mainContent.classList.toggle('expanded');
                 
                 // Update the collapse button icon
-                this.querySelector('i').className = sidebar.classList.contains('collapsed')
-                    ? 'fas fa-chevron-right'
-                    : 'fas fa-chevron-left';
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.className = sidebar.classList.contains('collapsed')
+                        ? 'fas fa-chevron-right'
+                        : 'fas fa-chevron-left';
+                }
+                
+                // Save state to localStorage
+                localStorage.setItem('adminSidebarCollapsed', sidebar.classList.contains('collapsed').toString());
             }
         });
     }

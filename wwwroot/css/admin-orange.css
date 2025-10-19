@@ -31,23 +31,56 @@
 
 /* Sidebar styling (uses existing #sidebar-wrapper + list-group markup) */
 .admin #sidebar-wrapper {
-  background: linear-gradient(180deg, #fff7f1 0%, #ffe9db 100%);
-  border-right: 1px solid var(--border-light);
+  background: #FF8C42;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
   min-height: 100vh;
 }
 
 .admin #sidebar-wrapper .sidebar-heading {
-  color: var(--text);
+  color: #ffffff;
   font-weight: 700;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Sidebar group labels */
+.admin #sidebar-wrapper .nav-group-label,
+.admin .admin-layout .nav-group-label {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+
+/* User info section */
+.admin .admin-layout .sidebar-user-info .user-welcome {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.admin .admin-layout .sidebar-user-info .user-name {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.admin .admin-layout .sidebar-user-info .user-role {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Logo text */
+.admin .admin-layout .logo {
+  color: #ffffff !important;
+}
+
+.admin .admin-layout .logo i {
+  color: #ffffff !important;
 }
 
 /* Sidebar menu items (Bootstrap list-group) */
 .admin #sidebar-wrapper .list-group-item {
   background: transparent;
   border: 0;
-  color: var(--text);
+  color: #ffffff;
   padding: 0.65rem 1rem;
   margin: 0.25rem 0.75rem;
   border-radius: 999px;
@@ -58,21 +91,21 @@
 }
 
 .admin #sidebar-wrapper .list-group-item i {
-  color: var(--primary);
+  color: #ffffff;
   width: 1.1rem;
   text-align: center;
 }
 
 .admin #sidebar-wrapper .list-group-item:hover {
-  background: var(--bg-hover);
-  color: var(--primary);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 .admin #sidebar-wrapper .list-group-item.active,
 .admin #sidebar-wrapper .list-group-item.active:hover {
-  background: #ffffff;
-  color: var(--primary);
-  box-shadow: 0 2px 8px rgba(231, 111, 43, 0.18);
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Navbar */
@@ -149,35 +182,171 @@
 /* --- Admin Razor Pages Dashboard structure --- */
 /* Sidebar container used by Pages/Admin/AdminDashboard.cshtml */
 .admin .admin-layout .sidebar {
-  background: linear-gradient(180deg, #fff7f1 0%, #ffe9db 100%);
-  border-right: 1px solid var(--border-light);
+  background: #FF8C42 !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* Nav list links in the custom sidebar */
 .admin .admin-layout .nav-list .nav-link {
-  color: var(--text) !important;
+  color: #ffffff !important;
   border-radius: 999px;
 }
 
 .admin .admin-layout .nav-list .nav-link:hover {
-  background: var(--bg-hover);
-  color: var(--primary) !important;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff !important;
 }
 
 .admin .admin-layout .nav-list .nav-link.active,
 .admin .admin-layout .nav-list .nav-link[aria-current="page"] {
-  background: #ffffff;
-  color: var(--primary) !important;
-  box-shadow: 0 2px 8px rgba(231, 111, 43, 0.18);
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .admin .admin-layout .nav-list .nav-link i {
-  color: var(--primary);
+  color: #ffffff;
 }
 
 /* Main content background polish */
 .admin .admin-layout .main-content {
   background: var(--bg);
+}
+
+/* Logout button and sidebar footer */
+.admin .admin-layout .sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.admin .admin-layout .logout-btn,
+.admin .admin-layout .sidebar-footer button {
+  color: #ffffff !important;
+}
+
+.admin .admin-layout .logout-btn:hover,
+.admin .admin-layout .sidebar-footer button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.admin .admin-layout .logout-btn i,
+.admin .admin-layout .sidebar-footer button i {
+  color: #ffffff !important;
+}
+
+/* Collapse button */
+.admin .admin-layout .collapse-btn {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.admin .admin-layout .collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Sidebar text elements */
+.admin .admin-layout .sidebar-text {
+  color: #ffffff !important;
+}
+
+/* Sidebar collapsed state */
+.admin .admin-layout .sidebar.collapsed {
+  width: 70px;
+  transition: width 0.3s ease;
+}
+
+.admin .admin-layout .sidebar.collapsed .sidebar-text {
+  display: none;
+}
+
+.admin .admin-layout .sidebar.collapsed .user-welcome,
+.admin .admin-layout .sidebar.collapsed .user-name,
+.admin .admin-layout .sidebar.collapsed .user-role {
+  display: none;
+}
+
+.admin .admin-layout .sidebar.collapsed .user-details {
+  display: none;
+}
+
+.admin .admin-layout .sidebar.collapsed .nav-group-label {
+  font-size: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.admin .admin-layout .sidebar.collapsed .logo {
+  justify-content: center;
+}
+
+.admin .admin-layout .sidebar.collapsed .logo .sidebar-text {
+  display: none;
+}
+
+.admin .admin-layout .sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 12px;
+}
+
+.admin .admin-layout .sidebar.collapsed .nav-link i {
+  margin-right: 0;
+}
+
+.admin .admin-layout .sidebar.collapsed .logout-btn {
+  justify-content: center;
+}
+
+.admin .admin-layout .sidebar.collapsed .logout-btn .sidebar-text {
+  display: none;
+}
+
+.admin .admin-layout .sidebar.collapsed .sidebar-header {
+  justify-content: center;
+}
+
+/* Keep collapse button visible and functional */
+.admin .admin-layout .sidebar.collapsed .collapse-btn {
+  display: flex !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Main content expanded when sidebar is collapsed */
+.admin .admin-layout .main-content.expanded {
+  margin-left: 70px;
+  transition: margin-left 0.3s ease;
+}
+
+/* Expand button (visible when sidebar is collapsed) */
+.admin .admin-layout .expand-btn {
+  position: fixed;
+  left: 10px;
+  top: 20px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #FF8C42;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.admin .admin-layout .expand-btn:hover {
+  background-color: #E67E22;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+}
+
+.admin .admin-layout .expand-btn i {
+  font-size: 18px;
 }
 
 /* Cards and tables inside dashboard */

@@ -17,8 +17,107 @@
 <body class="admin">
     @Html.AntiForgeryToken()
 
-    <div class="container-fluid admin-content p-0">        
-        <main role="main">
+    <!-- Admin Layout with Persistent Sidebar -->
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="adminSidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-clinic-medical"></i>
+                    <span class="sidebar-text">Barangay Health</span>
+                </div>
+                <button id="collapse-sidebar" class="collapse-btn" aria-label="Collapse sidebar">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-user-info">
+                <div class="user-avatar">
+                    <span>@(User.Identity?.Name != null ? User.Identity.Name.Substring(0, 1).ToUpper() : "A")</span>
+                </div>
+                <div class="user-details">
+                    <span class="user-welcome">Hello,</span>
+                    <span class="user-name">@(User.Identity?.Name ?? "Admin")</span>
+                    <span class="user-role">System Administrator</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-menu">
+                <!-- Main Group -->
+                <div class="nav-group">
+                    <div class="nav-group-label">Main</div>
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a href="/Admin/AdminDashboard" class="nav-link" data-tooltip="Dashboard">
+                                <i class="fa-solid fa-table-cells-large"></i>
+                                <span class="sidebar-text">Dashboard</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Administration Group -->
+                <div class="nav-group">
+                    <div class="nav-group-label">Administration</div>
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a href="/Admin/UserManagement" class="nav-link" data-tooltip="User Management">
+                                <i class="fa-solid fa-users"></i>
+                                <span class="sidebar-text">User Management</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/Admin/Archive" class="nav-link" data-tooltip="Archive">
+                                <i class="fa-solid fa-archive"></i>
+                                <span class="sidebar-text">Archive</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/Admin/AddStaff" class="nav-link" data-tooltip="Add Staff">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span class="sidebar-text">Add Staff Member</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/Admin/StaffPermissions" class="nav-link" data-tooltip="Staff Permissions">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span class="sidebar-text">Staff Permissions</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Tools Group -->
+                <div class="nav-group">
+                    <div class="nav-group-label">System Tools</div>
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a href="/Admin/NCDFormManagement" class="nav-link" data-tooltip="NCD Form Management">
+                                <i class="fa-solid fa-file-medical-alt"></i>
+                                <span class="sidebar-text">NCD Form Management</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/Admin/HEEADSSSFormManagement" class="nav-link" data-tooltip="HEEADSSS Form Management">
+                                <i class="fa-solid fa-clipboard-list"></i>
+                                <span class="sidebar-text">HEEADSSS Form Management</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <form method="post" asp-page="/Account/Logout">
+                    <button type="submit" class="logout-btn" data-tooltip="Logout">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span class="sidebar-text">Logout</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+        <!-- Main Content Area -->
+        <main class="main-content" id="mainContent" role="main">
             @RenderBody()
         </main>
     </div>
@@ -27,7 +126,7 @@
         <div class="container py-3">
             <div class="row">
                 <div class="col-md-6 text-center text-md-start">
-                    <p>&copy; @DateTime.Now.Year - Barangay Health System | Barangay 161, Manila</p>
+                    <p>&copy; @DateTime.Now.Year - Barangay Health Care | Barangay Baesa, Metro Manila</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
                     <p>
@@ -83,6 +182,126 @@
     <script src="~/js/admin.js" asp-append-version="true"></script>
     <script src="~/js/admin-notifications.js" asp-append-version="true"></script>
     <script src="~/js/admin-dashboard.js" asp-append-version="true"></script>
+
+    <script>
+        // Persistent Sidebar State Management - Run after all scripts load
+        window.addEventListener('load', function() {
+            console.log('🔧 Initializing persistent sidebar...');
+            
+            const sidebar = document.getElementById('adminSidebar');
+            const mainContent = document.getElementById('mainContent');
+            const collapseBtn = document.getElementById('collapse-sidebar');
+            const expandBtn = document.getElementById('expand-sidebar');
+            
+            console.log('Elements found:', {
+                sidebar: !!sidebar,
+                mainContent: !!mainContent,
+                collapseBtn: !!collapseBtn,
+                expandBtn: !!expandBtn
+            });
+            
+            if (!sidebar || !mainContent) {
+                console.error('❌ Sidebar or main content not found!');
+                return;
+            }
+            
+            // Get saved state from localStorage
+            const sidebarCollapsed = localStorage.getItem('adminSidebarCollapsed') === 'true';
+            
+            // Apply saved state on page load
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+                if (collapseBtn) {
+                    const icon = collapseBtn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-chevron-right';
+                }
+                if (expandBtn) {
+                    expandBtn.style.display = 'flex';
+                }
+            }
+            
+            // Collapse button functionality
+            if (collapseBtn) {
+                console.log('✅ Setting up collapse button handler');
+                
+                // Remove any existing handlers first
+                const newCollapseBtn = collapseBtn.cloneNode(true);
+                collapseBtn.parentNode.replaceChild(newCollapseBtn, collapseBtn);
+                
+                newCollapseBtn.addEventListener('click', function(e) {
+                    console.log('🖱️ Collapse button clicked!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Before toggle - sidebar classes:', sidebar.className);
+                    const isCollapsed = sidebar.classList.toggle('collapsed');
+                    mainContent.classList.toggle('expanded');
+                    console.log('After toggle - isCollapsed:', isCollapsed);
+                    console.log('After toggle - sidebar classes:', sidebar.className);
+                    
+                    // Update button icon
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        const newIconClass = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+                        icon.className = newIconClass;
+                        console.log('Icon updated to:', newIconClass);
+                    }
+                    
+                    // Show/hide expand button
+                    if (expandBtn) {
+                        expandBtn.style.display = isCollapsed ? 'flex' : 'none';
+                        console.log('Expand button display:', expandBtn.style.display);
+                    }
+                    
+                    // Save state to localStorage
+                    localStorage.setItem('adminSidebarCollapsed', isCollapsed.toString());
+                    console.log('✅ State saved to localStorage:', isCollapsed);
+                });
+                
+                console.log('✅ Collapse button handler attached');
+            } else {
+                console.error('❌ Collapse button not found!');
+            }
+            
+            // Expand button functionality
+            if (expandBtn) {
+                expandBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('expanded');
+                    
+                    // Update collapse button icon
+                    if (collapseBtn) {
+                        const icon = collapseBtn.querySelector('i');
+                        if (icon) icon.className = 'fas fa-chevron-left';
+                    }
+                    
+                    // Hide expand button
+                    this.style.display = 'none';
+                    
+                    // Save state to localStorage
+                    localStorage.setItem('adminSidebarCollapsed', 'false');
+                    
+                    console.log('Sidebar expanded');
+                });
+            }
+            
+            // Highlight active nav link based on current URL
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPath) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        });
+    </script>
 
     <script>
         // Session timeout handling

@@ -2,7 +2,111 @@
 @model Barangay.Pages.Admin.HEEADSSSFormManagementModel
 @{
     ViewData["Title"] = "HEEADSSS Form Management";
+    Layout = "_AdminLayout";
 }
+
+<style>
+    /* Minimal Orange Theme */
+    :root {
+        --heeadsss-primary: #FF8C42;
+        --heeadsss-primary-hover: #E67E22;
+        --heeadsss-secondary: #f8f9fa;
+        --heeadsss-border: rgba(0, 0, 0, 0.1);
+        --heeadsss-text: #2c3e50;
+    }
+    
+    .card {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--heeadsss-border);
+        border-radius: 8px;
+    }
+    
+    .card-header {
+        background-color: var(--heeadsss-secondary);
+        border-bottom: 1px solid var(--heeadsss-border);
+        color: var(--heeadsss-text);
+        font-weight: 600;
+        padding: 1rem 1.25rem;
+    }
+    
+    .card-header.bg-warning {
+        background-color: var(--heeadsss-primary) !important;
+        color: white !important;
+    }
+    
+    .card-header.bg-info {
+        background-color: var(--heeadsss-secondary) !important;
+        color: var(--heeadsss-text) !important;
+        border-left: 4px solid var(--heeadsss-primary);
+    }
+    
+    .img-thumbnail {
+        border: 1px solid var(--heeadsss-border);
+        border-radius: 6px;
+    }
+    
+    .btn-warning {
+        background-color: var(--heeadsss-primary);
+        border-color: var(--heeadsss-primary);
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background-color: var(--heeadsss-primary-hover);
+        border-color: var(--heeadsss-primary-hover);
+        color: white;
+    }
+    
+    .btn-outline-secondary {
+        color: var(--heeadsss-primary);
+        border-color: var(--heeadsss-primary);
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: var(--heeadsss-primary);
+        border-color: var(--heeadsss-primary);
+        color: white;
+    }
+    
+    .alert {
+        border-radius: 6px;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--heeadsss-primary);
+        box-shadow: 0 0 0 0.2rem rgba(255, 140, 66, 0.25);
+    }
+    
+    .badge.bg-primary {
+        background-color: #6c757d !important;
+    }
+    
+    .badge.bg-success {
+        background-color: #28a745 !important;
+    }
+    
+    .text-primary {
+        color: var(--heeadsss-primary) !important;
+    }
+    
+    .text-warning {
+        color: var(--heeadsss-primary) !important;
+    }
+    
+    h1, h2, h5, h6 {
+        color: var(--heeadsss-text);
+    }
+    
+    .border-bottom {
+        border-color: var(--heeadsss-border) !important;
+    }
+    
+    .bg-light {
+        background-color: var(--heeadsss-secondary) !important;
+        border-left: 4px solid var(--heeadsss-primary);
+    }
+</style>
 
 <div class="container-fluid">
     <div class="row">

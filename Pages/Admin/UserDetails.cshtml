@@ -2,17 +2,115 @@
 @model Barangay.Pages.Admin.UserDetailsModel
 @{
     ViewData["Title"] = "User Details";
+    Layout = "_AdminLayout";
 }
 
-<link rel="stylesheet" href="~/css/admin-dashboard-bhcare-new.css" />
-<link rel="stylesheet" href="~/css/user-details-custom.css" />
+<link rel="stylesheet" href="~/css/admin-dashboard-bhcare-new.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/user-details-custom.css" asp-append-version="true" />
+
+<style>
+    /* Force new theme colors - override any cached CSS */
+    .bg-orange {
+        background-color: #FF8C42 !important;
+    }
+    
+    .text-orange {
+        color: #FF8C42 !important;
+    }
+    
+    .border-orange {
+        border-color: #FF8C42 !important;
+    }
+    
+    .btn-orange {
+        color: #fff !important;
+        background-color: #FF8C42 !important;
+        border-color: #FF8C42 !important;
+    }
+    
+    .btn-orange:hover {
+        color: #fff !important;
+        background-color: #E67E22 !important;
+        border-color: #E67E22 !important;
+    }
+    
+    /* Minimal approve and reject buttons */
+    .btn-approve-minimal {
+        background-color: #FF8C42;
+        color: white;
+        border: none;
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-approve-minimal:hover {
+        background-color: #e67a30;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(255, 140, 66, 0.3);
+    }
+    
+    .btn-reject-minimal {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-reject-minimal:hover {
+        background-color: #5a6268;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+    }
+    
+    .user-header {
+        padding: 1.25rem;
+        background-color: #FF8C42 !important;
+        color: white !important;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .user-header h3 {
+        margin-bottom: 0;
+        font-weight: 600;
+        color: white !important;
+    }
+    
+    .card-header.bg-orange {
+        background-color: #FF8C42 !important;
+        color: white !important;
+    }
+    
+    /* Badge improvements */
+    .badge.bg-warning {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+        font-weight: 600;
+    }
+    
+    .badge.bg-success {
+        background-color: #28a745 !important;
+        color: #fff !important;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+        color: #fff !important;
+    }
+    
+    .badge.bg-orange {
+        background-color: #FF8C42 !important;
+        color: #fff !important;
+    }
+</style>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">User Details</h2>
-        <a href="/Admin/UserManagement" class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i> Back to User Management
-        </a>
     </div>
 
     @if (Model.ErrorMessage != null)
@@ -86,11 +184,6 @@
                             <div class="col-md-6 section-container">
                                 <h5 class="border-bottom pb-2 text-orange">Account Information</h5>
                                 <dl class="row">
-                                    <dt class="col-sm-4 detail-label">Status</dt>
-                                    <dd class="col-sm-8 detail-value">
-                                        <span class="badge bg-@Model.GetStatusBadgeClass()">@Model.UserDetails.Status</span>
-                                    </dd>
-                                    
                                     <dt class="col-sm-4 detail-label">Registration</dt>
                                     <dd class="col-sm-8 detail-value">@Model.UserDetails.CreatedAt.ToString("MM/dd/yyyy")</dd>
                                     
@@ -180,17 +273,24 @@
                     </div>
                     <div class="col-md-4 section-container">
                         <h5 class="border-bottom pb-2 text-orange">Identity Documents</h5>
+                        @if (Model.UserDetails.Status == "Verified" && Model.UserDocuments.Any())
+                        {
+                            <div class="alert alert-success mb-3">
+                                <i class="fa-solid fa-check-circle me-2"></i>
+                                <strong>Documents Verified</strong>
+                            </div>
+                        }
                         @if (Model.UserDocuments.Any())
                         {
                             @foreach (var doc in Model.UserDocuments)
                             {
                                 <div class="card mb-3 shadow-sm">
                                     <div class="card-body p-3">
-                                        <h6 class="card-title">@doc.FileName</h6>
+                                        <h6 class="card-title text-dark">@doc.FileName</h6>
                                         <p class="card-text small text-muted">
                                             Uploaded on @doc.UploadDate.ToString("MM/dd/yyyy")
                                             <br>
-                                            Status: <span class="badge bg-@(doc.Status == "Verified" ? "success" : doc.Status == "Pending" ? "warning" : "secondary")">@doc.Status</span>
+                                            Status: <span class="badge @(doc.Status == "Verified" ? "bg-success" : doc.Status == "Pending" ? "bg-warning text-dark" : "bg-secondary")">@doc.Status</span>
                                         </p>
                                         <div>
                                             @if (doc.ContentType != null && doc.ContentType.StartsWith("image/"))
@@ -237,10 +337,10 @@
                     <div>
                         @if (Model.UserDetails.Status == "Pending")
                         {
-                            <button type="button" class="btn btn-success me-2" onclick="approveUser('@Model.UserDetails.Id')">
+                            <button type="button" class="btn btn-approve-minimal me-2" onclick="approveUser('@Model.UserDetails.Id')">
                                 <i class="fa-solid fa-check"></i> Approve
                             </button>
-                            <button type="button" class="btn btn-danger" onclick="rejectUser('@Model.UserDetails.Id')">
+                            <button type="button" class="btn btn-reject-minimal" onclick="rejectUser('@Model.UserDetails.Id')">
                                 <i class="fa-solid fa-xmark"></i> Reject
                             </button>
                         }
@@ -249,6 +349,29 @@
             </div>
         </div>
     }
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" id="confirmModalHeader">
+                <h5 class="modal-title" id="confirmActionModalLabel">Confirm Action</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmActionText">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i> Cancel
+                </button>
+                <button type="button" class="btn" id="confirmActionBtn">
+                    <i class="fa-solid fa-check me-1"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Document Preview Modal (Admin/UserDetails) -->
@@ -345,45 +468,48 @@
         }
 
         function approveUser(userId) {
-            if (confirm('Are you sure you want to approve this user?')) {
-                // Get the anti-forgery token
-                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-                
-                fetch('/Admin/UserDetails?handler=Approve', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'RequestVerificationToken': token
-                    },
-                    body: `id=${userId}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        window.location.href = '/Admin/UserManagement';
-                    } else {
-                        alert(data.message || 'An error occurred');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to approve user. Please try again.');
-                });
-            }
+            showConfirmModal('approve', userId);
         }
 
         function rejectUser(userId) {
-            if (confirm('Are you sure you want to reject this user?')) {
+            showConfirmModal('reject', userId);
+        }
+
+        function showConfirmModal(action, userId) {
+            const modal = document.getElementById('confirmActionModal');
+            const modalHeader = document.getElementById('confirmModalHeader');
+            const modalText = document.getElementById('confirmActionText');
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            
+            // Style based on action
+            if (action === 'approve') {
+                modalHeader.className = 'modal-header text-white';
+                modalHeader.style.backgroundColor = '#FF8C42';
+                confirmBtn.className = 'btn btn-approve-minimal';
+                confirmBtn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Approve';
+                modalText.textContent = 'Are you sure you want to approve this user?';
+            } else {
+                modalHeader.className = 'modal-header text-white';
+                modalHeader.style.backgroundColor = '#6c757d';
+                confirmBtn.className = 'btn btn-reject-minimal';
+                confirmBtn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i> Reject';
+                modalText.textContent = 'Are you sure you want to reject this user?';
+            }
+            
+            // Remove old event listeners by cloning
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            // Add new event listener
+            newConfirmBtn.addEventListener('click', function() {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                bsModal.hide();
+                
                 // Get the anti-forgery token
                 const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                const handler = action === 'approve' ? 'Approve' : 'Reject';
                 
-                fetch('/Admin/UserDetails?handler=Reject', {
+                fetch(`/Admin/UserDetails?handler=${handler}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -399,17 +525,33 @@
                 })
                 .then(data => {
                     if (data.success) {
-                        alert(data.message);
-                        window.location.href = '/Admin/UserManagement';
+                        // Show success message with styled alert
+                        const alertClass = action === 'approve' ? 'alert-success' : 'alert-info';
+                        const alertHtml = `
+                            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                                <i class="fa-solid fa-check-circle me-2"></i>${data.message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        `;
+                        document.body.insertAdjacentHTML('afterbegin', alertHtml);
+                        
+                        // Redirect after a short delay
+                        setTimeout(() => {
+                            window.location.href = '/Admin/UserManagement';
+                        }, 1500);
                     } else {
                         alert(data.message || 'An error occurred');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to reject user. Please try again.');
+                    alert(`Failed to ${action} user. Please try again.`);
                 });
-            }
+            });
+            
+            // Show modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
         }
     </script>
 } 

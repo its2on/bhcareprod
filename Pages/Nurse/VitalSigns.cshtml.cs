@@ -40,6 +40,8 @@ namespace Barangay.Pages.Nurse
             public string PatientName { get; set; } = string.Empty;
             public string PatientId { get; set; } = string.Empty;
             public DateTime RecordedAt { get; set; } = DateTime.Now;
+            public string? RecordedBy { get; set; }
+            public string? RecordedByName { get; set; }
             public string? BloodPressure { get; set; }
             public string? HeartRate { get; set; }
             public string? Temperature { get; set; }
@@ -89,6 +91,7 @@ namespace Barangay.Pages.Nurse
         public List<DoctorViewModel> Doctors { get; set; } = new();
         public string? SelectedPatientId { get; set; }
         public Patient? SelectedPatient { get; set; }
+        public string? SelectedPatientAppointmentName { get; set; }
         public List<PatientAppointmentViewModel> PatientAppointments { get; set; } = new();
         public List<TodayAppointmentViewModel> TodayAppointments { get; set; } = new();
         public DateTime Today { get; set; } = DateTimeHelper.Today;
@@ -131,6 +134,14 @@ namespace Barangay.Pages.Nurse
             {
                 SelectedPatientId = patientId;
                 SelectedPatient = await _context.Patients.FindAsync(patientId);
+                
+                // Get the appointment patient name (the name used when booking)
+                SelectedPatientAppointmentName = await _context.Appointments
+                    .Where(a => a.PatientId == patientId)
+                    .OrderByDescending(a => a.AppointmentDate)
+                    .Select(a => a.PatientName)
+                    .FirstOrDefaultAsync() ?? "Unknown";
+                
                 // Set the selected patient in the new vital sign
                 NewVitalSign.PatientId = patientId;
                 // Load vital signs for this patient
@@ -401,6 +412,9 @@ namespace Barangay.Pages.Nurse
                 vitalSign.DecryptVitalSignData(_encryptionService, User, _logger);
                 
                 _logger.LogInformation($"After decryption - VitalSign ID: {vitalSign.Id}, Temperature: {vitalSign.Temperature}, BloodPressure: {vitalSign.BloodPressure}, HeartRate: {vitalSign.HeartRate}");
+                
+                // Additional debugging to check if values are properly set
+                _logger.LogInformation($"VitalSign {vitalSign.Id} - Temperature: '{vitalSign.Temperature}', BloodPressure: '{vitalSign.BloodPressure}', HeartRate: '{vitalSign.HeartRate}', Weight: '{vitalSign.Weight}', Height: '{vitalSign.Height}'");
             }
 
             var records = vitalSigns.Select(v => new VitalSignViewModel
@@ -409,14 +423,16 @@ namespace Barangay.Pages.Nurse
                 PatientId = v.PatientId,
                 PatientName = patientName,
                 RecordedAt = v.RecordedAt,
-                BloodPressure = v.BloodPressure,
-                HeartRate = v.HeartRate?.ToString(),
-                Temperature = v.Temperature?.ToString(),
-                RespiratoryRate = v.RespiratoryRate?.ToString(),
-                SpO2 = v.SpO2?.ToString(),
-                Weight = v.Weight?.ToString(),
-                Height = v.Height?.ToString(),
-                Notes = v.Notes
+                RecordedBy = v.RecordedBy,
+                RecordedByName = v.RecordedByName,
+                BloodPressure = v.BloodPressure ?? "N/A",
+                HeartRate = v.HeartRate ?? "N/A",
+                Temperature = v.Temperature ?? "N/A",
+                RespiratoryRate = v.RespiratoryRate ?? "N/A",
+                SpO2 = v.SpO2 ?? "N/A",
+                Weight = v.Weight ?? "N/A",
+                Height = v.Height ?? "N/A",
+                Notes = v.Notes ?? "No notes"
             }).ToList();
 
             VitalSignRecords = records;
@@ -456,6 +472,9 @@ namespace Barangay.Pages.Nurse
                 vitalSign.DecryptVitalSignData(_encryptionService, User, _logger);
                 
                 _logger.LogInformation($"After decryption - VitalSign ID: {vitalSign.Id}, Temperature: {vitalSign.Temperature}, BloodPressure: {vitalSign.BloodPressure}, HeartRate: {vitalSign.HeartRate}");
+                
+                // Additional debugging to check if values are properly set
+                _logger.LogInformation($"VitalSign {vitalSign.Id} - Temperature: '{vitalSign.Temperature}', BloodPressure: '{vitalSign.BloodPressure}', HeartRate: '{vitalSign.HeartRate}', Weight: '{vitalSign.Weight}', Height: '{vitalSign.Height}'");
             }
 
             var records = vitalSigns.Select(v => new VitalSignViewModel
@@ -464,14 +483,16 @@ namespace Barangay.Pages.Nurse
                 PatientId = v.PatientId,
                 PatientName = v.PatientId, // Temporarily store ID here
                 RecordedAt = v.RecordedAt,
-                BloodPressure = v.BloodPressure,
-                HeartRate = v.HeartRate?.ToString(),
-                Temperature = v.Temperature?.ToString(),
-                RespiratoryRate = v.RespiratoryRate?.ToString(),
-                SpO2 = v.SpO2?.ToString(),
-                Weight = v.Weight?.ToString(),
-                Height = v.Height?.ToString(),
-                Notes = v.Notes
+                RecordedBy = v.RecordedBy,
+                RecordedByName = v.RecordedByName,
+                BloodPressure = v.BloodPressure ?? "N/A",
+                HeartRate = v.HeartRate ?? "N/A",
+                Temperature = v.Temperature ?? "N/A",
+                RespiratoryRate = v.RespiratoryRate ?? "N/A",
+                SpO2 = v.SpO2 ?? "N/A",
+                Weight = v.Weight ?? "N/A",
+                Height = v.Height ?? "N/A",
+                Notes = v.Notes ?? "No notes"
             }).ToList();
 
             // Map the correct patient names
@@ -517,6 +538,18 @@ namespace Barangay.Pages.Nurse
                     return Page();
                 }
                 
+                // Get current user information
+                var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _context.Users.FindAsync(currentUserId);
+                var currentUserName = currentUser?.FullName ?? "Unknown User";
+                
+                // Decrypt current user name if needed
+                if (currentUser != null)
+                {
+                    currentUser.DecryptSensitiveData(_encryptionService, User);
+                    currentUserName = currentUser.FullName;
+                }
+
                 // Create new VitalSign entity
                 var vitalSign = new VitalSign
                 {
@@ -530,6 +563,8 @@ namespace Barangay.Pages.Nurse
                     EncryptedWeight = !string.IsNullOrEmpty(NewVitalSign.Weight) ? _encryptionService.Encrypt(NewVitalSign.Weight) : null,
                     EncryptedHeight = !string.IsNullOrEmpty(NewVitalSign.Height) ? _encryptionService.Encrypt(NewVitalSign.Height) : null,
                     RecordedAt = DateTime.Now,
+                    RecordedBy = currentUserId,
+                    RecordedByName = _encryptionService.Encrypt(currentUserName),
                     Notes = NewVitalSign.Notes
                 };
 
@@ -537,16 +572,35 @@ namespace Barangay.Pages.Nurse
 
                 // EncryptedDbContext will handle encryption automatically
                 _context.VitalSigns.Add(vitalSign);
+                
+                // Update the appointment status to Completed
+                var appointment = await _context.Appointments
+                    .Where(a => a.PatientId == NewVitalSign.PatientId && 
+                               a.AppointmentDate.Date == Today && 
+                               a.Status == AppointmentStatus.InProgress)
+                    .OrderByDescending(a => a.AppointmentTime)
+                    .FirstOrDefaultAsync();
+                
+                if (appointment != null)
+                {
+                    appointment.Status = AppointmentStatus.Completed;
+                    _logger.LogInformation($"Updated appointment {appointment.Id} status to Completed");
+                }
+                
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"Successfully saved vital signs for patient {NewVitalSign.PatientId}");
-                TempData["SuccessMessage"] = "Vital signs recorded successfully!";
+                TempData["SuccessMessage"] = "Vital signs recorded successfully! Appointment marked as completed.";
+                
+                // Clear the form data to reset patient selection
+                NewVitalSign = new VitalSignViewModel();
                 
                 // Reload today's appointments to hide the one we just processed
                 await LoadTodayAppointmentsAsync();
                 await LoadPatientsWithTodayAppointmentsAsync();
                 
-                return RedirectToPage(new { patientId = NewVitalSign.PatientId });
+                // Redirect without patientId to clear the selection
+                return RedirectToPage();
             }
             catch (Exception ex)
             {
@@ -561,6 +615,13 @@ namespace Barangay.Pages.Nurse
                     await LoadAppointmentsForPatientAsync(NewVitalSign.PatientId);
                     SelectedPatientId = NewVitalSign.PatientId;
                     SelectedPatient = await _context.Patients.FindAsync(NewVitalSign.PatientId);
+                    
+                    // Get the appointment patient name (the name used when booking)
+                    SelectedPatientAppointmentName = await _context.Appointments
+                        .Where(a => a.PatientId == NewVitalSign.PatientId)
+                        .OrderByDescending(a => a.AppointmentDate)
+                        .Select(a => a.PatientName)
+                        .FirstOrDefaultAsync() ?? "Unknown";
                 }
                 else
                 {

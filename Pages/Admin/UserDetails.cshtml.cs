@@ -87,6 +87,17 @@ namespace Barangay.Pages.Admin
             // Load user documents
             UserDocuments = UserDetails.UserDocuments?.ToList() ?? new List<UserDocument>();
             
+            // Sync document status with user status if needed
+            if (UserDetails.Status == "Verified" && UserDocuments.Any(d => d.Status != "Verified"))
+            {
+                foreach (var doc in UserDocuments.Where(d => d.Status != "Verified"))
+                {
+                    doc.Status = "Verified";
+                    doc.ApprovedAt = DateTime.UtcNow;
+                }
+                await _context.SaveChangesAsync();
+            }
+            
             // Load user roles
             UserRoles = (await _userManager.GetRolesAsync(UserDetails)).ToList();
             
@@ -100,18 +111,20 @@ namespace Barangay.Pages.Admin
                 {
                     Guardian = await _context.GuardianInformation
                         .AsNoTracking()
-                        .Select(g => new GuardianInformation 
-                        {
-                            GuardianId = g.GuardianId,
-                            UserId = g.UserId,
-                            GuardianFirstName = g.GuardianFirstName ?? g.FirstName ?? "Unknown",
-                            GuardianLastName = g.GuardianLastName ?? g.LastName ?? "Unknown",
-                            ResidencyProofPath = g.ResidencyProofPath ?? "",
-                            ConsentStatus = g.ConsentStatus ?? "Pending",
-                            ProofType = g.ProofType ?? "GuardianResidencyProof",
-                            CreatedAt = g.CreatedAt != default ? g.CreatedAt : DateTime.UtcNow
-                        })
                         .FirstOrDefaultAsync(g => g.UserId == Id);
+                    
+                    // Decrypt guardian names if they exist and are encrypted
+                    if (Guardian != null)
+                    {
+                        if (!string.IsNullOrEmpty(Guardian.GuardianFirstName) && _encryptionService.IsEncrypted(Guardian.GuardianFirstName))
+                        {
+                            Guardian.GuardianFirstName = _encryptionService.Decrypt(Guardian.GuardianFirstName);
+                        }
+                        if (!string.IsNullOrEmpty(Guardian.GuardianLastName) && _encryptionService.IsEncrypted(Guardian.GuardianLastName))
+                        {
+                            Guardian.GuardianLastName = _encryptionService.Decrypt(Guardian.GuardianLastName);
+                        }
+                    }
                     
                     _logger.LogInformation($"Loaded guardian information for user {Id}: {Guardian != null}");
                 }
@@ -168,6 +181,17 @@ namespace Barangay.Pages.Admin
                     document.Status = "Verified";
                     document.ApprovedAt = DateTime.UtcNow;
                     document.ApprovedBy = currentUser.Id;
+                }
+                
+                // Update guardian consent status if user is a minor
+                var guardianInfo = await _context.GuardianInformation
+                    .FirstOrDefaultAsync(g => g.UserId == id);
+                    
+                if (guardianInfo != null)
+                {
+                    guardianInfo.ConsentStatus = "Approved";
+                    _context.GuardianInformation.Update(guardianInfo);
+                    _logger.LogInformation($"Guardian consent approved for user {id}");
                 }
                 
                 // Assign patient role if needed
@@ -233,6 +257,33 @@ namespace Barangay.Pages.Admin
             {
                 _logger.LogError(ex, "Error approving user: {UserId}", id);
                 return new JsonResult(new { success = false, message = "An error occurred while approving the user." });
+            }
+        }
+        
+        public async Task<JsonResult> OnPostApproveGuardianConsentAsync(int guardianId)
+        {
+            try
+            {
+                var guardianInfo = await _context.GuardianInformation
+                    .FirstOrDefaultAsync(g => g.GuardianId == guardianId);
+                    
+                if (guardianInfo == null)
+                {
+                    return new JsonResult(new { success = false, message = "Guardian information not found." });
+                }
+                
+                guardianInfo.ConsentStatus = "Approved";
+                _context.GuardianInformation.Update(guardianInfo);
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation($"Guardian consent {guardianId} approved manually");
+                
+                return new JsonResult(new { success = true, message = "Guardian consent approved successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error approving guardian consent {guardianId}");
+                return new JsonResult(new { success = false, message = "An error occurred while approving guardian consent." });
             }
         }
         

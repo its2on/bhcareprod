@@ -196,6 +196,11 @@ namespace Barangay.Models
         // Navigation property for user permissions
         [JsonIgnore]
         public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
+        
+        // Navigation property for guardian information (for users under 18)
+        [InverseProperty(nameof(GuardianInformation.User))]
+        [JsonIgnore]
+        public virtual ICollection<GuardianInformation> GuardianConsents { get; set; } = new List<GuardianInformation>();
     }
 }
 
