@@ -62,7 +62,8 @@ namespace Barangay.Pages.Admin
                 // Load all staff members
                 StaffMembers = await _context.StaffMembers
                     .Include(s => s.User)
-                    .OrderBy(s => s.Name)
+                    .OrderBy(s => s.FirstName)
+                    .ThenBy(s => s.LastName)
                     .ToListAsync();
 
                 // Ensure essential permission rows exist so expected categories appear

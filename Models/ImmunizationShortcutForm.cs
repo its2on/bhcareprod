@@ -42,7 +42,6 @@ namespace Barangay.Models
         [Encrypted]
         public string ContactNumber { get; set; } = string.Empty;
 
-        [Required]
         [StringLength(4000)]
         [Encrypted]
         public string PreferredDate { get; set; } = string.Empty;

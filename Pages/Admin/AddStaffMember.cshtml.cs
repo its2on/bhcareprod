@@ -44,7 +44,6 @@ namespace Barangay.Pages.Admin
         public StaffMember StaffMember { get; set; } = new StaffMember();
 
         [BindProperty]
-        [Required(ErrorMessage = "Password is required")]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
@@ -79,8 +78,8 @@ namespace Barangay.Pages.Admin
                     CreatedAt = DateTime.Now
                 };
                 
-                // Generate time slots - only 5:00 PM as requested
-                TimeSlots.Add("5:00 PM");
+                // Generate time slots for working hours
+                GenerateTimeSlots();
 
                 // Ensure essential simplified permissions exist (align with StaffPermissions page)
                 await EnsureEssentialPermissionsAsync();
@@ -387,14 +386,7 @@ namespace Barangay.Pages.Admin
             {
                 _logger.LogInformation("Starting OnPostAsync for staff member creation with email: {Email}", StaffMember.Email);
 
-                // Validate working days and hours
-                if (string.IsNullOrEmpty(StaffMember.WorkingDays) || string.IsNullOrEmpty(StaffMember.WorkingHours))
-                {
-                    _logger.LogWarning("Working days or hours not provided");
-                    ModelState.AddModelError(string.Empty, "Please select working days and hours.");
-                    await OnGetAsync();
-                    return Page();
-                }
+                // Working days and hours are now optional - no validation needed
 
                 // Additional server-side validation for name and phone format
                 var name = (StaffMember.Name ?? string.Empty).Trim();
@@ -412,10 +404,10 @@ namespace Barangay.Pages.Admin
                     ModelState.AddModelError("StaffMember.Name", "Full name cannot contain 3 or more repeated letters in a row.");
                 }
 
-                // Strict PH mobile format: +639XXXXXXXXX
-                if (!Regex.IsMatch(phone, "^\\+639\\d{9}$"))
+                // Accept both +639XXXXXXXXX and 09XXXXXXXXX formats
+                if (!Regex.IsMatch(phone, "^(\\+639\\d{9}|09\\d{9})$"))
                 {
-                    ModelState.AddModelError("StaffMember.ContactNumber", "Contact number must be in the format +639XXXXXXXXX.");
+                    ModelState.AddModelError("StaffMember.ContactNumber", "Contact number must be in the format +639XXXXXXXXX or 09XXXXXXXXX.");
                 }
 
                 if (!ModelState.IsValid)
@@ -426,14 +418,17 @@ namespace Barangay.Pages.Admin
                     return Page();
                 }
 
-                // Check if email already exists
-                var existingUser = await _userManager.FindByEmailAsync(StaffMember.Email);
-                if (existingUser != null)
+                // Check if email already exists (only if email is provided)
+                if (!string.IsNullOrEmpty(StaffMember.Email))
                 {
-                    _logger.LogWarning("Email already exists: {Email}", StaffMember.Email);
-                    ModelState.AddModelError("StaffMember.Email", "This email is already registered.");
-                    await OnGetAsync();
-                    return Page();
+                    var existingUser = await _userManager.FindByEmailAsync(StaffMember.Email);
+                    if (existingUser != null)
+                    {
+                        _logger.LogWarning("Email already exists: {Email}", StaffMember.Email);
+                        ModelState.AddModelError("StaffMember.Email", "This email is already registered.");
+                        await OnGetAsync();
+                        return Page();
+                    }
                 }
 
                 // Normalize and enforce permission selection when a role/position is chosen
@@ -489,12 +484,13 @@ namespace Barangay.Pages.Admin
                 try
                 {
                     // Create the user account
+                    var userEmail = !string.IsNullOrEmpty(StaffMember.Email) ? StaffMember.Email : $"staff{DateTime.Now.Ticks}@temp.com";
                     var user = new ApplicationUser
                     {
-                        UserName = StaffMember.Email,
-                        Email = _encryptionService.Encrypt(StaffMember.Email), // Encrypt email
+                        UserName = userEmail,
+                        Email = _encryptionService.Encrypt(userEmail), // Encrypt email
                         EmailConfirmed = true,
-                        PhoneNumber = _encryptionService.Encrypt(StaffMember.ContactNumber), // Encrypt phone number
+                        PhoneNumber = !string.IsNullOrEmpty(StaffMember.ContactNumber) ? _encryptionService.Encrypt(StaffMember.ContactNumber) : null, // Encrypt phone number
                         // Name fields will be populated below via FullName setter
                         IsActive = StaffMember.IsActive,
                         JoinDate = DateTime.Now,
@@ -507,8 +503,11 @@ namespace Barangay.Pages.Admin
                     // Using the validated and trimmed 'name' variable
                     user.FullName = name;
 
-                    _logger.LogInformation("Creating user account for: {Email}", StaffMember.Email);
-                    var result = await _userManager.CreateAsync(user, Password);
+                    // Generate default password if none provided
+                    var userPassword = !string.IsNullOrEmpty(Password) ? Password : "TempPassword123!";
+                    
+                    _logger.LogInformation("Creating user account for: {Email}", userEmail);
+                    var result = await _userManager.CreateAsync(user, userPassword);
             
                     if (!result.Succeeded)
                     {
@@ -645,7 +644,17 @@ namespace Barangay.Pages.Admin
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating staff member");
-                ModelState.AddModelError(string.Empty, "An error occurred while creating the staff member. Please try again.");
+                
+                // Check if it's a database connection issue
+                if (ex.Message.Contains("transport-level error") || ex.Message.Contains("connection attempt failed") || ex.Message.Contains("timeout"))
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to connect to the database. Please check your internet connection and try again. If the problem persists, contact your system administrator.");
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "An error occurred while creating the staff member. Please try again.");
+                }
+                
                 await OnGetAsync();
                 return Page();
             }
@@ -753,6 +762,25 @@ namespace Barangay.Pages.Admin
             if (string.Equals(r, "admin staff", StringComparison.OrdinalIgnoreCase) || string.Equals(r, "adminstaff", StringComparison.OrdinalIgnoreCase) || string.Equals(r, "staff", StringComparison.OrdinalIgnoreCase)) return "Admin Staff";
             // Fallback: capitalize first letter
             return char.ToUpper(r[0]) + r.Substring(1);
+        }
+
+        private void GenerateTimeSlots()
+        {
+            TimeSlots.Clear();
+            
+            // Generate time slots from 6:00 AM to 10:00 PM in 30-minute intervals
+            for (int hour = 6; hour <= 22; hour++)
+            {
+                for (int minute = 0; minute < 60; minute += 30)
+                {
+                    if (hour == 22 && minute > 0) break; // Don't go past 10:00 PM
+                    
+                    string period = hour >= 12 ? "PM" : "AM";
+                    int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+                    string timeString = $"{displayHour}:{minute:D2} {period}";
+                    TimeSlots.Add(timeString);
+                }
+            }
         }
     }
 }

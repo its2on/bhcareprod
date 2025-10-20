@@ -39,10 +39,10 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group mb-3">
-                                    <label asp-for="StaffMember.FirstName" class="form-label">First Name <span class="text-danger">*</span></label>
+                                    <label asp-for="StaffMember.FirstName" class="form-label">First Name</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-                                        <input asp-for="StaffMember.FirstName" class="form-control" placeholder="First name" required
+                                        <input asp-for="StaffMember.FirstName" class="form-control" placeholder="First name"
                                                pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
                                                title="Only letters, spaces, hyphen (-), and apostrophe (')" />
                                     </div>
@@ -63,10 +63,10 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group mb-3">
-                                    <label asp-for="StaffMember.LastName" class="form-label">Last Name <span class="text-danger">*</span></label>
+                                    <label asp-for="StaffMember.LastName" class="form-label">Last Name</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-                                        <input asp-for="StaffMember.LastName" class="form-control" placeholder="Last name" required
+                                        <input asp-for="StaffMember.LastName" class="form-control" placeholder="Last name"
                                                pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
                                                title="Only letters, spaces, hyphen (-), and apostrophe (')" />
                                     </div>
@@ -79,10 +79,10 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
-                                    <label asp-for="StaffMember.Gender" class="form-label">Gender <span class="text-danger">*</span></label>
+                                    <label asp-for="StaffMember.Gender" class="form-label">Gender</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fa-solid fa-venus-mars"></i></span>
-                                        <select asp-for="StaffMember.Gender" class="form-select" required>
+                                        <select asp-for="StaffMember.Gender" class="form-select">
                                             <option value="">-- Select Gender --</option>
                                             <option value="Male">Male</option>
                                             <option value="Female">Female</option>
@@ -94,10 +94,10 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
-                                    <label asp-for="StaffMember.CivilStatus" class="form-label">Civil Status <span class="text-danger">*</span></label>
+                                    <label asp-for="StaffMember.CivilStatus" class="form-label">Civil Status</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fa-solid fa-heart"></i></span>
-                                        <select asp-for="StaffMember.CivilStatus" class="form-select" required>
+                                        <select asp-for="StaffMember.CivilStatus" class="form-select">
                                             <option value="">-- Select Civil Status --</option>
                                             <option value="Single">Single</option>
                                             <option value="Married">Married</option>
@@ -113,10 +113,10 @@
                         <!-- Date of Birth and Age Row -->
                         <!-- Date of Birth Field -->
                         <div class="form-group mb-3">
-                            <label asp-for="StaffMember.DateOfBirth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                            <label asp-for="StaffMember.DateOfBirth" class="form-label">Date of Birth</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
-                                <input asp-for="StaffMember.DateOfBirth" class="form-control" type="date" id="dateOfBirth" required 
+                                <input asp-for="StaffMember.DateOfBirth" class="form-control" type="date" id="dateOfBirth" 
                                        max="@DateTime.Now.AddYears(-18).ToString("yyyy-MM-dd")" />
                             </div>
                             <span asp-validation-for="StaffMember.DateOfBirth" class="text-danger"></span>
@@ -124,31 +124,31 @@
 
                         <!-- Address Field -->
                         <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Address" class="form-label">Address <span class="text-danger">*</span></label>
+                            <label asp-for="StaffMember.Address" class="form-label">Address</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
-                                <textarea asp-for="StaffMember.Address" class="form-control" rows="2" placeholder="Enter complete address" required></textarea>
+                                <textarea asp-for="StaffMember.Address" class="form-control" rows="2" placeholder="Enter complete address"></textarea>
                             </div>
                             <span asp-validation-for="StaffMember.Address" class="text-danger"></span>
                         </div>
 
                         <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                            <label asp-for="StaffMember.Email" class="form-label">Email Address</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-                                <input asp-for="StaffMember.Email" class="form-control" type="email" placeholder="Enter email address" required />
+                                <input asp-for="StaffMember.Email" class="form-control" type="email" placeholder="Enter email address" />
                             </div>
                             <span asp-validation-for="StaffMember.Email" class="text-danger"></span>
                         </div>
 
                         <div class="form-group mb-3">
-                            <label asp-for="StaffMember.ContactNumber" class="form-label">Contact Number <span class="text-danger">*</span></label>
+                            <label asp-for="StaffMember.ContactNumber" class="form-label">Contact Number</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
-                                <input asp-for="StaffMember.ContactNumber" class="form-control" placeholder="e.g. +639123456789" required
+                                <input asp-for="StaffMember.ContactNumber" class="form-control" placeholder="e.g. +639123456789 or 09123456789"
                                        type="tel" inputmode="numeric" maxlength="13"
-                                       pattern="^\+639\d{9}$"
-                                       title="Use Philippine format: +639 followed by 9 digits (total 13 characters)." />
+                                       pattern="^(\+639\d{9}|09\d{9})$"
+                                       title="Use Philippine format: +639 followed by 9 digits OR 09 followed by 9 digits." />
                             </div>
                             <span asp-validation-for="StaffMember.ContactNumber" class="text-danger"></span>
                         </div>
@@ -164,10 +164,10 @@
                     </div>
                     <div class="card-body">
                         <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Role" class="form-label">Role <span class="text-danger">*</span></label>
+                            <label asp-for="StaffMember.Role" class="form-label">Role</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-user-tag"></i></span>
-                                <select asp-for="StaffMember.Role" class="form-select" id="StaffMember_Role" required>
+                                <select asp-for="StaffMember.Role" class="form-select" id="StaffMember_Role">
                                     <option value="">-- Select Role --</option>
                                     <option value="Head Doctor">Doctor</option>
                                     <option value="Head Nurse">Nurse</option>
@@ -177,8 +177,14 @@
                             <span asp-validation-for="StaffMember.Role" class="text-danger"></span>
                         </div>
 
-
-
+                        <div class="form-group mb-3">
+                            <label asp-for="StaffMember.Position" class="form-label">Position</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-briefcase"></i></span>
+                                <input asp-for="StaffMember.Position" class="form-control" placeholder="e.g. Staff Nurse, Senior Doctor" />
+                            </div>
+                            <span asp-validation-for="StaffMember.Position" class="text-danger"></span>
+                        </div>
 
                         <div class="form-group mb-3">
                             <label asp-for="StaffMember.Specialization" class="form-label">Specialization</label>
@@ -220,21 +226,22 @@
                     </div>
                     <div class="card-body">
                         <div class="form-group mb-4">
-                            <label class="form-label d-block">Working Days <span class="text-danger">*</span></label>
+                            <label class="form-label d-block">Working Days</label>
                             <div class="btn-group d-flex flex-wrap" role="group" aria-label="Working days">
                                 @foreach (var day in Model.DaysOfWeek)
                                 {
-                                    <input type="checkbox" class="btn-check working-days-checkbox" id="day_@day" value="@day" autocomplete="off">
+                                    var isChecked = (day == "Monday" || day == "Tuesday" || day == "Wednesday" || day == "Thursday" || day == "Friday") ? "checked" : "";
+                                    <input type="checkbox" class="btn-check working-days-checkbox" id="day_@day" value="@day" autocomplete="off" @isChecked>
                                     <label class="btn btn-outline-primary m-1" for="day_@day">@day</label>
                                 }
                             </div>
-                            <input type="hidden" asp-for="StaffMember.WorkingDays" id="workingDaysInput" required />
+                            <input type="hidden" asp-for="StaffMember.WorkingDays" id="workingDaysInput" />
                             <div class="invalid-feedback">Please select at least one working day.</div>
                             <span asp-validation-for="StaffMember.WorkingDays" class="text-danger"></span>
                         </div>
 
                         <div class="form-group mb-3">
-                            <label class="form-label">Working Hours <span class="text-danger">*</span></label>
+                            <label class="form-label">Working Hours</label>
                             <div class="row">
                                 <div class="col-md-5">
                                     <div class="input-group">
@@ -242,7 +249,14 @@
                                         <select id="startTime" class="form-select">
                                             @foreach (var time in Model.TimeSlots)
                                             {
-                                                <option value="@time">@time</option>
+                                                if (time == "8:00 AM")
+                                                {
+                                                    <option value="@time" selected>@time</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@time">@time</option>
+                                                }
                                             }
                                         </select>
                                     </div>
@@ -256,13 +270,20 @@
                                         <select id="endTime" class="form-select">
                                             @foreach (var time in Model.TimeSlots)
                                             {
-                                                <option value="@time">@time</option>
+                                                if (time == "5:00 PM")
+                                                {
+                                                    <option value="@time" selected>@time</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@time">@time</option>
+                                                }
                                             }
                                         </select>
                                     </div>
                                 </div>
                             </div>
-                            <input type="hidden" asp-for="StaffMember.WorkingHours" id="workingHoursInput" required />
+                            <input type="hidden" asp-for="StaffMember.WorkingHours" id="workingHoursInput" />
                             <div class="invalid-feedback">Please select both start and end working hours.</div>
                             <span asp-validation-for="StaffMember.WorkingHours" class="text-danger"></span>
                         </div>
@@ -278,10 +299,10 @@
                     </div>
                     <div class="card-body">
                         <div class="form-group mb-3">
-                            <label asp-for="Password" class="form-label">Password <span class="text-danger">*</span></label>
+                            <label asp-for="Password" class="form-label">Password</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-                                <input asp-for="Password" type="password" class="form-control" id="password" required />
+                                <input asp-for="Password" type="password" class="form-control" id="password" />
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="fa-solid fa-eye"></i>
                                 </button>
@@ -864,9 +885,10 @@
                     .filter(cb => cb.checked)
                     .map(cb => cb.value);
                 workingDaysInput.value = selected.join(',');
+                // Remove validation since fields are no longer required
                 const group = workingDaysInput.closest('.form-group');
-                setInvalid(group, selected.length === 0);
-                workingDaysInput.classList.toggle('is-invalid', selected.length === 0);
+                setInvalid(group, false);
+                workingDaysInput.classList.remove('is-invalid');
             }
             workingDaysCheckboxes.forEach(cb => cb.addEventListener('change', updateWorkingDays));
 
@@ -878,9 +900,10 @@
                 } else {
                     workingHoursInput.value = '';
                 }
+                // Remove validation since fields are no longer required
                 const group = workingHoursInput.closest('.form-group');
-                setInvalid(group, !hasBoth);
-                workingHoursInput.classList.toggle('is-invalid', !hasBoth);
+                setInvalid(group, false);
+                workingHoursInput.classList.remove('is-invalid');
             }
             startTimeSelect.addEventListener('change', updateWorkingHours);
             endTimeSelect.addEventListener('change', updateWorkingHours);
@@ -898,13 +921,13 @@
                 // Define allowed categories for each role
                 const allowedByPosition = {
                     // Doctor positions
-                    'head doctor': new Set(['doctor', 'dashboard access']),
+                    'head doctor': new Set(['doctor', 'dashboard access', 'doctor pages']),
                     
                     // Nurse positions
-                    'head nurse': new Set(['nurse', 'dashboard access']),
+                    'head nurse': new Set(['nurse', 'dashboard access', 'nurse pages']),
                     
                     // Admin positions
-                    'admin staff': new Set(['user management', 'reports', 'reporting', 'dashboard access'])
+                    'admin staff': new Set(['doctor', 'nurse', 'dashboard access', 'administration', 'user management'])
                 };
                 
                 const allowed = allowedByPosition[selectedRole.toLowerCase()] || null;
@@ -1124,37 +1147,57 @@
                 }
             });
 
-            // Phone: enforce +639 prefix and numeric remainder (max 9 digits)
+            // Phone: accept both +639 and 09 formats
             function sanitizeAndValidatePhone() {
                 if (!phoneInput) return;
                 let v = phoneInput.value || '';
                 // Strip everything but digits and plus
                 v = v.replace(/[^\d+]/g, '');
-                // Remove any leading pluses beyond the first
-                v = v.replace(/^\++/, '+');
-                // Ensure prefix
-                if (!v.startsWith('+639')) {
-                    // Remove any existing leading +639 occurrence to avoid duplication
-                    v = v.replace(/^\+?639?/, '');
-                    // Keep only digits
-                    v = v.replace(/\D/g, '');
-                    v = '+639' + v;
+                
+                // Handle +639 format
+                if (v.startsWith('+639')) {
+                    // Keep only first 9 digits after +639
+                    const rest = v.slice(4).replace(/\D/g, '').slice(0, 9);
+                    phoneInput.value = '+639' + rest;
                 }
-                // Keep only first 9 digits after +639
-                const rest = v.slice(4).replace(/\D/g, '').slice(0, 9);
-                phoneInput.value = '+639' + rest;
-                // Validity
-                const valid = /^\+639\d{9}$/.test(phoneInput.value);
-                phoneInput.setCustomValidity(valid ? '' : 'Contact number must be in the format +639XXXXXXXXX.');
+                // Handle 09 format
+                else if (v.startsWith('09')) {
+                    // Keep only first 9 digits after 09
+                    const rest = v.slice(2).replace(/\D/g, '').slice(0, 9);
+                    phoneInput.value = '09' + rest;
+                }
+                // Auto-convert to 09 format if starts with 9
+                else if (v.startsWith('9')) {
+                    const rest = v.replace(/\D/g, '').slice(0, 9);
+                    phoneInput.value = '09' + rest;
+                }
+                // Auto-convert to +639 format if starts with 639
+                else if (v.startsWith('639')) {
+                    const rest = v.replace(/\D/g, '').slice(3, 12);
+                    phoneInput.value = '+639' + rest;
+                }
+                
+                // Validity check for both formats
+                const valid = /^(\+639\d{9}|09\d{9})$/.test(phoneInput.value);
+                phoneInput.setCustomValidity(valid ? '' : 'Contact number must be in the format +639XXXXXXXXX or 09XXXXXXXXX.');
                 phoneInput.classList.toggle('is-invalid', !valid);
             }
             if (phoneInput) {
                 phoneInput.addEventListener('focus', function () {
-                    if (!phoneInput.value) phoneInput.value = '+639';
+                    if (!phoneInput.value) phoneInput.value = '09';
                 });
                 phoneInput.addEventListener('input', sanitizeAndValidatePhone);
                 phoneInput.addEventListener('blur', sanitizeAndValidatePhone);
             }
+
+            // Initialize permissions visibility on page load
+            updatePermissionsVisibility();
+            
+            // Initialize working days with default selection
+            updateWorkingDays();
+            
+            // Initialize working hours with default values
+            updateWorkingHours();
         });
     </script>
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}

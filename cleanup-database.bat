@@ -21,7 +21,7 @@ echo Starting database cleanup...
 echo.
 
 REM Run the SQL script using sqlcmd
-sqlcmd -S "tcp:bhcare.database.windows.net,1433" -d "bhcareDB" -U "bhcare" -P "Thebenzzz10" -i "SQL\force-cleanup.sql" -o "cleanup-log.txt"
+sqlcmd -S "tcp:bhcareserverprod.database.windows.net,1433" -d "bhcareDB" -U "bhcareprod" -P "prodcarebh.123" -i "SQL\force-cleanup.sql" -o "cleanup-log.txt"
 
 if %ERRORLEVEL% EQU 0 (
     echo.

@@ -24,7 +24,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" novalidate>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -75,8 +75,8 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label asp-for="Form.PreferredDate" class="form-label">Preferred Date *</label>
-                                    <input asp-for="Form.PreferredDate" type="date" class="form-control" required />
+                                    <label asp-for="Form.PreferredDate" class="form-label">Preferred Date</label>
+                                    <input asp-for="Form.PreferredDate" type="date" class="form-control" />
                                     <small class="form-text text-muted">Immunization is available every Wednesday</small>
                                     <span asp-validation-for="Form.PreferredDate" class="text-danger"></span>
                                 </div>
@@ -200,6 +200,12 @@
                 const nextWednesday = new Date(today);
                 nextWednesday.setDate(today.getDate() + (daysUntilWednesday === 0 ? 7 : daysUntilWednesday));
                 dateInput.value = nextWednesday.toISOString().split('T')[0];
+            }
+            
+            // Remove HTML5 validation from date field to make it optional
+            if (dateInput) {
+                dateInput.removeAttribute('required');
+                dateInput.setAttribute('data-optional', 'true');
             }
         });
     </script>
