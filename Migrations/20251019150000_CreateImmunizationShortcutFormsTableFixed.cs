@@ -45,8 +45,3 @@ namespace Barangay.Migrations
         }
     }
 }
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 0032c5906ddf6bc21798afe4293e0d7bd50d1da0
