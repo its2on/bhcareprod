@@ -15,13 +15,16 @@ namespace Barangay.Models
         // Separate name fields
         [Required]
         [Display(Name = "First Name")]
+        [RegularExpression(@"^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$", ErrorMessage = "First name may only contain letters, spaces, hyphen (-), and apostrophe (')")]
         public string FirstName { get; set; } = string.Empty;
         
         [Display(Name = "Middle Name")]
+        [RegularExpression(@"^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]*$", ErrorMessage = "Middle name may only contain letters, spaces, hyphen (-), and apostrophe (')")]
         public string? MiddleName { get; set; }
         
         [Required]
         [Display(Name = "Last Name")]
+        [RegularExpression(@"^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$", ErrorMessage = "Last name may only contain letters, spaces, hyphen (-), and apostrophe (')")]
         public string LastName { get; set; } = string.Empty;
         
         // Computed full name for backward compatibility

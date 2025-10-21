@@ -36,7 +36,12 @@ namespace Barangay.Pages.Nurse
         [BindProperty]
         public ImmunizationRecord FullForm { get; set; } = new();
 
-        public Task<IActionResult> OnGetAsync()
+        [BindProperty(SupportsGet = true)]
+        public int? AppointmentId { get; set; }
+
+        public Appointment Appointment { get; set; }
+
+        public async Task<IActionResult> OnGetAsync()
         {
             // Set default values for both forms
             ShortcutForm.CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
@@ -50,7 +55,102 @@ namespace Barangay.Pages.Nurse
             FullForm.UpdatedBy = User.Identity?.Name ?? "Unknown";
             FullForm.HealthCenter = "Baesa Health Center";
 
-            return Task.FromResult<IActionResult>(Page());
+            // If appointmentId is provided, auto-fill the form with appointment data
+            if (AppointmentId.HasValue && AppointmentId.Value > 0)
+            {
+                Appointment = await _context.Appointments
+                    .Include(a => a.Patient)
+                    .FirstOrDefaultAsync(a => a.Id == AppointmentId.Value);
+
+                if (Appointment != null)
+                {
+                    // Decrypt appointment data
+                    if (!string.IsNullOrEmpty(Appointment.DependentFullName) && _encryptionService.IsEncrypted(Appointment.DependentFullName))
+                    {
+                        Appointment.DependentFullName = _encryptionService.DecryptForUser(Appointment.DependentFullName, User);
+                    }
+
+                    if (!string.IsNullOrEmpty(Appointment.PatientName) && _encryptionService.IsEncrypted(Appointment.PatientName))
+                    {
+                        Appointment.PatientName = _encryptionService.DecryptForUser(Appointment.PatientName, User);
+                    }
+
+                    if (!string.IsNullOrEmpty(Appointment.Address) && _encryptionService.IsEncrypted(Appointment.Address))
+                    {
+                        Appointment.Address = _encryptionService.DecryptForUser(Appointment.Address, User);
+                    }
+
+                    if (!string.IsNullOrEmpty(Appointment.ContactNumber) && _encryptionService.IsEncrypted(Appointment.ContactNumber))
+                    {
+                        Appointment.ContactNumber = _encryptionService.DecryptForUser(Appointment.ContactNumber, User);
+                    }
+
+                    // Auto-fill FullForm with appointment data
+                    // For immunization appointments, child's name is in PatientName (not DependentFullName)
+                    FullForm.ChildName = Appointment.PatientName ?? "";
+                    FullForm.ContactNumber = Appointment.ContactNumber ?? "";
+                    
+                    // Try to get address from appointment first, then from patient
+                    FullForm.Address = Appointment.Address ?? "";
+                    if (string.IsNullOrEmpty(FullForm.Address) && Appointment.Patient != null)
+                    {
+                        var patientAddress = Appointment.Patient.Address ?? "";
+                        if (!string.IsNullOrEmpty(patientAddress) && _encryptionService.IsEncrypted(patientAddress))
+                        {
+                            patientAddress = _encryptionService.DecryptForUser(patientAddress, User);
+                        }
+                        FullForm.Address = patientAddress;
+                    }
+                    
+                    _logger.LogInformation("Pre-fill: ChildName={ChildName}, Address={Address}, Contact={Contact}", 
+                        FullForm.ChildName, FullForm.Address, FullForm.ContactNumber);
+                    
+                    // Set date of birth if available
+                    if (Appointment.DateOfBirth.HasValue)
+                    {
+                        FullForm.DateOfBirth = Appointment.DateOfBirth.Value.ToString("yyyy-MM-dd");
+                    }
+                    
+                    // Set sex/gender if available
+                    FullForm.Sex = Appointment.Gender ?? "";
+                    
+                    // Get email from Patient if available
+                    if (Appointment.Patient != null)
+                    {
+                        // Decrypt patient email if encrypted
+                        if (!string.IsNullOrEmpty(Appointment.Patient.Email))
+                        {
+                            var email = Appointment.Patient.Email;
+                            if (_encryptionService.IsEncrypted(email))
+                            {
+                                email = _encryptionService.DecryptForUser(email, User);
+                            }
+                            FullForm.Email = email;
+                        }
+                    }
+                    
+                    // Generate family number based on first letter of child's last name
+                    if (!string.IsNullOrEmpty(FullForm.ChildName))
+                    {
+                        var nameParts = FullForm.ChildName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (nameParts.Length > 0)
+                        {
+                            var lastName = nameParts[nameParts.Length - 1];
+                            if (!string.IsNullOrEmpty(lastName))
+                            {
+                                FullForm.FamilyNumber = lastName.Substring(0, 1).ToUpper();
+                                _logger.LogInformation("Generated FamilyNumber: {FamilyNumber} from {ChildName}", 
+                                    FullForm.FamilyNumber, FullForm.ChildName);
+                            }
+                        }
+                    }
+                    
+                    _logger.LogInformation("Final pre-fill values - ChildName={ChildName}, Address={Address}, FamilyNumber={FamilyNumber}, Email={Email}", 
+                        FullForm.ChildName, FullForm.Address, FullForm.FamilyNumber, FullForm.Email);
+                }
+            }
+
+            return Page();
         }
 
         public async Task<IActionResult> OnPostShortcutFormAsync()
@@ -219,11 +319,23 @@ namespace Barangay.Pages.Nurse
                     await SendImmunizationRecordConfirmationEmailAsync();
                 }
 
+                // If this was from an appointment, mark it as completed
+                if (AppointmentId.HasValue && AppointmentId.Value > 0)
+                {
+                    var appointment = await _context.Appointments.FindAsync(AppointmentId.Value);
+                    if (appointment != null)
+                    {
+                        appointment.Status = AppointmentStatus.Completed;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("Appointment {AppointmentId} marked as completed", AppointmentId.Value);
+                    }
+                }
+
                 TempData["SuccessMessage"] = $"Immunization record for {FullForm.ChildName} has been created successfully. Confirmation email sent to {FullForm.Email}.";
                 _logger.LogInformation("Immunization record created for child {ChildName} by user {User}", 
                     FullForm.ChildName, User.Identity?.Name);
 
-                return RedirectToPage("/Nurse/ManualForms");
+                return RedirectToPage("/Nurse/ImmunizationRecords");
             }
             catch (Exception ex)
             {

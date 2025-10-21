@@ -103,6 +103,7 @@ namespace Barangay.Services
                         Title = n.Title,
                         Message = n.Message,
                         Type = n.Type,
+                        Link = n.Link,
                         UserId = n.UserId,
                         RecipientId = n.RecipientId,
                         CreatedAt = n.CreatedAt,

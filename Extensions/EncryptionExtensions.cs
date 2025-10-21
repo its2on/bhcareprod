@@ -600,6 +600,16 @@ namespace Barangay.Extensions
                 record.BirthWeight = encryptionService.DecryptForUser(record.BirthWeight, user);
             }
 
+            if (!string.IsNullOrEmpty(record.PlaceOfBirth))
+            {
+                record.PlaceOfBirth = encryptionService.DecryptForUser(record.PlaceOfBirth, user);
+            }
+
+            if (!string.IsNullOrEmpty(record.Address))
+            {
+                record.Address = encryptionService.DecryptForUser(record.Address, user);
+            }
+
             if (!string.IsNullOrEmpty(record.HealthCenter))
             {
                 record.HealthCenter = encryptionService.DecryptForUser(record.HealthCenter, user);
@@ -779,6 +789,17 @@ namespace Barangay.Extensions
             if (!string.IsNullOrEmpty(record.MMR2Remarks))
             {
                 record.MMR2Remarks = encryptionService.DecryptForUser(record.MMR2Remarks, user);
+            }
+
+            // Decrypt audit fields
+            if (!string.IsNullOrEmpty(record.CreatedBy))
+            {
+                record.CreatedBy = encryptionService.DecryptForUser(record.CreatedBy, user);
+            }
+
+            if (!string.IsNullOrEmpty(record.UpdatedBy))
+            {
+                record.UpdatedBy = encryptionService.DecryptForUser(record.UpdatedBy, user);
             }
 
             return record;

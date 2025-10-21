@@ -182,10 +182,27 @@
         
         /* Content area - maximize space */
         .content-wrapper {
-            margin-left: 0; /* margins handled on #content via user-theme.css */
-            padding-top: 70px; /* Space for fixed navbar */
-            padding-bottom: 60px; /* Space for footer */
+            margin-left: 0 !important; /* margins handled on #content via user-theme.css */
+            margin-top: 0 !important; /* Remove default margin-top from site.css */
+            padding-top: 0 !important; /* Padding handled dynamically by JavaScript */
+            padding-bottom: 60px;
             transition: margin-left 0.3s ease;
+        }
+        
+        /* Override site.css content-wrapper styles */
+        body .content-wrapper {
+            margin-top: 0 !important;
+        }
+        
+        /* Ensure main content has no top margin/padding */
+        .content-wrapper main {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Ensure container-fluid has no top padding */
+        .content-wrapper .container-fluid {
+            padding-top: 0 !important;
         }
         
         
@@ -281,19 +298,18 @@
                             <span class="text-white">BHCARE</span>
                         </div>
                     </div>
-                    
-                            <div class="notifications-icon me-3">
-                                <i class="fa-solid fa-bell"></i>
-                                <span class="notification-badge">1</span>
-                            </div>
-                        
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center justify-content-end">
+                            @await Component.InvokeAsync("NotificationBell")
                             
-                            <a href="javascript:document.getElementById('logoutForm').submit();" class="btn btn-logout">
+                            <a href="javascript:document.getElementById('logoutForm').submit();" class="btn btn-logout ms-3">
                                 <i class="fa-solid fa-right-from-bracket me-1"></i>
                                 Logout
                             </a>
                         </div>
                     </div>
+                </div>
+            </div>
         </header>
         }
 
@@ -356,7 +372,7 @@
         }
 
         <!-- Main Content -->
-        <div class="content-wrapper pt-4 app-content" id="content">
+        <div class="content-wrapper app-content" id="content">
             <!-- Page Content -->
             <main>
                 <div class="container-fluid p-0">
@@ -428,9 +444,10 @@
                 // Ensure content has enough top padding to clear any fixed header/nav
                 const content = document.getElementById('content');
                 if (content) {
-                    const basePadTop = 70; // existing intended spacing
-                    const finalPadTop = Math.max(basePadTop, offset + 10);
-                    content.style.paddingTop = finalPadTop + 'px';
+                    // Only add padding if there's a fixed header/navbar
+                    if (offset > 0) {
+                        content.style.paddingTop = (offset + 20) + 'px';
+                    }
                 }
             };
             applyTopOffset();

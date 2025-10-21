@@ -331,6 +331,52 @@ namespace Barangay.Pages.Account
                 return new JsonResult(new { exists = false, error = true });
             }
         }
+        
+        // AJAX handler to check if contact number exists
+        public async Task<IActionResult> OnGetCheckContactNumberAsync(string contactNumber)
+        {
+            if (string.IsNullOrWhiteSpace(contactNumber))
+            {
+                return new JsonResult(new { exists = false });
+            }
+            
+            try
+            {
+                // Normalize the input contact number (remove non-digits)
+                var normalizedInput = new string(contactNumber.Where(char.IsDigit).ToArray());
+                
+                // Get all phone numbers from database
+                var userPhoneNumbers = await _userManager.Users
+                    .Select(u => u.PhoneNumber)
+                    .ToListAsync();
+                
+                var exists = userPhoneNumbers.Any(encryptedPhone => 
+                {
+                    try
+                    {
+                        var decryptedPhone = _encryptionService.Decrypt(encryptedPhone);
+                        if (string.IsNullOrEmpty(decryptedPhone)) return false;
+                        
+                        // Normalize the decrypted phone number
+                        var normalizedDecrypted = new string(decryptedPhone.Where(char.IsDigit).ToArray());
+                        
+                        // Compare normalized numbers
+                        return normalizedDecrypted.Equals(normalizedInput, StringComparison.OrdinalIgnoreCase);
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+                
+                return new JsonResult(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking contact number existence");
+                return new JsonResult(new { exists = false, error = true });
+            }
+        }
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {

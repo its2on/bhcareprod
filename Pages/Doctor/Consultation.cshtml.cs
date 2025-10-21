@@ -196,12 +196,14 @@ namespace Barangay.Pages.Doctor
                     }
 
                     // Show all appointments on the selected date to all doctors (remove doctor-specific filtering)
+                    // Exclude immunization appointments - those are handled by nurses only
                     ConsultationQueue = await _context.Appointments
                         .Include(a => a.Patient)
                             .ThenInclude(p => p.User)
                         .Include(a => a.Doctor) // Include doctor information
                         .Where(a => a.AppointmentDate.Date == SelectedDate
-                                    && validStatuses.Contains(a.Status))
+                                    && validStatuses.Contains(a.Status)
+                                    && a.Type.ToLower() != "immunization") // Exclude immunization appointments
                         .OrderBy(a => a.AppointmentTime) // Sort by time since we're filtering by single date
                         .ToListAsync();
 

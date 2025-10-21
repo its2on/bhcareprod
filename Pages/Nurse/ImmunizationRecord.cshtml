@@ -60,7 +60,8 @@
     }
 
     <!-- Immunization Record Form -->
-    <form method="post" id="immunizationForm">
+    <form method="post" asp-page="/Nurse/ImmunizationRecord" asp-route-appointmentId="@Model.AppointmentId" id="immunizationForm" novalidate>
+        @Html.AntiForgeryToken()
         <input type="hidden" asp-for="AppointmentId" />
         
         <!-- Child Information -->
@@ -283,110 +284,145 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- BCG Vaccine -->
+                            <!-- BCG Vaccine - 1 dose -->
                             <tr>
-                                <td><strong>BCG Vaccine</strong><br><small class="text-muted">At Birth</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="BCGVaccineDate" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><strong>BCG Vaccine</strong><br><small class="text-muted">At birth</small></td>
+                                <td class="text-center">①</td>
+                                <td><input asp-for="BCGVaccineDate" type="date" class="form-control form-control-sm" /></td>
                                 <td><input asp-for="BCGVaccineRemarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
                             </tr>
                             
-                            <!-- Hepatitis B Vaccine -->
+                            <!-- Hepatitis B Vaccine - 1 dose -->
                             <tr>
-                                <td rowspan="3" class="align-middle"><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At Birth</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="HepBBirthDate" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
+                                <td><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At birth</small></td>
+                                <td class="text-center">①</td>
+                                <td><input asp-for="HepBBirthDate" type="date" class="form-control form-control-sm" /></td>
                                 <td><input asp-for="HepBBirthRemarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
                             </tr>
+                            
+                            <!-- Pentavalent Vaccine - 3 doses horizontally -->
                             <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="HepB1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="HepB1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="HepB2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="HepB2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                                <td><strong>Pentavalent Vaccine</strong><br><small class="text-muted">DPT-Hep B-HIB</small><br><small class="text-muted">1½, 2½, 3½ months</small></td>
+                                <td class="text-center">③</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">① 1½ months</label>
+                                            <input asp-for="Pentavalent1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">② 2½ months</label>
+                                            <input asp-for="Pentavalent2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">③ 3½ months</label>
+                                            <input asp-for="Pentavalent3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input asp-for="Pentavalent1Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Pentavalent2Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="Pentavalent3Remarks" type="text" class="form-control form-control-sm" placeholder="Dose 3 notes" />
+                                </td>
                             </tr>
                             
-                            <!-- Pentavalent Vaccine -->
+                            <!-- Oral Polio Vaccine - 3 doses horizontally -->
                             <tr>
-                                <td rowspan="3" class="align-middle"><strong>Pentavalent Vaccine</strong><br><small class="text-muted">DPT-Hep B-HIB<br>1, 2, 3 months</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="Pentavalent1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="Pentavalent1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="Pentavalent2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="Pentavalent2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="Pentavalent3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="Pentavalent3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            
-                            <!-- Oral Polio Vaccine (OPV) -->
-                            <tr>
-                                <td rowspan="3" class="align-middle"><strong>Oral Polio Vaccine (OPV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="OPV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="OPV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="OPV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="OPV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="OPV3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="OPV3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                                <td><strong>Oral Polio Vaccine (OPV)</strong><br><small class="text-muted">1½, 2½, 3½ months</small></td>
+                                <td class="text-center">③</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">① 1½ months</label>
+                                            <input asp-for="OPV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">② 2½ months</label>
+                                            <input asp-for="OPV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">③ 3½ months</label>
+                                            <input asp-for="OPV3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input asp-for="OPV1Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="OPV2Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="OPV3Remarks" type="text" class="form-control form-control-sm" placeholder="Dose 3 notes" />
+                                </td>
                             </tr>
                             
-                            <!-- Inactivated Polio Vaccine (IPV) -->
+                            <!-- Inactivated Polio Vaccine - 2 doses horizontally -->
                             <tr>
-                                <td rowspan="2" class="align-middle"><strong>Inactivated Polio Vaccine (IPV)</strong><br><small class="text-muted">3 & 9 months</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="IPV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="IPV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="IPV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="IPV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            
-                            <!-- Pneumococcal Conjugate Vaccine (PCV) -->
-                            <tr>
-                                <td rowspan="3" class="align-middle"><strong>Pneumococcal Conjugate Vaccine (PCV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="PCV1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="PCV1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="PCV2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="PCV2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
-                            </tr>
-                            <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="PCV3Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="PCV3Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                                <td><strong>Inactivated Polio Vaccine (IPV)</strong><br><small class="text-muted">3½ & 9 months</small></td>
+                                <td class="text-center">②</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-6">
+                                            <label class="form-label" style="font-size: 0.8rem;">① 3½ months</label>
+                                            <input asp-for="IPV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label" style="font-size: 0.8rem;">② 9 months</label>
+                                            <input asp-for="IPV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input asp-for="IPV1Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="IPV2Remarks" type="text" class="form-control form-control-sm" placeholder="Dose 2 notes" />
+                                </td>
                             </tr>
                             
-                            <!-- Measles, Mumps, Rubella Vaccine (MMR) -->
+                            <!-- Pneumococcal Conjugate Vaccine - 3 doses horizontally -->
                             <tr>
-                                <td rowspan="2" class="align-middle"><strong>Measles, Mumps, Rubella Vaccine (MMR)</strong><br><small class="text-muted">9 months & 1 year</small></td>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="MMR1Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="MMR1Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                                <td><strong>Pneumococcal Conjugate Vaccine (PCV)</strong><br><small class="text-muted">1½, 2½, 3½ months</small></td>
+                                <td class="text-center">③</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">① 1½ months</label>
+                                            <input asp-for="PCV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">② 2½ months</label>
+                                            <input asp-for="PCV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label" style="font-size: 0.8rem;">③ 3½ months</label>
+                                            <input asp-for="PCV3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input asp-for="PCV1Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="PCV2Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="PCV3Remarks" type="text" class="form-control form-control-sm" placeholder="Dose 3 notes" />
+                                </td>
                             </tr>
+                            
+                            <!-- Measles, Mumps, Rubella Vaccine - 2 doses horizontally -->
                             <tr>
-                                <td class="text-center">⚪</td>
-                                <td><input asp-for="MMR2Date" type="date" class="form-control form-control-sm" placeholder="mm/dd/yyyy" /></td>
-                                <td><input asp-for="MMR2Remarks" type="text" class="form-control form-control-sm" placeholder="Return date or notes" /></td>
+                                <td><strong>Measles, Mumps, Rubella Vaccine (MMR)</strong><br><small class="text-muted">9 months & 1 year</small></td>
+                                <td class="text-center">②</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-6">
+                                            <label class="form-label" style="font-size: 0.8rem;">① 9 months</label>
+                                            <input asp-for="MMR1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label" style="font-size: 0.8rem;">② 1 year</label>
+                                            <input asp-for="MMR2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input asp-for="MMR1Remarks" type="text" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="MMR2Remarks" type="text" class="form-control form-control-sm" placeholder="Dose 2 notes" />
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -396,7 +432,7 @@
 
         <!-- Action Buttons -->
         <div class="d-flex gap-2 mb-4">
-            <button type="submit" class="btn btn-success">
+            <button type="button" id="saveButton" class="btn btn-success">
                 <i class="fas fa-save me-1"></i>Save Immunization Record
             </button>
             <a href="/Nurse/Appointments" class="btn btn-secondary">
@@ -585,16 +621,73 @@
                 }
             });
             
-            // Add form submission validation
+            // Remove 'required' attribute from all vaccine date inputs to prevent browser validation
+            const allDateInputs = document.querySelectorAll('input[type="date"]');
+            allDateInputs.forEach(input => {
+                input.removeAttribute('required');
+                // Also disable HTML5 validation on these inputs
+                input.setAttribute('aria-required', 'false');
+            });
+            
+            // Handle save button click
+            const saveButton = document.getElementById('saveButton');
             const form = document.querySelector('form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
+            
+            if (saveButton && form) {
+                // Ensure form doesn't use HTML5 validation
+                form.setAttribute('novalidate', 'novalidate');
+                
+                saveButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Save button clicked');
                     let hasErrors = false;
                     
-                    // Validate all name fields on submit
+                    // Validate required fields first
+                    const childFirstNameField = document.querySelector('input[name="ChildFirstName"]');
+                    const childLastNameField = document.querySelector('input[name="ChildLastName"]');
+                    const dobField = document.querySelector('input[name="DateOfBirth"]');
+                    const sexField = document.querySelector('select[name="Sex"]');
+                    const barangayField = document.querySelector('select[name="Barangay"]');
+                    
+                    console.log('Validating required fields...');
+                    
+                    // Check required fields
+                    if (!childFirstNameField || !childFirstNameField.value.trim()) {
+                        alert('Child\'s First Name is required');
+                        if (childFirstNameField) childFirstNameField.focus();
+                        return;
+                    }
+                    
+                    if (!childLastNameField || !childLastNameField.value.trim()) {
+                        alert('Child\'s Last Name is required');
+                        if (childLastNameField) childLastNameField.focus();
+                        return;
+                    }
+                    
+                    if (!dobField || !dobField.value) {
+                        alert('Date of Birth is required');
+                        if (dobField) dobField.focus();
+                        return;
+                    }
+                    
+                    if (!sexField || !sexField.value) {
+                        alert('Sex is required');
+                        if (sexField) sexField.focus();
+                        return;
+                    }
+                    
+                    if (!barangayField || !barangayField.value) {
+                        alert('Barangay is required');
+                        if (barangayField) barangayField.focus();
+                        return;
+                    }
+                    
+                    console.log('Required fields validated');
+                    
+                    // Validate all name fields (only if they have values - middle names are optional)
                     nameFieldSelectors.forEach(selector => {
                         const field = document.querySelector(selector);
-                        if (field && field.value) {
+                        if (field && field.value && field.value.trim()) {
                             const namePattern = /^[A-Za-z\s]*$/;
                             if (!namePattern.test(field.value)) {
                                 hasErrors = true;
@@ -607,8 +700,8 @@
                         }
                     });
                     
-                    // Validate place of birth on submit
-                    if (placeField && placeField.value) {
+                    // Validate place of birth (optional field)
+                    if (placeField && placeField.value && placeField.value.trim()) {
                         const placePattern = /^[A-Za-z\s,.-]*$/;
                         if (!placePattern.test(placeField.value)) {
                             hasErrors = true;
@@ -620,9 +713,9 @@
                         }
                     }
                     
-                    // Validate weight/height fields on submit
+                    // Validate weight/height fields (optional)
                     [weightField, heightField].forEach(field => {
-                        if (field && field.value) {
+                        if (field && field.value && field.value.trim()) {
                             const numberPattern = /^[0-9.]*$/;
                             if (!numberPattern.test(field.value)) {
                                 hasErrors = true;
@@ -636,10 +729,23 @@
                     });
                     
                     if (hasErrors) {
-                        e.preventDefault();
                         alert('Please fix the validation errors before submitting the form.');
-                        return false;
+                        return;
                     }
+                    
+                    console.log('All validation passed, submitting form...');
+                    
+                    // Log form data being submitted for debugging
+                    const formData = new FormData(form);
+                    console.log('Form data being submitted:');
+                    for (let [key, value] of formData.entries()) {
+                        console.log(`${key}: ${value}`);
+                    }
+                    
+                    // Submit the form to Razor Page handler
+                    // The form action is set to /Nurse/ImmunizationRecord with appointmentId parameter
+                    // This will trigger OnPostAsync() in ImmunizationRecord.cshtml.cs
+                    form.submit();
                 });
             }
         });

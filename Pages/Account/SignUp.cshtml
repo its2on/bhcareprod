@@ -435,13 +435,18 @@
                     }
 
                     init() {
+                        this.hasOpenedPrivacyModal = false;
                         this.setupStepNavigation();
                         this.setupRealTimeValidation();
                         this.setupFormSubmission();
+                        this.setupPrivacyModalTracking();
                         
-                        // Initialize button states
-                        this.updateNextButtonState();
-                        this.updateRegisterButtonState();
+                        // Initialize button states with a small delay to ensure DOM is ready
+                        setTimeout(() => {
+                            this.updateStep1NextButtonState();
+                            this.updateNextButtonState();
+                            this.updateRegisterButtonState();
+                        }, 100);
                     }
 
                     setupStepNavigation() {
@@ -479,8 +484,12 @@
                         if (usernameInput) {
                             usernameInput.addEventListener('blur', async () => {
                                 await this.validateUsername();
+                                this.updateStep1NextButtonState();
                             });
-                            usernameInput.addEventListener('input', () => this.clearError('username'));
+                            usernameInput.addEventListener('input', () => {
+                                this.clearError('username');
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Email validation - only validate on blur to avoid too many AJAX calls
@@ -488,51 +497,93 @@
                         if (emailInput) {
                             emailInput.addEventListener('blur', async () => {
                                 await this.validateEmail();
+                                this.updateStep1NextButtonState();
                             });
-                            emailInput.addEventListener('input', () => this.clearError('email'));
+                            emailInput.addEventListener('input', () => {
+                                this.clearError('email');
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Name validation
                         ['FirstName', 'LastName'].forEach(field => {
                             const input = document.getElementById(`Input_${field}`);
                             if (input) {
-                                input.addEventListener('blur', () => this.validateName(field));
-                                input.addEventListener('input', () => this.clearError(field.toLowerCase()));
+                                input.addEventListener('blur', () => {
+                                    this.validateName(field);
+                                    this.updateStep1NextButtonState();
+                                });
+                                input.addEventListener('input', () => {
+                                    this.clearError(field.toLowerCase());
+                                    this.updateStep1NextButtonState();
+                                });
                             }
                         });
 
                         // Contact number validation
                         const contactInput = document.getElementById('Input_ContactNumber');
                         if (contactInput) {
-                            contactInput.addEventListener('blur', () => this.validateContactNumber());
-                            contactInput.addEventListener('input', () => this.clearError('contactNumber'));
+                            contactInput.addEventListener('blur', async () => {
+                                await this.validateContactNumber();
+                                this.updateStep1NextButtonState();
+                            });
+                            contactInput.addEventListener('input', () => {
+                                this.clearError('contactNumber');
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Address validation
                         const addressInput = document.getElementById('Input_Address');
                         if (addressInput) {
-                            addressInput.addEventListener('blur', () => this.validateAddress());
-                            addressInput.addEventListener('input', () => this.clearError('address'));
+                            addressInput.addEventListener('blur', () => {
+                                this.validateAddress();
+                                this.updateStep1NextButtonState();
+                            });
+                            addressInput.addEventListener('input', () => {
+                                this.clearError('address');
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Age validation
                         const ageInput = document.getElementById('Input_Age');
                         if (ageInput) {
-                            ageInput.addEventListener('blur', () => this.validateAge());
-                            ageInput.addEventListener('input', () => this.clearError('age'));
+                            ageInput.addEventListener('blur', () => {
+                                this.validateAge();
+                                this.updateStep1NextButtonState();
+                            });
+                            ageInput.addEventListener('input', () => {
+                                this.clearError('age');
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Birth date validation
                         const birthDateInput = document.getElementById('Input_BirthDate');
                         if (birthDateInput) {
-                            birthDateInput.addEventListener('change', () => this.validateBirthDate());
+                            birthDateInput.addEventListener('change', () => {
+                                this.validateBirthDate();
+                                this.updateStep1NextButtonState();
+                            });
                         }
 
                         // Gender validation
                         const genderInputs = document.querySelectorAll('input[name="Input.Gender"]');
                         genderInputs.forEach(input => {
-                            input.addEventListener('change', () => this.validateGender());
+                            input.addEventListener('change', () => {
+                                this.validateGender();
+                                this.updateStep1NextButtonState();
+                            });
                         });
+                        
+                        // Barangay validation
+                        const barangaySelect = document.getElementById('Input_Barangay');
+                        if (barangaySelect) {
+                            barangaySelect.addEventListener('change', () => {
+                                this.updateStep1NextButtonState();
+                            });
+                        }
 
                         // Password validation
                         const passwordInput = document.getElementById('password');
@@ -577,6 +628,102 @@
                                 this.validateCheckboxes();
                                 this.updateRegisterButtonState();
                             });
+                        }
+                    }
+
+                    setupPrivacyModalTracking() {
+                        const termsModal = document.getElementById('termsModal');
+                        const privacyCheckbox = document.getElementById('privacyTerms');
+                        const acceptTermsBtn = document.getElementById('acceptTerms');
+                        
+                        if (termsModal) {
+                            termsModal.addEventListener('shown.bs.modal', () => {
+                                this.hasOpenedPrivacyModal = true;
+                            });
+                        }
+                        
+                        if (privacyCheckbox) {
+                            privacyCheckbox.addEventListener('click', (e) => {
+                                if (!this.hasOpenedPrivacyModal) {
+                                    e.preventDefault();
+                                    alert('Please read the Data Privacy Terms before agreeing.');
+                                    // Open the modal
+                                    const modal = new bootstrap.Modal(termsModal);
+                                    modal.show();
+                                }
+                            });
+                        }
+                        
+                        if (acceptTermsBtn) {
+                            acceptTermsBtn.addEventListener('click', () => {
+                                if (privacyCheckbox) {
+                                    privacyCheckbox.checked = true;
+                                    this.validateCheckboxes();
+                                    this.updateRegisterButtonState();
+                                }
+                            });
+                        }
+                    }
+
+                    updateStep1NextButtonState() {
+                        const nextButton = document.getElementById('nextToSecurity');
+                        if (!nextButton) {
+                            console.log('DEBUG: Next button not found');
+                            return;
+                        }
+                        
+                        // Check if all Step 1 fields are filled
+                        const username = document.getElementById('Input_Username')?.value?.trim();
+                        const email = document.getElementById('Input_Email')?.value?.trim();
+                        const firstName = document.getElementById('Input_FirstName')?.value?.trim();
+                        const lastName = document.getElementById('Input_LastName')?.value?.trim();
+                        const contactNumber = document.getElementById('Input_ContactNumber')?.value?.trim();
+                        const address = document.getElementById('Input_Address')?.value?.trim();
+                        const age = document.getElementById('Input_Age')?.value?.trim();
+                        const birthDate = document.getElementById('Input_BirthDate')?.value;
+                        const genderSelected = document.querySelector('input[name="Input.Gender"]:checked');
+                        const barangay = document.getElementById('Input_Barangay')?.value;
+                        
+                        const allFieldsFilled = username && email && firstName && lastName && 
+                                               contactNumber && address && age && birthDate && 
+                                               genderSelected && barangay;
+                        
+                        // Check if any field has is-invalid class
+                        const invalidFields = document.querySelectorAll('#section1 .form-control.is-invalid, #section1 .form-select.is-invalid');
+                        const hasInvalidFields = invalidFields.length > 0;
+                        
+                        // Check for visible error messages
+                        const visibleErrors = document.querySelectorAll('#section1 .invalid-feedback[style*="display: block"]');
+                        const hasVisibleErrors = visibleErrors.length > 0;
+                        
+                        console.log('DEBUG Step1 Button State:', {
+                            allFieldsFilled,
+                            hasInvalidFields,
+                            hasVisibleErrors,
+                            username: !!username,
+                            email: !!email,
+                            firstName: !!firstName,
+                            lastName: !!lastName,
+                            contactNumber: !!contactNumber,
+                            address: !!address,
+                            age: !!age,
+                            birthDate: !!birthDate,
+                            genderSelected: !!genderSelected,
+                            barangay: !!barangay,
+                            invalidFieldsCount: invalidFields.length,
+                            visibleErrorsCount: visibleErrors.length
+                        });
+                        
+                        if (allFieldsFilled && !hasInvalidFields && !hasVisibleErrors) {
+                            console.log('DEBUG: Enabling Next button');
+                            nextButton.disabled = false;
+                            nextButton.classList.remove('btn-secondary');
+                            nextButton.classList.add('btn-primary');
+                        } else {
+                            console.log('DEBUG: Disabling Next button');
+                            nextButton.disabled = true;
+                            nextButton.classList.remove('btn-primary');
+                            nextButton.classList.add('btn-secondary');
                         }
                     }
 
@@ -683,7 +830,7 @@
                         return true;
                     }
 
-                    validateContactNumber() {
+                    async validateContactNumber() {
                         const input = document.getElementById('Input_ContactNumber');
                         const value = input?.value?.trim();
                         
@@ -704,6 +851,19 @@
                         if (/^(\d)\1+$/.test(digits)) {
                             this.showError('contactNumber', 'Please enter a valid contact number');
                             return false;
+                        }
+                        
+                        // Check if contact number already exists via AJAX
+                        try {
+                            const response = await fetch(`/Account/SignUp?handler=CheckContactNumber&contactNumber=${encodeURIComponent(value)}`);
+                            const data = await response.json();
+                            
+                            if (data.exists) {
+                                this.showError('contactNumber', 'This contact number is already registered. Please use a different number.');
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('Error checking contact number:', error);
                         }
                         
                         this.clearError('contactNumber');
@@ -877,12 +1037,23 @@
                         const registerButton = document.getElementById('signupButton');
                         if (!registerButton) return;
                         
-                        // Always enable the button and show "Register Account"
-                        // Server-side validation will handle any missing requirements
-                        registerButton.disabled = false;
-                        registerButton.classList.remove('btn-secondary');
-                        registerButton.classList.add('btn-primary');
-                        registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                        const fileValid = this.validateFile();
+                        const termsChecked = document.getElementById('privacyTerms')?.checked;
+                        const residencyChecked = document.getElementById('residencyConfirm')?.checked;
+                        
+                        const allValid = fileValid && termsChecked && residencyChecked;
+                        
+                        if (allValid) {
+                            registerButton.disabled = false;
+                            registerButton.classList.remove('btn-secondary');
+                            registerButton.classList.add('btn-primary');
+                            registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                        } else {
+                            registerButton.disabled = true;
+                            registerButton.classList.remove('btn-primary');
+                            registerButton.classList.add('btn-secondary');
+                            registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                        }
                     }
 
                     updatePasswordStrength(password) {
@@ -997,12 +1168,13 @@
                     async validateStep1() {
                         const usernameValid = await this.validateUsername();
                         const emailValid = await this.validateEmail();
+                        const contactNumberValid = await this.validateContactNumber();
                         const isValid = 
                             usernameValid &&
                             emailValid &&
                             this.validateName('FirstName') &&
                             this.validateName('LastName') &&
-                            this.validateContactNumber() &&
+                            contactNumberValid &&
                             this.validateAddress() &&
                             this.validateAge() &&
                             this.validateBirthDate() &&
@@ -1151,10 +1323,15 @@
                         
                         this.currentStep = stepNumber;
                         
-                        // Update register button state when navigating to step 3
-                        if (stepNumber === 3) {
+                        // Update button states based on current step
+                        if (stepNumber === 1) {
+                            setTimeout(() => this.updateStep1NextButtonState(), 100);
+                        } else if (stepNumber === 2) {
+                            this.updateNextButtonState();
+                        } else if (stepNumber === 3) {
                             this.updateRegisterButtonState();
                         }
+                        
                         const progressText = document.getElementById('progressText');
                         if (progressText) {
                             const stepTexts = {
@@ -1544,6 +1721,34 @@
                 flex-direction: column;
                 gap: 0.5rem;
             }
+        }
+        
+        /* Fix checkbox alignment in Step 3 */
+        .form-check {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .form-check-input {
+            margin-top: 0.25rem;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .form-check-label {
+            margin-bottom: 0;
+            line-height: 1.5;
+        }
+        
+        #section3 .form-check {
+            min-height: 1.5rem;
+            padding-left: 0;
+        }
+        
+        #section3 .form-check-input {
+            float: none;
+            margin-left: 0;
         }
     </style>
 }

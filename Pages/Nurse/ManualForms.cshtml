@@ -176,6 +176,7 @@
             </div>
             <div class="card-body">
                 <form method="post" asp-page-handler="FullForm">
+                    <input type="hidden" asp-for="AppointmentId" />
                     <!-- Child Information Section -->
                     <div class="row mb-4">
                         <div class="col-md-4">
@@ -242,7 +243,13 @@
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.Barangay" class="form-label">Barangay</label>
-                                <input asp-for="FullForm.Barangay" class="form-control" />
+                                <select asp-for="FullForm.Barangay" class="form-control">
+                                    <option value="">Select Barangay</option>
+                                    <option value="Barangay 158">Barangay 158</option>
+                                    <option value="Barangay 159">Barangay 159</option>
+                                    <option value="Barangay 160">Barangay 160</option>
+                                    <option value="Barangay 161">Barangay 161</option>
+                                </select>
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.FamilyNumber" class="form-label">Family Number</label>
@@ -478,6 +485,16 @@
                 window.location.href = '/Nurse/Immunization';
             }
         }
+
+        // Check URL hash on page load and show the appropriate form
+        document.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash;
+            if (hash === '#fullForm') {
+                showForm('full');
+            } else if (hash === '#shortcutForm') {
+                showForm('shortcut');
+            }
+        });
 
 
         // Set default date to next Wednesday for shortcut form

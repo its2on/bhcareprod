@@ -174,6 +174,51 @@ namespace Barangay.Controllers
                 return StatusCode(500, new { error = "Error marking all notifications as read" });
             }
         }
+
+        // User-facing endpoints (accessible by all authenticated users)
+        [AllowAnonymous]
+        [Authorize]
+        [HttpPost("{id}/mark-read")]
+        public async Task<IActionResult> UserMarkAsRead(int id)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                    return Unauthorized();
+
+                await _notificationService.MarkAsReadAsync(id);
+                _logger.LogInformation($"User {user.Id} marked notification {id} as read");
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error marking notification {id} as read for user");
+                return StatusCode(500, new { error = "Error marking notification as read" });
+            }
+        }
+
+        [AllowAnonymous]
+        [Authorize]
+        [HttpPost("mark-all-read")]
+        public async Task<IActionResult> UserMarkAllAsRead()
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                    return Unauthorized();
+
+                await _notificationService.MarkAllAsReadAsync(user.Id);
+                _logger.LogInformation($"User {user.Id} marked all notifications as read");
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all notifications as read for user");
+                return StatusCode(500, new { error = "Error marking all notifications as read" });
+            }
+        }
         
         [HttpGet("debug")]
         public async Task<IActionResult> GetNotificationsDebug()

@@ -1,0 +1,32 @@
+@model int
+
+@if (Model > 0)
+{
+    <span class="notification-badge-dot" title="@Model pending user@(Model == 1 ? "" : "s")">@Model</span>
+}
+
+<style>
+    .notification-badge-dot {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background-color: #dc3545;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        min-width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+    }
+    
+    /* Position the nav-item relatively so the badge can be positioned absolutely */
+    .nav-item {
+        position: relative;
+    }
+</style>

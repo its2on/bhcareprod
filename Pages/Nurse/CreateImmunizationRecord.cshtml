@@ -7,10 +7,13 @@
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="m-0">Create Immunization Record</h2>
-        <a href="/Nurse/Immunization" class="btn btn-outline-secondary">
+        <h2 class="m-0">
+            <i class="fas fa-syringe me-2"></i>
+            Child Immunization Record
+        </h2>
+        <a href="/Nurse/ImmunizationRecords" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i>
-            Back to Immunization
+            Back to Immunization Records
         </a>
     </div>
 
@@ -109,25 +112,30 @@
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0">
                     <i class="fas fa-syringe me-2"></i>
-                    Vaccination Records
+                    Vaccines Administered
                 </h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Vaccine dates are <strong>optional</strong>. Fill in the date only when the vaccine has been administered. 
+                    You can save the record now and update vaccine dates later as the child receives each dose.
+                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered">
                         <thead class="table-light">
                             <tr>
-                                <th>Vaccine</th>
-                                <th>Dose</th>
-                                <th>Date Given</th>
-                                <th>Remarks</th>
+                                <th style="width: 25%;">Vaccine (Bakuna)</th>
+                                <th style="width: 10%;">Doses</th>
+                                <th style="width: 40%;">Date Given (Petsa ng bakuna)</th>
+                                <th style="width: 25%;">Remarks</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- BCG Vaccine -->
+                            <!-- BCG Vaccine - 1 dose -->
                             <tr>
-                                <td rowspan="1"><strong>BCG Vaccine</strong><br><small class="text-muted">At Birth</small></td>
-                                <td>①</td>
+                                <td><strong>BCG Vaccine</strong><br><small class="text-muted">At birth</small></td>
+                                <td class="text-center">①</td>
                                 <td>
                                     <input asp-for="Record.BCGVaccineDate" type="date" class="form-control form-control-sm" />
                                 </td>
@@ -136,10 +144,10 @@
                                 </td>
                             </tr>
 
-                            <!-- Hepatitis B Vaccine -->
+                            <!-- Hepatitis B Vaccine - 1 dose -->
                             <tr>
-                                <td rowspan="1"><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At Birth</small></td>
-                                <td>①</td>
+                                <td><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At birth</small></td>
+                                <td class="text-center">①</td>
                                 <td>
                                     <input asp-for="Record.HepatitisBVaccineDate" type="date" class="form-control form-control-sm" />
                                 </td>
@@ -148,135 +156,128 @@
                                 </td>
                             </tr>
 
-                            <!-- Pentavalent Vaccine -->
+                            <!-- Pentavalent Vaccine - 3 doses -->
                             <tr>
-                                <td rowspan="3"><strong>Pentavalent Vaccine</strong><br><small class="text-muted">DPT-Hep B-HIB</small><br><small class="text-muted">1, 2, 3 months</small></td>
-                                <td>①</td>
+                                <td><strong>Pentavalent Vaccine</strong><br><small class="text-muted">DPT-Hep B-HIB</small><br><small class="text-muted">1, 2, 3 months</small></td>
+                                <td class="text-center">③</td>
                                 <td>
-                                    <input asp-for="Record.Pentavalent1Date" type="date" class="form-control form-control-sm" />
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label-sm">① 1½ months</label>
+                                            <input asp-for="Record.Pentavalent1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">② 2½ months</label>
+                                            <input asp-for="Record.Pentavalent2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">③ 3½ months</label>
+                                            <input asp-for="Record.Pentavalent3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
-                                    <input asp-for="Record.Pentavalent1Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>②</td>
-                                <td>
-                                    <input asp-for="Record.Pentavalent2Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.Pentavalent2Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>③</td>
-                                <td>
-                                    <input asp-for="Record.Pentavalent3Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.Pentavalent3Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
+                                    <input asp-for="Record.Pentavalent1Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Record.Pentavalent2Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="Record.Pentavalent3Remarks" class="form-control form-control-sm" placeholder="Dose 3 notes" />
                                 </td>
                             </tr>
 
-                            <!-- Oral Polio Vaccine -->
+                            <!-- Oral Polio Vaccine - 3 doses -->
                             <tr>
-                                <td rowspan="3"><strong>Oral Polio Vaccine (OPV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
-                                <td>①</td>
+                                <td><strong>Oral Polio Vaccine (OPV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
+                                <td class="text-center">③</td>
                                 <td>
-                                    <input asp-for="Record.OPV1Date" type="date" class="form-control form-control-sm" />
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label-sm">① 1½ months</label>
+                                            <input asp-for="Record.OPV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">② 2½ months</label>
+                                            <input asp-for="Record.OPV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">③ 3½ months</label>
+                                            <input asp-for="Record.OPV3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
-                                    <input asp-for="Record.OPV1Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>②</td>
-                                <td>
-                                    <input asp-for="Record.OPV2Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.OPV2Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>③</td>
-                                <td>
-                                    <input asp-for="Record.OPV3Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.OPV3Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
+                                    <input asp-for="Record.OPV1Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Record.OPV2Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="Record.OPV3Remarks" class="form-control form-control-sm" placeholder="Dose 3 notes" />
                                 </td>
                             </tr>
 
-                            <!-- Inactivated Polio Vaccine -->
+                            <!-- Inactivated Polio Vaccine - 2 doses -->
                             <tr>
-                                <td rowspan="2"><strong>Inactivated Polio Vaccine (IPV)</strong><br><small class="text-muted">3 & 9 months</small></td>
-                                <td>①</td>
+                                <td><strong>Inactivated Polio Vaccine (IPV)</strong><br><small class="text-muted">3 & 9 months</small></td>
+                                <td class="text-center">②</td>
                                 <td>
-                                    <input asp-for="Record.IPV1Date" type="date" class="form-control form-control-sm" />
+                                    <div class="row g-1">
+                                        <div class="col-6">
+                                            <label class="form-label-sm">① 3½ months</label>
+                                            <input asp-for="Record.IPV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label-sm">② 9 months</label>
+                                            <input asp-for="Record.IPV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
-                                    <input asp-for="Record.IPV1Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>②</td>
-                                <td>
-                                    <input asp-for="Record.IPV2Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.IPV2Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-
-                            <!-- Pneumococcal Conjugate Vaccine -->
-                            <tr>
-                                <td rowspan="3"><strong>Pneumococcal Conjugate Vaccine (PCV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
-                                <td>①</td>
-                                <td>
-                                    <input asp-for="Record.PCV1Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.PCV1Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>②</td>
-                                <td>
-                                    <input asp-for="Record.PCV2Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.PCV2Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>③</td>
-                                <td>
-                                    <input asp-for="Record.PCV3Date" type="date" class="form-control form-control-sm" />
-                                </td>
-                                <td>
-                                    <input asp-for="Record.PCV3Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
+                                    <input asp-for="Record.IPV1Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Record.IPV2Remarks" class="form-control form-control-sm" placeholder="Dose 2 notes" />
                                 </td>
                             </tr>
 
-                            <!-- MMR Vaccine -->
+                            <!-- Pneumococcal Conjugate Vaccine - 3 doses -->
                             <tr>
-                                <td rowspan="2"><strong>Measles, Mumps, Rubella Vaccine (MMR)</strong><br><small class="text-muted">9 months & 1 year</small></td>
-                                <td>①</td>
+                                <td><strong>Pneumococcal Conjugate Vaccine (PCV)</strong><br><small class="text-muted">1, 2, 3 months</small></td>
+                                <td class="text-center">③</td>
                                 <td>
-                                    <input asp-for="Record.MMR1Date" type="date" class="form-control form-control-sm" />
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <label class="form-label-sm">① 1½ months</label>
+                                            <input asp-for="Record.PCV1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">② 2½ months</label>
+                                            <input asp-for="Record.PCV2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm">③ 3½ months</label>
+                                            <input asp-for="Record.PCV3Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
-                                    <input asp-for="Record.MMR1Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
+                                    <input asp-for="Record.PCV1Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Record.PCV2Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 2 notes" />
+                                    <input asp-for="Record.PCV3Remarks" class="form-control form-control-sm" placeholder="Dose 3 notes" />
                                 </td>
                             </tr>
+
+                            <!-- MMR Vaccine - 2 doses -->
                             <tr>
-                                <td>②</td>
+                                <td><strong>Measles, Mumps, Rubella Vaccine (MMR)</strong><br><small class="text-muted">9 months & 1 year</small></td>
+                                <td class="text-center">②</td>
                                 <td>
-                                    <input asp-for="Record.MMR2Date" type="date" class="form-control form-control-sm" />
+                                    <div class="row g-1">
+                                        <div class="col-6">
+                                            <label class="form-label-sm">① 9 months</label>
+                                            <input asp-for="Record.MMR1Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label-sm">② 1 year</label>
+                                            <input asp-for="Record.MMR2Date" type="date" class="form-control form-control-sm" />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
-                                    <input asp-for="Record.MMR2Remarks" class="form-control form-control-sm" placeholder="Return date or notes" />
+                                    <input asp-for="Record.MMR1Remarks" class="form-control form-control-sm mb-1" placeholder="Dose 1 notes" />
+                                    <input asp-for="Record.MMR2Remarks" class="form-control form-control-sm" placeholder="Dose 2 notes" />
                                 </td>
                             </tr>
                         </tbody>
@@ -290,7 +291,7 @@
                 <i class="fas fa-save me-2"></i>
                 Save Immunization Record
             </button>
-            <a href="/Nurse/Immunization" class="btn btn-secondary btn-lg">
+            <a href="/Nurse/ImmunizationRecords" class="btn btn-secondary btn-lg">
                 <i class="fas fa-times me-2"></i>
                 Cancel
             </a>

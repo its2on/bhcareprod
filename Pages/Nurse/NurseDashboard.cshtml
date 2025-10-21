@@ -132,9 +132,9 @@
     </div>
 </div>
 
-<!-- Patient Queue Section -->
+<!-- Patient Queue and Notifications Section -->
 <div class="row mb-4">
-    <div class="col-12">
+    <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
                 <h5 class="card-title mb-0">
@@ -192,6 +192,37 @@
                         <h6 class="text-muted">No patients in queue</h6>
                         <p class="text-muted mb-0">Patients will appear here when they arrive for their appointments.</p>
                     </div>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Notifications Section -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-bell me-1"></i>
+                Recent Notifications
+            </div>
+            <div class="card-body">
+                @if (Model.RecentNotifications != null && Model.RecentNotifications.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var notification in Model.RecentNotifications)
+                        {
+                            <div class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">@notification.Title</h6>
+                                    <small>@notification.CreatedAt.ToLocalTime().ToString("MMM dd, hh:mm tt")</small>
+                                </div>
+                                <p class="mb-1">@notification.Message</p>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-center mb-0">No recent notifications</p>
                 }
             </div>
         </div>

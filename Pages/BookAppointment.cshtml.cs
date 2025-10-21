@@ -113,10 +113,11 @@ namespace Barangay.Pages
                     UserDetails = new UserDetailsViewModel
                     {
                         FullName = user.FullName ?? $"{user.FirstName} {user.LastName}".Trim(),
-                        Age = CalculateAge(user.BirthDate ?? DateTime.MinValue)
+                        Age = CalculateAge(user.BirthDate ?? DateTime.MinValue),
+                        Gender = user.Gender ?? "Male" // Default to Male if not set
                     };
 
-                    _logger.LogInformation($"BookAppointment - UserDetails set: FullName='{UserDetails.FullName}', Age={UserDetails.Age}");
+                    _logger.LogInformation($"BookAppointment - UserDetails set: FullName='{UserDetails.FullName}', Age={UserDetails.Age}, Gender='{UserDetails.Gender}'");
 
                     // Pre-fill name if available
                     if (!string.IsNullOrEmpty(user.FirstName) && !string.IsNullOrEmpty(user.LastName))
@@ -402,6 +403,16 @@ namespace Barangay.Pages
                     bookingModel.PhoneNumber = phoneNumber;
                 }
                 
+                if (Request.Form.TryGetValue("gender", out var gender))
+                {
+                    bookingModel.Gender = gender;
+                    _logger.LogInformation("Received gender from form: {Gender}", gender);
+                }
+                else
+                {
+                    _logger.LogWarning("Gender not received from form");
+                }
+                
                 if (Request.Form.TryGetValue("appointmentDate", out var appointmentDate))
                 {
                     bookingModel.AppointmentDate = appointmentDate;
@@ -581,11 +592,9 @@ namespace Barangay.Pages
                     user.PhoneNumber = user.PhoneNumber.DecryptForUser(_encryptionService, User);
                 }
 
-                // If booking for self, ensure a patient record exists.
-                if (!bookingForOther)
-                {
-                    await EnsurePatientRecordExistsAsync(userId);
-                }
+                // Always ensure a patient record exists for the logged-in user (booker)
+                // This satisfies the FK constraint since PatientId will be set to the booker's userId
+                await EnsurePatientRecordExistsAsync(userId);
 
                 DateTime appointmentDate = DateTime.Parse(bookingModel.AppointmentDate);
                 // Convert from 12-hour format (e.g. "8:00 AM") to TimeSpan
@@ -631,7 +640,10 @@ namespace Barangay.Pages
                 var newAppointment = new Models.Appointment
                 {
                     ApplicationUserId = userId, // Link to the user who booked the appointment
-                    PatientId = userId, // Always set PatientId to the current user
+                    // PatientId always points to the logged-in user (booker) to satisfy FK constraint
+                    // The actual patient details (name, age, DOB) are stored in PatientName, AgeValue, DateOfBirth fields
+                    // BookingForOther flag indicates if this appointment is for someone else
+                    PatientId = userId,
                     PatientName = patientName,
                     AgeValue = patientAge,
                     DateOfBirth = patientBirthday,
@@ -1329,6 +1341,7 @@ namespace Barangay.Pages
     {
         public string FullName { get; set; }
         public int Age { get; set; }
+        public string Gender { get; set; }
     }
 
     public class AppointmentBookingViewModel

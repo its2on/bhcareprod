@@ -35,6 +35,7 @@ namespace Barangay.Pages.User
         public List<Appointment> OngoingAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> ConfirmedAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> CancelledAppointments { get; set; } = new List<Appointment>();
+        public List<Appointment> CompletedAppointments { get; set; } = new List<Appointment>();
         public Dictionary<string, ApplicationUser> Doctors { get; set; } = new Dictionary<string, ApplicationUser>();
 
         public async Task<IActionResult> OnGetAsync()
@@ -162,6 +163,11 @@ namespace Barangay.Pages.User
                     .Where(a => a.Status == AppointmentStatus.Cancelled)
                     .ToList();
 
+                // Get completed appointments from all appointments
+                CompletedAppointments = appointments
+                    .Where(a => a.Status == AppointmentStatus.Completed)
+                    .ToList();
+
                 // Enhanced debug logging
                 Console.WriteLine($"DEBUG: === APPOINTMENT CATEGORIZATION RESULTS ===");
                 Console.WriteLine($"DEBUG: Total appointments found: {appointments.Count}");
@@ -171,6 +177,7 @@ namespace Barangay.Pages.User
                 Console.WriteLine($"DEBUG: Draft appointments: {DraftAppointments.Count}");
                 Console.WriteLine($"DEBUG: Confirmed appointments: {ConfirmedAppointments.Count}");
                 Console.WriteLine($"DEBUG: Cancelled appointments found: {CancelledAppointments.Count}");
+                Console.WriteLine($"DEBUG: Completed appointments found: {CompletedAppointments.Count}");
                 
                 // Log each cancelled appointment in detail
                 Console.WriteLine($"DEBUG: === CANCELLED APPOINTMENTS DETAIL ===");
@@ -184,6 +191,13 @@ namespace Barangay.Pages.User
                 foreach (var ongoing in OngoingAppointments)
                 {
                     Console.WriteLine($"DEBUG: Ongoing Appointment {ongoing.Id} - Status: {ongoing.Status}, Date: {ongoing.AppointmentDate:yyyy-MM-dd}, Time: {ongoing.AppointmentTime}, UpdatedAt: {ongoing.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
+                }
+                
+                // Log each completed appointment in detail
+                Console.WriteLine($"DEBUG: === COMPLETED APPOINTMENTS DETAIL ===");
+                foreach (var completed in CompletedAppointments)
+                {
+                    Console.WriteLine($"DEBUG: Completed Appointment {completed.Id} - Status: {completed.Status}, Date: {completed.AppointmentDate:yyyy-MM-dd}, Time: {completed.AppointmentTime}, UpdatedAt: {completed.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
                 }
                 
                 Console.WriteLine($"DEBUG: === END APPOINTMENT CATEGORIZATION ===");
@@ -200,6 +214,7 @@ namespace Barangay.Pages.User
                 OngoingAppointments = new List<Appointment>();
                 ConfirmedAppointments = new List<Appointment>();
                 CancelledAppointments = new List<Appointment>();
+                CompletedAppointments = new List<Appointment>();
             }
             catch (Exception ex)
             {
@@ -213,6 +228,7 @@ namespace Barangay.Pages.User
                 OngoingAppointments = new List<Appointment>();
                 ConfirmedAppointments = new List<Appointment>();
                 CancelledAppointments = new List<Appointment>();
+                CompletedAppointments = new List<Appointment>();
             }
 
             return Page();

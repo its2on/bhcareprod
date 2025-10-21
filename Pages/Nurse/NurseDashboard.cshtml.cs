@@ -46,6 +46,7 @@ namespace Barangay.Pages.Nurse
         public List<AlertViewModel> Alerts { get; set; }
         public List<QueueViewModel> Queue { get; set; }
         public List<PatientRecordViewModel> PatientRecords { get; set; }
+        public List<NotificationItem> RecentNotifications { get; set; } = new();
         
         public async Task<IActionResult> OnGetAsync()
         {
@@ -88,6 +89,24 @@ namespace Barangay.Pages.Nurse
             InProgressCount = await todaysAppointments.CountAsync(a => a.Status == Models.AppointmentStatus.InProgress);
             WaitingCount = await todaysAppointments.CountAsync(a => a.Status == Models.AppointmentStatus.Pending || a.Status == Models.AppointmentStatus.Confirmed);
             CompletedTodayCount = await todaysAppointments.CountAsync(a => a.Status == Models.AppointmentStatus.Completed);
+            
+            // Fetch recent notifications from the database
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var notifications = await _context.Notifications
+                                                  .Where(n => n.RecipientId == userId && !n.IsRead)
+                                                  .OrderByDescending(n => n.CreatedAt)
+                                                  .Take(5)
+                                                  .ToListAsync();
+
+                RecentNotifications = notifications.Select(n => new NotificationItem
+                {
+                    Title = n.Title,
+                    Message = n.Message,
+                    CreatedAt = n.CreatedAt
+                }).ToList();
+            }
         }
 
         public class AlertViewModel
@@ -122,6 +141,13 @@ namespace Barangay.Pages.Nurse
             public string Gender { get; set; } = string.Empty;
             public DateTime LastVisit { get; set; }
             public string Diagnosis { get; set; } = string.Empty;
+        }
+        
+        public class NotificationItem
+        {
+            public string Title { get; set; }
+            public string Message { get; set; }
+            public DateTime CreatedAt { get; set; }
         }
     }
 }

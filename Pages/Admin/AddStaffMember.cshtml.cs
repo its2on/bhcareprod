@@ -99,38 +99,20 @@ namespace Barangay.Pages.Admin
                         .ToListAsync();
                 }
 
-                // Group permissions by category (ensure Dashboard Access stays visible for all)
+                // Group permissions by category, excluding "Doctor Pages" and "Nurse Pages" to avoid duplicates
                 var grouped = permissions
+                    .Where(p => p.Category != "Doctor Pages" && p.Category != "Nurse Pages") // Exclude these categories
                     .GroupBy(p => string.IsNullOrEmpty(p.Category) ? "General" : p.Category)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                // Page categories - show actual pages available
-                var standardCategories = new List<string>
-                {
-                    "Doctor Pages",
-                    "Nurse Pages"
-                };
-
                 var ordered = new Dictionary<string, List<Permission>>();
-                foreach (var cat in standardCategories)
-                {
-                    if (grouped.ContainsKey(cat))
-                    {
-                        ordered[cat] = grouped[cat];
-                    }
-                }
-                foreach (var kv in grouped)
-                {
-                    if (!ordered.ContainsKey(kv.Key))
-                    {
-                        ordered[kv.Key] = kv.Value;
-                    }
-                }
+                
                 // Build simplified role categories by permission NAME so it works regardless of DB categories
                 var byName = permissions
                     .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
+                // Add Nurse simplified group (combines Nurse Pages permissions)
                 var nurseNames = new [] { "Appointments", "NurseDashboard", "PatientList", "PatientQueue", "VitalSigns" };
                 var nurseList = new List<Permission>();
                 foreach (var n in nurseNames)
@@ -142,7 +124,8 @@ namespace Barangay.Pages.Admin
                     ordered["Nurse"] = nurseList;
                 }
 
-                var doctorNames = new [] { "Consultation", "DoctorDashboard", "Reports" };
+                // Add Doctor simplified group (combines Doctor Pages permissions)
+                var doctorNames = new [] { "Consultation", "DoctorDashboard", "Reports", "PatientList", "PatientRecords" };
                 var doctorList = new List<Permission>();
                 foreach (var d in doctorNames)
                 {
@@ -151,6 +134,15 @@ namespace Barangay.Pages.Admin
                 if (doctorList.Count > 0)
                 {
                     ordered["Doctor"] = doctorList;
+                }
+                
+                // Add remaining categories (excluding the ones we've already handled)
+                foreach (var kv in grouped)
+                {
+                    if (!ordered.ContainsKey(kv.Key))
+                    {
+                        ordered[kv.Key] = kv.Value;
+                    }
                 }
 
                 CategorizedPermissions = ordered;
@@ -388,20 +380,46 @@ namespace Barangay.Pages.Admin
 
                 // Working days and hours are now optional - no validation needed
 
-                // Additional server-side validation for name and phone format
-                var name = (StaffMember.Name ?? string.Empty).Trim();
+                // Additional server-side validation for name fields and phone format
+                var firstName = (StaffMember.FirstName ?? string.Empty).Trim();
+                var middleName = (StaffMember.MiddleName ?? string.Empty).Trim();
+                var lastName = (StaffMember.LastName ?? string.Empty).Trim();
                 var phone = (StaffMember.ContactNumber ?? string.Empty).Trim();
 
                 // Allow letters (including diacritics), spaces, hyphen, apostrophe. No digits/symbols.
                 var nameAllowedPattern = new Regex("^[A-Za-zÀ-ÖØ-öø-ÿ'\\-\\s]+$");
-                if (!nameAllowedPattern.IsMatch(name))
+                
+                // Validate FirstName
+                if (!nameAllowedPattern.IsMatch(firstName))
                 {
-                    ModelState.AddModelError("StaffMember.Name", "Full name may only contain letters, spaces, hyphen (-), and apostrophe (').");
+                    ModelState.AddModelError("StaffMember.FirstName", "First name may only contain letters, spaces, hyphen (-), and apostrophe (').");
                 }
-                // Disallow 3 or more repeated identical letters
-                if (Regex.IsMatch(name, "([A-Za-z])\\1{2,}"))
+                if (Regex.IsMatch(firstName, "([A-Za-z])\\1{2,}"))
                 {
-                    ModelState.AddModelError("StaffMember.Name", "Full name cannot contain 3 or more repeated letters in a row.");
+                    ModelState.AddModelError("StaffMember.FirstName", "First name cannot contain 3 or more repeated letters in a row.");
+                }
+                
+                // Validate MiddleName (if provided)
+                if (!string.IsNullOrEmpty(middleName))
+                {
+                    if (!nameAllowedPattern.IsMatch(middleName))
+                    {
+                        ModelState.AddModelError("StaffMember.MiddleName", "Middle name may only contain letters, spaces, hyphen (-), and apostrophe (').");
+                    }
+                    if (Regex.IsMatch(middleName, "([A-Za-z])\\1{2,}"))
+                    {
+                        ModelState.AddModelError("StaffMember.MiddleName", "Middle name cannot contain 3 or more repeated letters in a row.");
+                    }
+                }
+                
+                // Validate LastName
+                if (!nameAllowedPattern.IsMatch(lastName))
+                {
+                    ModelState.AddModelError("StaffMember.LastName", "Last name may only contain letters, spaces, hyphen (-), and apostrophe (').");
+                }
+                if (Regex.IsMatch(lastName, "([A-Za-z])\\1{2,}"))
+                {
+                    ModelState.AddModelError("StaffMember.LastName", "Last name cannot contain 3 or more repeated letters in a row.");
                 }
 
                 // Accept both +639XXXXXXXXX and 09XXXXXXXXX formats
@@ -499,9 +517,12 @@ namespace Barangay.Pages.Admin
                         IsFirstLogin = true // Require password change on first login
                     };
 
-                    // Populate FirstName, MiddleName, LastName, and Name from the provided full name
-                    // Using the validated and trimmed 'name' variable
-                    user.FullName = name;
+                    // Populate FirstName, MiddleName, LastName from the StaffMember model
+                    // Build full name from the separate name fields
+                    var fullName = string.IsNullOrEmpty(middleName) 
+                        ? $"{firstName} {lastName}" 
+                        : $"{firstName} {middleName} {lastName}";
+                    user.FullName = fullName;
 
                     // Generate default password if none provided
                     var userPassword = !string.IsNullOrEmpty(Password) ? Password : "TempPassword123!";
@@ -768,12 +789,12 @@ namespace Barangay.Pages.Admin
         {
             TimeSlots.Clear();
             
-            // Generate time slots from 6:00 AM to 10:00 PM in 30-minute intervals
-            for (int hour = 6; hour <= 22; hour++)
+            // Generate time slots from 8:00 AM to 5:00 PM in 30-minute intervals
+            for (int hour = 8; hour <= 17; hour++)
             {
                 for (int minute = 0; minute < 60; minute += 30)
                 {
-                    if (hour == 22 && minute > 0) break; // Don't go past 10:00 PM
+                    if (hour == 17 && minute > 0) break; // Don't go past 5:00 PM
                     
                     string period = hour >= 12 ? "PM" : "AM";
                     int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);

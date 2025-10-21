@@ -29,7 +29,7 @@
             <div class="col-lg-6">
                 <!-- Personal Information Section -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header text-white" style="background-color: #FF8C42;">
                         <h5 class="mb-0">
                             <i class="fa-solid fa-user me-2"></i>Personal Information
                         </h5>
@@ -44,7 +44,8 @@
                                         <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
                                         <input asp-for="StaffMember.FirstName" class="form-control" placeholder="First name"
                                                pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
-                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')"
+                                               oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ'\-\s]/g, '')" />
                                     </div>
                                     <span asp-validation-for="StaffMember.FirstName" class="text-danger"></span>
                                 </div>
@@ -56,7 +57,8 @@
                                         <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
                                         <input asp-for="StaffMember.MiddleName" class="form-control" placeholder="Middle name (optional)"
                                                pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]*$"
-                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')"
+                                               oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ'\-\s]/g, '')" />
                                     </div>
                                     <span asp-validation-for="StaffMember.MiddleName" class="text-danger"></span>
                                 </div>
@@ -68,7 +70,8 @@
                                         <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
                                         <input asp-for="StaffMember.LastName" class="form-control" placeholder="Last name"
                                                pattern="^[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]+$"
-                                               title="Only letters, spaces, hyphen (-), and apostrophe (')" />
+                                               title="Only letters, spaces, hyphen (-), and apostrophe (')"
+                                               oninput="this.value = this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ'\-\s]/g, '')" />
                                     </div>
                                     <span asp-validation-for="StaffMember.LastName" class="text-danger"></span>
                                 </div>
@@ -117,6 +120,7 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 <input asp-for="StaffMember.DateOfBirth" class="form-control" type="date" id="dateOfBirth" 
+                                       min="1900-01-01"
                                        max="@DateTime.Now.AddYears(-18).ToString("yyyy-MM-dd")" />
                             </div>
                             <span asp-validation-for="StaffMember.DateOfBirth" class="text-danger"></span>
@@ -148,7 +152,8 @@
                                 <input asp-for="StaffMember.ContactNumber" class="form-control" placeholder="e.g. +639123456789 or 09123456789"
                                        type="tel" inputmode="numeric" maxlength="13"
                                        pattern="^(\+639\d{9}|09\d{9})$"
-                                       title="Use Philippine format: +639 followed by 9 digits OR 09 followed by 9 digits." />
+                                       title="Use Philippine format: +639 followed by 9 digits OR 09 followed by 9 digits."
+                                       oninput="this.value = this.value.replace(/[^0-9+]/g, '')" />
                             </div>
                             <span asp-validation-for="StaffMember.ContactNumber" class="text-danger"></span>
                         </div>
@@ -157,7 +162,7 @@
 
                 <!-- Role Details Section -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header text-white" style="background-color: #FF8C42;">
                         <h5 class="mb-0">
                             <i class="fa-solid fa-id-badge me-2"></i>Role Details
                         </h5>
@@ -175,15 +180,6 @@
                                 </select>
                             </div>
                             <span asp-validation-for="StaffMember.Role" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="StaffMember.Position" class="form-label">Position</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fa-solid fa-briefcase"></i></span>
-                                <input asp-for="StaffMember.Position" class="form-control" placeholder="e.g. Staff Nurse, Senior Doctor" />
-                            </div>
-                            <span asp-validation-for="StaffMember.Position" class="text-danger"></span>
                         </div>
 
                         <div class="form-group mb-3">
@@ -219,7 +215,7 @@
             <div class="col-lg-6">
                 <!-- Work Schedule Section -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header text-white" style="background-color: #FF8C42;">
                         <h5 class="mb-0">
                             <i class="fa-solid fa-calendar-days me-2"></i>Work Schedule
                         </h5>
@@ -230,9 +226,12 @@
                             <div class="btn-group d-flex flex-wrap" role="group" aria-label="Working days">
                                 @foreach (var day in Model.DaysOfWeek)
                                 {
+                                    // Only show Monday to Friday
+                                    if (day == "Saturday" || day == "Sunday") continue;
+                                    
                                     var isChecked = (day == "Monday" || day == "Tuesday" || day == "Wednesday" || day == "Thursday" || day == "Friday") ? "checked" : "";
                                     <input type="checkbox" class="btn-check working-days-checkbox" id="day_@day" value="@day" autocomplete="off" @isChecked>
-                                    <label class="btn btn-outline-primary m-1" for="day_@day">@day</label>
+                                    <label class="btn btn-outline-orange m-1" for="day_@day">@day</label>
                                 }
                             </div>
                             <input type="hidden" asp-for="StaffMember.WorkingDays" id="workingDaysInput" />
@@ -292,7 +291,7 @@
 
                 <!-- Account Details Section -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header text-white" style="background-color: #FF8C42;">
                         <h5 class="mb-0">
                             <i class="fa-solid fa-user-lock me-2"></i>Account Details
                         </h5>
@@ -310,20 +309,12 @@
                             <small class="form-text text-muted">Password must be at least 6 characters long.</small>
                             <span asp-validation-for="Password" class="text-danger"></span>
                         </div>
-
-                        <div class="form-group mb-3">
-                            <div class="form-check form-switch">
-                                <input asp-for="StaffMember.IsActive" class="form-check-input" checked />
-                                <label asp-for="StaffMember.IsActive" class="form-check-label">Active Account</label>
-                            </div>
-                            <small class="form-text text-muted">Inactive accounts cannot log in to the system.</small>
-                        </div>
                     </div>
                 </div>
 
                 <!-- Permissions Section -->
                 <div class="card shadow-sm mb-4" id="permissionsSection" style="display: none;">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #FF8C42;">
                         <h5 class="mb-0">
                             <i class="fa-solid fa-key me-2"></i>Permissions
                         </h5>
@@ -815,12 +806,39 @@
 </div>
 
 <style>
+    /* Orange theme for working days buttons */
+    .btn-outline-orange {
+        color: #FF8C42;
+        border-color: #FF8C42;
+        background-color: transparent;
+    }
+
+    .btn-outline-orange:hover {
+        color: #fff;
+        background-color: #FF8C42;
+        border-color: #FF8C42;
+    }
+
+    .btn-check:checked + .btn-outline-orange {
+        color: #fff;
+        background-color: #FF8C42;
+        border-color: #FF8C42;
+    }
+
+    .btn-check:active + .btn-outline-orange,
+    .btn-outline-orange:active,
+    .btn-outline-orange.active {
+        color: #fff;
+        background-color: #E67E22;
+        border-color: #E67E22;
+    }
+
     .permission-category .category-toggle {
         font-weight: 500;
     }
 
     .permission-category .category-toggle:hover {
-        color: var(--bs-primary) !important;
+        color: #FF8C42 !important;
     }
 
     .permission-category .category-toggle[aria-expanded="true"] i {
@@ -832,11 +850,11 @@
     }
 
     .permission-checkbox:checked + label {
-        color: var(--bs-primary);
+        color: #FF8C42;
     }
 
     .permission-checkbox:checked + label small {
-        color: var(--bs-primary) !important;
+        color: #FF8C42 !important;
         opacity: 0.8;
     }
 </style>
@@ -921,10 +939,10 @@
                 // Define allowed categories for each role
                 const allowedByPosition = {
                     // Doctor positions
-                    'head doctor': new Set(['doctor', 'dashboard access', 'doctor pages']),
+                    'head doctor': new Set(['doctor', 'dashboard access']),
                     
                     // Nurse positions
-                    'head nurse': new Set(['nurse', 'dashboard access', 'nurse pages']),
+                    'head nurse': new Set(['nurse', 'dashboard access']),
                     
                     // Admin positions
                     'admin staff': new Set(['doctor', 'nurse', 'dashboard access', 'administration', 'user management'])
@@ -1071,25 +1089,26 @@
                 }
             }, false);
 
-            // Initialize visibility on load
-            updatePermissionsVisibility();
-            updatePermissionCounts();
-
             // Password visibility toggle
             const togglePassword = document.getElementById('togglePassword');
             const password = document.getElementById('password');
-            togglePassword.addEventListener('click', function () {
-                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                password.setAttribute('type', type);
-                this.querySelector('i').classList.toggle('fa-eye');
-                this.querySelector('i').classList.toggle('fa-eye-slash');
-            });
+            
+            if (togglePassword && password) {
+                togglePassword.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                    password.setAttribute('type', type);
+                    
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-eye');
+                        icon.classList.toggle('fa-eye-slash');
+                    }
+                });
+            }
 
-            // Initial state
-            updatePermissionsVisibility();
+            // Initial state - update permission counts
             updatePermissionCounts();
-            updateWorkingDays();
-            updateWorkingHours();
 
             // Age calculation from Date of Birth
             const dobInput = document.getElementById('dateOfBirth');

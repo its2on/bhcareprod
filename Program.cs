@@ -459,6 +459,10 @@ builder.Services.AddHostedService<TokenCleanupService>();
 
 // Register Notification Service
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationEmailService, NotificationEmailService>();
+
+// Add notification background service
+builder.Services.AddHostedService<NotificationBackgroundService>();
 
 // Register User Verification Service
 builder.Services.AddScoped<IUserVerificationService, UserVerificationService>();

@@ -133,7 +133,7 @@ namespace Barangay.Pages.Admin
                         await _notificationService.CreateNotificationForUserAsync(
                             userId: userId,
                             title: "Account Approved",
-                            message: "Your account has been approved. You can now access all system features.",
+                            message: "Your account has been approved.",
                             type: "Success",
                             link: "https://bhcare.software"
                         );

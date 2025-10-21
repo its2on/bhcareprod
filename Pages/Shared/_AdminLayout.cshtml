@@ -64,6 +64,7 @@
                             <a href="/Admin/UserManagement" class="nav-link" data-tooltip="User Management">
                                 <i class="fa-solid fa-users"></i>
                                 <span class="sidebar-text">User Management</span>
+                                @await Component.InvokeAsync("PendingUsersCount")
                             </a>
                         </li>
                         <li class="nav-item">

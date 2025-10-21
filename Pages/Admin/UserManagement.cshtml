@@ -229,15 +229,6 @@
                                         <button type="button" class="btn action action-primary btn-sm" onclick="viewUserDetails('@user.Id')">
                                             <i class="fa-solid fa-user"></i> View Details
                                         </button>
-                                        @if (user.Status.ToLower() == "pending")
-                                        {
-                                            <button type="button" class="btn btn-sm btn-action approve btn-approve-minimal" data-id="@user.Id" aria-label="Approve user">
-                                                <i class="fa-solid fa-check"></i> Approve
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-action reject btn-reject-minimal" data-id="@user.Id" aria-label="Reject user">
-                                                <i class="fa-solid fa-xmark"></i> Reject
-                                            </button>
-                                        }
                                         @if (!user.UserDocuments.Any())
                                         {
                                             <button type="button" class="btn action action-secondary btn-sm" onclick="showNoDocumentMessage()">

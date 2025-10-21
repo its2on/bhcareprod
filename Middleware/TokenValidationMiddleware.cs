@@ -26,22 +26,24 @@ namespace Barangay.Middleware
                 return;
             }
 
-            // Skip token validation for authenticated users accessing their own pages
-            if (context.User.Identity?.IsAuthenticated == true && IsTokenProtectedPath(path))
+            // Skip token validation for authenticated users accessing protected paths
+            // This allows normal authenticated users to access their role-based pages without tokens
+            if (context.User.Identity?.IsAuthenticated == true)
             {
-                _logger.LogInformation("Authenticated user accessing protected path {Path}, skipping token validation", path);
+                _logger.LogInformation("Authenticated user {UserName} accessing path {Path}, skipping token validation", 
+                    context.User.Identity.Name, path);
                 await _next(context);
                 return;
             }
 
-            // Check if this is a token-protected route
+            // Only check for tokens if user is NOT authenticated and accessing a token-protected route
             if (IsTokenProtectedPath(path))
             {
                 var token = ExtractTokenFromRequest(context);
                 
                 if (string.IsNullOrEmpty(token))
                 {
-                    _logger.LogWarning("Access denied to {Path}: No token provided", path);
+                    _logger.LogWarning("Access denied to {Path}: No token provided and user not authenticated", path);
                     await HandleUnauthorizedAccess(context, "Token required");
                     return;
                 }

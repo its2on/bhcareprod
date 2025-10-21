@@ -19,6 +19,30 @@
     var isDoctorToolsActive = (isActive("createprescription") == "active" || isActive("createmedicalrecord") == "active") ? "active" : "";
 }
 
+<style>
+    .dashboard-navbar {
+        position: relative;
+        overflow: visible !important;
+        z-index: 1021;
+    }
+    .dashboard-navbar .navbar-nav {
+        overflow: visible !important;
+    }
+    .dashboard-navbar .container-fluid {
+        overflow: visible !important;
+    }
+    .dashboard-navbar .navbar-collapse {
+        overflow: visible !important;
+    }
+    /* Ensure notification dropdown appears above everything */
+    .dashboard-navbar .notification-dropdown {
+        position: static !important;
+    }
+    .dashboard-navbar .notification-dropdown-menu {
+        z-index: 10000 !important;
+    }
+</style>
+
 <nav class="navbar navbar-expand-lg dashboard-navbar">
     <div class="container-fluid">
         <a class="navbar-brand" href="/User/UserDashboard">
@@ -67,6 +91,9 @@
             
             <!-- User link (no dropdown): goes straight to Settings; logout removed (exists in sidebar) -->
             <ul class="navbar-nav">
+                <li class="nav-item">
+                    @await Component.InvokeAsync("NotificationBell")
+                </li>
                 <li class="nav-item user-link">
                     <a class="nav-link d-flex align-items-center" href="/User/Settings" title="Go to Settings">
                         <img src="@(string.IsNullOrEmpty(currentUser?.ProfileImage) ? "/images/default-profile.png" : $"/images/profiles/{currentUser.ProfileImage}?v={currentUser.UpdatedAt.Ticks}")" 
