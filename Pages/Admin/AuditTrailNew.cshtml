@@ -1,0 +1,633 @@
+@page
+@model Barangay.Pages.Admin.AuditTrailModel
+@{
+    ViewData["Title"] = "Audit Trail Logs";
+}
+
+<style>
+    :root {
+        --primary-orange: #ff7f32;
+        --success-green: #28a745;
+        --danger-red: #dc3545;
+        --info-blue: #17a2b8;
+    }
+    
+    .stat-card {
+        border-radius: 12px;
+        padding: 24px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 8px 0;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-trend {
+        font-size: 0.85rem;
+        margin-top: 8px;
+    }
+    
+    .badge-orange {
+        background-color: var(--primary-orange) !important;
+        color: white;
+    }
+    
+    .btn-export {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .audit-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .audit-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .audit-table tbody tr {
+        transition: background-color 0.2s;
+    }
+    
+    .audit-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 16px 16px 0 0;
+        border: none;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    
+    .detail-value {
+        font-size: 1rem;
+        color: #2d3748;
+        background: #f7fafc;
+        padding: 12px;
+        border-radius: 8px;
+        border-left: 4px solid var(--primary-orange);
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 fw-bold">
+            <i class="fas fa-clipboard-list text-primary me-2"></i>
+            Audit Trail Logs
+        </h1>
+        <div class="text-muted small">
+            <i class="far fa-calendar me-1"></i>
+            @DateTime.Now.ToString("dddd, MMMM dd, yyyy")
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Total Actions</div>
+                        <div class="stat-value text-primary">@Model.TotalActions.ToString("N0")</div>
+                        <div class="stat-trend text-success">
+                            <i class="fas fa-arrow-up me-1"></i>+12% this month
+                        </div>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-chart-line text-primary fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Actions Today</div>
+                        <div class="stat-value" style="color: var(--primary-orange);">@Model.ActionsToday</div>
+                        <div class="stat-trend text-success">
+                            <i class="fas fa-arrow-up me-1"></i>+5 from yesterday
+                        </div>
+                    </div>
+                    <div style="background-color: rgba(255, 127, 50, 0.1);" class="p-3 rounded-circle">
+                        <i class="fas fa-calendar-day fa-2x" style="color: var(--primary-orange);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Failed Actions</div>
+                        <div class="stat-value text-danger">@Model.FailedActions</div>
+                        <div class="stat-trend text-danger">
+                            <i class="fas fa-arrow-down me-1"></i>-3% this week
+                        </div>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-exclamation-triangle text-danger fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Active Users</div>
+                        <div class="stat-value text-info">@Model.ActiveUsers</div>
+                        <div class="stat-trend text-success">
+                            <i class="fas fa-arrow-up me-1"></i>+7 new users
+                        </div>
+                    </div>
+                    <div class="bg-info bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-users text-info fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Search Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 fw-bold">Filters & Search</h5>
+                <div class="d-flex gap-2">
+                    <a href="?handler=ExportCsv&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter" 
+                       class="btn btn-export btn-success">
+                        <i class="fas fa-file-csv me-2"></i>Export CSV
+                    </a>
+                    <button class="btn btn-export btn-danger" onclick="exportToPDF()">
+                        <i class="fas fa-file-pdf me-2"></i>Export PDF
+                    </button>
+                </div>
+            </div>
+
+            <form method="get" class="row g-3">
+                <div class="col-lg-3 col-md-4">
+                    <label class="form-label fw-semibold small">Search</label>
+                    <input type="text" name="search" value="@Model.SearchTerm" 
+                           placeholder="User, action, or entity..." class="form-control" />
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">User Role</label>
+                    <select name="role" class="form-select">
+                        <option value="">All Roles</option>
+                        <option value="Admin" selected="@(Model.RoleFilter == "Admin")">Admin</option>
+                        <option value="Doctor" selected="@(Model.RoleFilter == "Doctor")">Doctor</option>
+                        <option value="Nurse" selected="@(Model.RoleFilter == "Nurse")">Nurse</option>
+                        <option value="Patient" selected="@(Model.RoleFilter == "Patient")">Patient</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Action Type</label>
+                    <select name="actionType" class="form-select">
+                        <option value="">All Actions</option>
+                        <option value="Create" selected="@(Model.ActionTypeFilter == "Create")">Create</option>
+                        <option value="Update" selected="@(Model.ActionTypeFilter == "Update")">Update</option>
+                        <option value="Delete" selected="@(Model.ActionTypeFilter == "Delete")">Delete</option>
+                        <option value="View" selected="@(Model.ActionTypeFilter == "View")">View</option>
+                        <option value="Login" selected="@(Model.ActionTypeFilter == "Login")">Login</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Outcome</label>
+                    <select name="outcome" class="form-select">
+                        <option value="">All Outcomes</option>
+                        <option value="Success" selected="@(Model.OutcomeFilter == "Success")">Success</option>
+                        <option value="Failed" selected="@(Model.OutcomeFilter == "Failed")">Failed</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Date From</label>
+                    <input type="date" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" 
+                           class="form-control" />
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Date To</label>
+                    <input type="date" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" 
+                           class="form-control" />
+                </div>
+
+                <div class="col-lg-2 col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Search
+                    </button>
+                </div>
+
+                <div class="col-lg-2 col-md-4 d-flex align-items-end">
+                    <a href="/Admin/AuditTrail" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-redo me-2"></i>Reset
+                    </a>
+                </div>
+            </form>
+
+            <div class="mt-3 text-muted small">
+                <i class="fas fa-info-circle me-1"></i>
+                Showing <strong>@Model.AuditLogs.Count</strong> of <strong>@Model.TotalCount</strong> audit logs
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Logs Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive audit-table">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 160px;">Timestamp (UTC)</th>
+                            <th style="width: 200px;">User</th>
+                            <th style="width: 100px;">Role</th>
+                            <th>Action</th>
+                            <th style="width: 150px;">Resource</th>
+                            <th style="width: 120px;">Outcome</th>
+                            <th style="width: 150px;">Device</th>
+                            <th style="width: 130px;">Location</th>
+                            <th style="width: 100px;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.AuditLogs.Any())
+                        {
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-search fa-3x mb-3 d-block"></i>
+                                        <h5>No audit logs found</h5>
+                                        <p>Try adjusting your search filters</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @foreach (var log in Model.AuditLogs)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="small text-muted">@log.Timestamp.ToString("MMM dd, yyyy")</div>
+                                    <strong>@log.Timestamp.ToString("HH:mm:ss")</strong>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@log.PerformedBy</div>
+                                    @if (!string.IsNullOrEmpty(log.IPAddress))
+                                    {
+                                        <div class="small text-muted">
+                                            <i class="fas fa-network-wired me-1"></i>@log.IPAddress
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge badge-orange">@log.Role</span>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@log.Action</div>
+                                    @if (!string.IsNullOrEmpty(log.Description))
+                                    {
+                                        <div class="small text-muted">@log.Description</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <span class="badge bg-light text-dark">@log.EntityName</span>
+                                        @if (!string.IsNullOrEmpty(log.EntityId))
+                                        {
+                                            <div class="mt-1"><code class="small">ID: @log.EntityId</code></div>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (log.Outcome == "Success")
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Success
+                                        </span>
+                                    }
+                                    else if (log.Outcome == "Failed")
+                                    {
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle me-1"></i>Failed
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@log.Outcome</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small text-truncate" style="max-width: 150px;" title="@log.DeviceInfo">
+                                        @if (!string.IsNullOrEmpty(log.DeviceInfo))
+                                        {
+                                            if (log.DeviceInfo.Contains("Chrome"))
+                                            {
+                                                <i class="fab fa-chrome me-1"></i><span>Chrome</span>
+                                            }
+                                            else if (log.DeviceInfo.Contains("Firefox"))
+                                            {
+                                                <i class="fab fa-firefox me-1"></i><span>Firefox</span>
+                                            }
+                                            else if (log.DeviceInfo.Contains("Safari"))
+                                            {
+                                                <i class="fab fa-safari me-1"></i><span>Safari</span>
+                                            }
+                                            else if (log.DeviceInfo.Contains("Edge"))
+                                            {
+                                                <i class="fab fa-edge me-1"></i><span>Edge</span>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-desktop me-1"></i><span>Browser</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">N/A</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.Location))
+                                    {
+                                        <div class="small">
+                                            <i class="fas fa-map-marker-alt me-1"></i>@log.Location
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="showDetails(@log.Id)">
+                                        <i class="fas fa-eye me-1"></i>View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        @if (Model.TotalPages > 1)
+        {
+            <div class="card-footer bg-light">
+                <nav aria-label="Audit trail pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.CurrentPage - 1)&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); i++)
+                        {
+                            <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
+                                <a class="page-link" href="?page=@i&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">@i</a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.CurrentPage + 1)&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <div class="text-center text-muted small mt-2">
+                    Page @Model.CurrentPage of @Model.TotalPages
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Audit Detail Modal -->
+<div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-info-circle me-2"></i>Audit Trail Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3" id="auditDetailContent">
+                    <div class="col-md-6">
+                        <div class="detail-label">Audit ID</div>
+                        <div class="detail-value" id="detail-id">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Session ID</div>
+                        <div class="detail-value" id="detail-sessionId">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Request Method</div>
+                        <div class="detail-value" id="detail-requestMethod">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Response Code</div>
+                        <div class="detail-value" id="detail-outcome">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-label">Request URL</div>
+                        <div class="detail-value" id="detail-requestUrl">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">User Role</div>
+                        <div class="detail-value" id="detail-role">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Performed By</div>
+                        <div class="detail-value" id="detail-performedBy">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-label">Full Device Information</div>
+                        <div class="detail-value" id="detail-deviceInfo" style="word-break: break-all;">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Location</div>
+                        <div class="detail-value" id="detail-location">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">IP Address</div>
+                        <div class="detail-value" id="detail-ipAddress">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-label">Additional Context</div>
+                        <div class="detail-value">
+                            <pre id="detail-additionalContext" style="margin: 0; white-space: pre-wrap; font-size: 0.85rem;">-</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <script>
+        async function showDetails(id) {
+            try {
+                const response = await fetch(`/Admin/AuditTrail?handler=Details&id=${id}`);
+                const data = await response.json();
+                
+                document.getElementById('detail-id').textContent = data.id || '-';
+                document.getElementById('detail-sessionId').textContent = data.sessionId || 'N/A';
+                document.getElementById('detail-requestMethod').textContent = data.requestMethod || 'N/A';
+                document.getElementById('detail-outcome').textContent = data.outcome || 'N/A';
+                document.getElementById('detail-requestUrl').textContent = data.requestUrl || 'N/A';
+                document.getElementById('detail-role').textContent = data.role || '-';
+                document.getElementById('detail-performedBy').textContent = data.performedBy || '-';
+                document.getElementById('detail-deviceInfo').textContent = data.deviceInfo || 'N/A';
+                document.getElementById('detail-location').textContent = data.location || 'Not available';
+                document.getElementById('detail-ipAddress').textContent = data.ipAddress || 'N/A';
+                
+                // Format additional context as JSON if available
+                if (data.additionalContext) {
+                    try {
+                        const formatted = JSON.stringify(JSON.parse(data.additionalContext), null, 2);
+                        document.getElementById('detail-additionalContext').textContent = formatted;
+                    } catch {
+                        document.getElementById('detail-additionalContext').textContent = data.additionalContext;
+                    }
+                } else {
+                    document.getElementById('detail-additionalContext').textContent = 'No additional context available';
+                }
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('auditDetailModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error fetching audit details:', error);
+                alert('Failed to load audit details');
+            }
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4');
+            
+            // Add header
+            doc.setFontSize(18);
+            doc.setTextColor(40);
+            doc.text('BHCare Audit Trail Logs', 14, 22);
+            
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text('Generated on: ' + new Date().toLocaleString(), 14, 30);
+            
+            // Add filters info
+            doc.setFontSize(10);
+            let yPos = 38;
+            @if (!string.IsNullOrEmpty(Model.SearchTerm))
+            {
+                <text>doc.text('Search: @Model.SearchTerm', 14, yPos); yPos += 6;</text>
+            }
+            @if (!string.IsNullOrEmpty(Model.RoleFilter))
+            {
+                <text>doc.text('Role: @Model.RoleFilter', 14, yPos); yPos += 6;</text>
+            }
+            
+            // Create table data
+            const tableData = [
+                @foreach (var log in Model.AuditLogs)
+                {
+                    <text>['@log.Timestamp.ToString("yyyy-MM-dd HH:mm")', '@log.PerformedBy', '@log.Role', '@log.Action', '@log.EntityName', '@log.Outcome'],</text>
+                }
+            ];
+            
+            // Generate table
+            doc.autoTable({
+                startY: yPos + 5,
+                head: [['Timestamp', 'User', 'Role', 'Action', 'Entity', 'Outcome']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [102, 126, 234], textColor: 255 },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 45 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 60 },
+                    4: { cellWidth: 35 },
+                    5: { cellWidth: 25 }
+                }
+            });
+            
+            // Add footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text('Page ' + i + ' of ' + pageCount, 14, doc.internal.pageSize.height - 10);
+                doc.text('BHCare © 2025 - Confidential', doc.internal.pageSize.width - 60, doc.internal.pageSize.height - 10);
+            }
+            
+            // Save PDF
+            doc.save('AuditTrail_' + new Date().toISOString().slice(0,10) + '.pdf');
+        }
+    </script>
+}

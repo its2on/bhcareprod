@@ -12,6 +12,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Barangay.Services;
 using Barangay.Extensions;
+using System;
 
 namespace Barangay.Pages.Account
 {
@@ -23,6 +24,7 @@ namespace Barangay.Pages.Account
         private readonly IOTPService _otpService;
         private readonly IEmailService _emailService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public LoginModel(
             SignInManager<ApplicationUser> signInManager,
@@ -30,7 +32,8 @@ namespace Barangay.Pages.Account
             ILogger<LoginModel> logger,
             IOTPService otpService,
             IEmailService emailService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -38,6 +41,7 @@ namespace Barangay.Pages.Account
             _otpService = otpService;
             _emailService = emailService;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -226,6 +230,18 @@ namespace Barangay.Pages.Account
                 {
                     // Log the issue but show generic error to user
                     _logger.LogWarning($"Login attempt failed: User with email/username {EmailOrUsername} not found.");
+                    
+                    // AUDIT: Log failed login attempt - user not found
+                    await _auditTrail.LogAsync(
+                        "LoginFailed",
+                        $"Failed login attempt: User not found",
+                        "Authentication",
+                        null,
+                        null,
+                        null,
+                        $"Login attempt for non-existent user: {EmailOrUsername}"
+                    );
+                    
                     ModelState.AddModelError(string.Empty, "Invalid email or password.");
                     return Page();
                 }
@@ -235,6 +251,18 @@ namespace Barangay.Pages.Account
                 if (userRoles.Contains("Admin") || userRoles.Contains("Admin Staff"))
                 {
                     _logger.LogWarning($"Admin user {user.Email} attempted to use regular login page - ACCESS DENIED");
+                    
+                    // AUDIT: Log unauthorized login attempt on wrong portal
+                    await _auditTrail.LogAsync(
+                        "LoginFailed",
+                        "Admin user attempted regular login portal",
+                        "Authentication",
+                        user.Id,
+                        null,
+                        null,
+                        $"Admin user {user.Email} tried to access regular login portal - ACCESS DENIED"
+                    );
+                    
                     ModelState.AddModelError(string.Empty, "❌ ACCESS DENIED: Admin users must use the Admin Login page. Please use the 'Admin Login Only' button below.");
                     return Page();
                 }
@@ -261,6 +289,18 @@ namespace Barangay.Pages.Account
                 if (!passwordCheck)
                 {
                     _logger.LogWarning($"Password verification failed for user {user.Email}");
+                    
+                    // AUDIT: Log failed login attempt - invalid password
+                    await _auditTrail.LogAsync(
+                        "LoginFailed",
+                        "Failed login attempt: Invalid password",
+                        "Authentication",
+                        user.Id,
+                        null,
+                        null,
+                        $"User {user.Email} entered incorrect password"
+                    );
+                    
                     ModelState.AddModelError(string.Empty, "Invalid email or password.");
                     return Page();
                 }
@@ -349,6 +389,17 @@ namespace Barangay.Pages.Account
                     _logger.LogInformation($"User IsFirstLogin: {user.IsFirstLogin}");
                     _logger.LogInformation($"User Email: {user.Email}, UserName: {user.UserName}");
 
+                    // Log successful login to audit trail
+                    await _auditTrail.LogAsync(
+                        "Login",
+                        "User logged in successfully",
+                        "Authentication",
+                        user.Id,
+                        null,
+                        null,
+                        $"User {user.Email} logged into the system"
+                    );
+
                     var claims = new List<Claim>
                     {
                         new Claim("UserId", user.Id),
@@ -379,11 +430,35 @@ namespace Barangay.Pages.Account
                 if (result.IsLockedOut)
                 {
                     _logger.LogWarning("User account locked out.");
+                    
+                    // AUDIT: Log account lockout event
+                    await _auditTrail.LogAsync(
+                        "LoginFailed",
+                        "Login attempt blocked: Account locked out",
+                        "Authentication",
+                        user.Id,
+                        null,
+                        null,
+                        $"User {user.Email} attempted login while account is locked out"
+                    );
+                    
                     return RedirectToPage("./Lockout");
                 }
 
                 // If we get here, something went wrong with the sign in process
                 _logger.LogWarning($"Login failed for {user.Email} with correct password but sign-in failed");
+                
+                // AUDIT: Log unexpected login failure
+                await _auditTrail.LogAsync(
+                    "LoginFailed",
+                    "Login failed: Sign-in process error",
+                    "Authentication",
+                    user.Id,
+                    null,
+                    null,
+                    $"User {user.Email} login failed despite correct password - sign-in process error"
+                );
+                
                 ModelState.AddModelError(string.Empty, "Login failed. Please try again.");
                 return Page();
             }

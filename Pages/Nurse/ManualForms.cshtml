@@ -73,17 +73,26 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="ShortcutForm.ChildName" class="form-label">Child's Name *</label>
-                                <input asp-for="ShortcutForm.ChildName" class="form-control" required />
+                                <input asp-for="ShortcutForm.ChildName" class="form-control" required 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                                 <span asp-validation-for="ShortcutForm.ChildName" class="text-danger"></span>
                             </div>
                             <div class="mb-3">
                                 <label asp-for="ShortcutForm.MotherName" class="form-label">Mother's Name *</label>
-                                <input asp-for="ShortcutForm.MotherName" class="form-control" required />
+                                <input asp-for="ShortcutForm.MotherName" class="form-control" required 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                                 <span asp-validation-for="ShortcutForm.MotherName" class="text-danger"></span>
                             </div>
                             <div class="mb-3">
                                 <label asp-for="ShortcutForm.FatherName" class="form-label">Father's Name</label>
-                                <input asp-for="ShortcutForm.FatherName" class="form-control" />
+                                <input asp-for="ShortcutForm.FatherName" class="form-control" 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -94,7 +103,12 @@
                             </div>
                             <div class="mb-3">
                                 <label asp-for="ShortcutForm.ContactNumber" class="form-label">Contact Number</label>
-                                <input asp-for="ShortcutForm.ContactNumber" class="form-control" placeholder="09XX-XXX-XXXX" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+                                <input asp-for="ShortcutForm.ContactNumber" class="form-control" 
+                                       placeholder="+63 9XX XXX XXXX" 
+                                       inputmode="tel" 
+                                       pattern="\+63\s?9\d{2}\s?\d{3}\s?\d{4}" 
+                                       title="Enter a valid Philippine mobile number starting with +63 9XX XXX XXXX"
+                                       oninput="formatPhilippineNumber(this)" />
                             </div>
                             <div class="mb-3">
                                 <label asp-for="ShortcutForm.Barangay" class="form-label">Barangay *</label>
@@ -183,7 +197,10 @@
                             <h6 class="text-primary mb-3">Child Information</h6>
                             <div class="mb-3">
                                 <label asp-for="FullForm.ChildName" class="form-label">Child's Name *</label>
-                                <input asp-for="FullForm.ChildName" class="form-control" required />
+                                <input asp-for="FullForm.ChildName" class="form-control" required 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                                 <span asp-validation-for="FullForm.ChildName" class="text-danger"></span>
                             </div>
                             <div class="mb-3">
@@ -193,7 +210,11 @@
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.PlaceOfBirth" class="form-label">Place of Birth</label>
-                                <input asp-for="FullForm.PlaceOfBirth" class="form-control" />
+                                <input asp-for="FullForm.PlaceOfBirth" class="form-control" 
+                                       pattern="[A-Za-z\s,.-]+" 
+                                       title="Place of birth can only contain letters, spaces, commas, periods, and hyphens"
+                                       oninput="validatePlaceInput(this)" 
+                                       placeholder="e.g., Manila, Philippines" />
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.Address" class="form-label">Address</label>
@@ -204,12 +225,18 @@
                             <h6 class="text-primary mb-3">Parent Information</h6>
                             <div class="mb-3">
                                 <label asp-for="FullForm.MotherName" class="form-label">Mother's Name *</label>
-                                <input asp-for="FullForm.MotherName" class="form-control" required />
+                                <input asp-for="FullForm.MotherName" class="form-control" required 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                                 <span asp-validation-for="FullForm.MotherName" class="text-danger"></span>
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.FatherName" class="form-label">Father's Name</label>
-                                <input asp-for="FullForm.FatherName" class="form-control" />
+                                <input asp-for="FullForm.FatherName" class="form-control" 
+                                       pattern="[A-Za-z\s.'-]+" 
+                                       title="Name can only contain letters, spaces, periods, hyphens, and apostrophes"
+                                       oninput="validateNameInput(this)" />
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.Sex" class="form-label">Sex *</label>
@@ -223,14 +250,30 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label asp-for="FullForm.BirthHeight" class="form-label">Birth Height</label>
-                                        <input asp-for="FullForm.BirthHeight" class="form-control" placeholder="e.g., 50 cm" />
+                                        <label asp-for="FullForm.BirthHeight" class="form-label">Birth Height (cm)</label>
+                                        <input asp-for="FullForm.BirthHeight" class="form-control" 
+                                               type="number" 
+                                               step="0.1" 
+                                               min="30" 
+                                               max="70" 
+                                               placeholder="30-70 cm" 
+                                               title="Birth height must be between 30-70 cm"
+                                               oninput="enforceMaxValue(this, 70)" />
+                                        <small class="form-text text-muted">Normal range: 45-55 cm</small>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label asp-for="FullForm.BirthWeight" class="form-label">Birth Weight</label>
-                                        <input asp-for="FullForm.BirthWeight" class="form-control" placeholder="e.g., 3.2 kg" />
+                                        <label asp-for="FullForm.BirthWeight" class="form-label">Birth Weight (kg)</label>
+                                        <input asp-for="FullForm.BirthWeight" class="form-control" 
+                                               type="number" 
+                                               step="0.01" 
+                                               min="0.5" 
+                                               max="7" 
+                                               placeholder="0.5-7 kg" 
+                                               title="Birth weight must be between 0.5-7 kg"
+                                               oninput="enforceMaxValue(this, 7)" />
+                                        <small class="form-text text-muted">Normal range: 2.5-4.5 kg</small>
                                     </div>
                                 </div>
                             </div>
@@ -263,7 +306,13 @@
                             </div>
                             <div class="mb-3">
                                 <label asp-for="FullForm.ContactNumber" class="form-label">Contact Number</label>
-                                <input asp-for="FullForm.ContactNumber" class="form-control" placeholder="09XX-XXX-XXXX" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+                                <input asp-for="FullForm.ContactNumber" class="form-control" 
+                                       placeholder="+63 9XX XXX XXXX" 
+                                       inputmode="tel" 
+                                       pattern="\+63\s?9\d{2}\s?\d{3}\s?\d{4}" 
+                                       title="Enter a valid Philippine mobile number starting with +63 9XX XXX XXXX"
+                                       oninput="formatPhilippineNumber(this)" />
+                                <small class="form-text text-muted">Format: +63 9XX XXX XXXX</small>
                             </div>
                         </div>
                     </div>
@@ -507,6 +556,131 @@
                 nextWednesday.setDate(today.getDate() + (daysUntilWednesday === 0 ? 7 : daysUntilWednesday));
                 dateInput.value = nextWednesday.toISOString().split('T')[0];
             }
+        });
+
+        // Validate name inputs - only allow letters, spaces, periods, hyphens, and apostrophes
+        function validateNameInput(input) {
+            // Remove any characters that are not letters, spaces, periods, hyphens, or apostrophes
+            let value = input.value;
+            let cleaned = value.replace(/[^A-Za-z\s.'-]/g, '');
+            
+            // Prevent multiple consecutive spaces
+            cleaned = cleaned.replace(/\s{2,}/g, ' ');
+            
+            if (value !== cleaned) {
+                input.value = cleaned;
+                // Show visual feedback
+                input.classList.add('border-warning');
+                setTimeout(() => input.classList.remove('border-warning'), 500);
+            }
+        }
+
+        // Validate place of birth - allow letters, spaces, commas, periods, and hyphens
+        function validatePlaceInput(input) {
+            let value = input.value;
+            let cleaned = value.replace(/[^A-Za-z\s,.-]/g, '');
+            
+            // Prevent multiple consecutive spaces
+            cleaned = cleaned.replace(/\s{2,}/g, ' ');
+            
+            if (value !== cleaned) {
+                input.value = cleaned;
+                input.classList.add('border-warning');
+                setTimeout(() => input.classList.remove('border-warning'), 500);
+            }
+        }
+
+        // Format Philippine phone number with +63 prefix
+        function formatPhilippineNumber(input) {
+            // Get current value and extract only digits
+            let currentValue = input.value;
+            let digitsOnly = currentValue.replace(/\D/g, '');
+            
+            // Handle different input scenarios
+            if (digitsOnly.length === 0) {
+                input.value = '';
+                return;
+            }
+            
+            // Remove country code if user typed it
+            if (digitsOnly.startsWith('63')) {
+                digitsOnly = digitsOnly.substring(2);
+            }
+            
+            // Remove leading 0 if present (common mistake: 0917 instead of 917)
+            if (digitsOnly.startsWith('0')) {
+                digitsOnly = digitsOnly.substring(1);
+            }
+            
+            // Limit to 10 digits (Philippine mobile: 9XX XXX XXXX)
+            if (digitsOnly.length > 10) {
+                digitsOnly = digitsOnly.substring(0, 10);
+            }
+            
+            // Format: +63 9XX XXX XXXX
+            let formatted = '';
+            if (digitsOnly.length > 0) {
+                formatted = '+63';
+                
+                // Add first 3 digits (9XX)
+                if (digitsOnly.length >= 1) {
+                    formatted += ' ' + digitsOnly.substring(0, Math.min(3, digitsOnly.length));
+                }
+                
+                // Add next 3 digits
+                if (digitsOnly.length > 3) {
+                    formatted += ' ' + digitsOnly.substring(3, Math.min(6, digitsOnly.length));
+                }
+                
+                // Add last 4 digits
+                if (digitsOnly.length > 6) {
+                    formatted += ' ' + digitsOnly.substring(6, Math.min(10, digitsOnly.length));
+                }
+            }
+            
+            input.value = formatted;
+            
+            // Validate that it starts with 9 (Philippine mobile numbers)
+            if (digitsOnly.length > 0 && digitsOnly[0] !== '9') {
+                input.setCustomValidity('Philippine mobile numbers must start with 9 (e.g., +63 917 XXX XXXX)');
+            } else if (digitsOnly.length > 0 && digitsOnly.length < 10) {
+                input.setCustomValidity('Please enter a complete 10-digit mobile number');
+            } else {
+                input.setCustomValidity('');
+            }
+        }
+        
+        // Enforce max value for number inputs (birth height/weight)
+        function enforceMaxValue(input, maxValue) {
+            let value = parseFloat(input.value);
+            if (isNaN(value)) {
+                return;
+            }
+            if (value > maxValue) {
+                input.value = maxValue;
+                input.classList.add('border-warning');
+                setTimeout(() => input.classList.remove('border-warning'), 500);
+            }
+            if (value < parseFloat(input.min)) {
+                input.value = input.min;
+                input.classList.add('border-warning');
+                setTimeout(() => input.classList.remove('border-warning'), 500);
+            }
+        }
+
+        // Add visual feedback for invalid inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners to all form inputs for validation feedback
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const invalidInputs = form.querySelectorAll(':invalid');
+                    if (invalidInputs.length > 0) {
+                        invalidInputs[0].focus();
+                        invalidInputs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
+            });
         });
     </script>
 }

@@ -1,0 +1,133 @@
+@page
+@model Barangay.Pages.Admin.AuditTrailDiagnosticModel
+@{
+    ViewData["Title"] = "Audit Trail Diagnostic";
+}
+
+<div class="container mt-4">
+    <h2><i class="fas fa-wrench"></i> Audit Trail System Diagnostic</h2>
+    
+    <div class="card mt-3">
+        <div class="card-header bg-primary text-white">
+            <h5>Database Status</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Check</th>
+                    <th>Status</th>
+                    <th>Details</th>
+                </tr>
+                <tr>
+                    <td>AuditTrails Table Exists</td>
+                    <td>
+                        @if (Model.TableExists)
+                        {
+                            <span class="badge bg-success">✅ YES</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">❌ NO</span>
+                        }
+                    </td>
+                    <td>@Model.TableExistsMessage</td>
+                </tr>
+                <tr>
+                    <td>Current Record Count</td>
+                    <td>
+                        @if (Model.RecordCount >= 0)
+                        {
+                            <span class="badge bg-info">@Model.RecordCount records</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">Unknown</span>
+                        }
+                    </td>
+                    <td>@Model.RecordCountMessage</td>
+                </tr>
+                <tr>
+                    <td>Can Write to Table</td>
+                    <td>
+                        @if (Model.CanWrite)
+                        {
+                            <span class="badge bg-success">✅ YES</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">❌ NO</span>
+                        }
+                    </td>
+                    <td>@Model.WriteTestMessage</td>
+                </tr>
+                <tr>
+                    <td>Test Record ID</td>
+                    <td>
+                        @if (Model.TestRecordId > 0)
+                        {
+                            <span class="badge bg-success">@Model.TestRecordId</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">N/A</span>
+                        }
+                    </td>
+                    <td>ID of the test record created</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger mt-3">
+            <h5>❌ Error Detected</h5>
+            <pre>@Model.ErrorMessage</pre>
+        </div>
+    }
+
+    @if (Model.RecentLogs.Any())
+    {
+        <div class="card mt-3">
+            <div class="card-header bg-success text-white">
+                <h5>Recent Logs (Last 5)</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                            <th>Entity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in Model.RecentLogs)
+                        {
+                            <tr>
+                                <td>@log.Id</td>
+                                <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>@log.PerformedBy</td>
+                                <td><span class="badge bg-info">@log.Role</span></td>
+                                <td>@log.Action</td>
+                                <td>@log.EntityName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="mt-3">
+        <a href="/Admin/AuditTrail" class="btn btn-primary">
+            <i class="fas fa-clipboard-list"></i> Go to Audit Trail Page
+        </a>
+        <button type="button" class="btn btn-secondary" onclick="location.reload()">
+            <i class="fas fa-sync"></i> Refresh Diagnostic
+        </button>
+    </div>
+</div>

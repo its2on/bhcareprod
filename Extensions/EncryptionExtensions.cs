@@ -490,21 +490,15 @@ namespace Barangay.Extensions
             System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: Starting decryption for record ID {record.Id}");
 
             // Decrypt basic information
-            if (!string.IsNullOrEmpty(record.ChildName))
+            if (!string.IsNullOrEmpty(record.ChildName) && encryptionService.IsEncrypted(record.ChildName))
             {
-                var originalValue = record.ChildName;
                 try
                 {
-                    var decryptedValue = encryptionService.DecryptForUser(record.ChildName, user);
-                    // Check if decryption actually worked (not just returned the original)
-                    if (decryptedValue != originalValue && !decryptedValue.Contains("[ACCESS DENIED]"))
+                    var decryptedValue = encryptionService.Decrypt(record.ChildName);
+                    if (!string.IsNullOrEmpty(decryptedValue) && !decryptedValue.Contains("[ACCESS DENIED]"))
                     {
                         record.ChildName = decryptedValue;
-                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: ChildName - Original: {originalValue.Substring(0, Math.Min(20, originalValue.Length))}..., Decrypted: {record.ChildName?.Substring(0, Math.Min(20, record.ChildName?.Length ?? 0))}...");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: ChildName decryption failed or returned original for record {record.Id} - Original: {originalValue.Substring(0, Math.Min(20, originalValue.Length))}..., Result: {decryptedValue?.Substring(0, Math.Min(20, decryptedValue?.Length ?? 0))}...");
+                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: ChildName decrypted successfully");
                     }
                 }
                 catch (Exception ex)
@@ -513,21 +507,15 @@ namespace Barangay.Extensions
                 }
             }
 
-            if (!string.IsNullOrEmpty(record.FamilyNumber))
+            if (!string.IsNullOrEmpty(record.FamilyNumber) && encryptionService.IsEncrypted(record.FamilyNumber))
             {
-                var originalValue = record.FamilyNumber;
                 try
                 {
-                    var decryptedValue = encryptionService.DecryptForUser(record.FamilyNumber, user);
-                    // Check if decryption actually worked (not just returned the original)
-                    if (decryptedValue != originalValue && !decryptedValue.Contains("[ACCESS DENIED]"))
+                    var decryptedValue = encryptionService.Decrypt(record.FamilyNumber);
+                    if (!string.IsNullOrEmpty(decryptedValue) && !decryptedValue.Contains("[ACCESS DENIED]"))
                     {
                         record.FamilyNumber = decryptedValue;
-                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: FamilyNumber - Original: {originalValue.Substring(0, Math.Min(20, originalValue.Length))}..., Decrypted: {record.FamilyNumber?.Substring(0, Math.Min(20, record.FamilyNumber?.Length ?? 0))}...");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: FamilyNumber decryption failed or returned original for record {record.Id} - Original: {originalValue.Substring(0, Math.Min(20, originalValue.Length))}..., Result: {decryptedValue?.Substring(0, Math.Min(20, decryptedValue?.Length ?? 0))}...");
+                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: FamilyNumber decrypted successfully");
                     }
                 }
                 catch (Exception ex)
@@ -536,43 +524,35 @@ namespace Barangay.Extensions
                 }
             }
 
-            if (!string.IsNullOrEmpty(record.DateOfBirth))
+            if (!string.IsNullOrEmpty(record.DateOfBirth) && encryptionService.IsEncrypted(record.DateOfBirth))
             {
                 try
                 {
-                    var decryptedDate = encryptionService.DecryptForUser(record.DateOfBirth, user);
-                    // Ensure the date is in the correct format for HTML date inputs
-                    if (DateTime.TryParse(decryptedDate, out DateTime parsedDate))
+                    var decryptedDate = encryptionService.Decrypt(record.DateOfBirth);
+                    if (!string.IsNullOrEmpty(decryptedDate))
                     {
-                        record.DateOfBirth = parsedDate.ToString("yyyy-MM-dd");
-                    }
-                    else
-                    {
-                        record.DateOfBirth = decryptedDate; // Keep original if parsing fails
+                        // Ensure the date is in the correct format for HTML date inputs
+                        if (DateTime.TryParse(decryptedDate, out DateTime parsedDate))
+                        {
+                            record.DateOfBirth = parsedDate.ToString("yyyy-MM-dd");
+                        }
+                        else
+                        {
+                            record.DateOfBirth = decryptedDate;
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: Failed to decrypt DateOfBirth for record {record.Id}: {ex.Message}");
-                    // Keep original value if decryption fails
                 }
             }
 
-            if (!string.IsNullOrEmpty(record.MotherName))
+            if (!string.IsNullOrEmpty(record.MotherName) && encryptionService.IsEncrypted(record.MotherName))
             {
-                var originalValue = record.MotherName;
                 try
                 {
-                    var decryptedValue = encryptionService.DecryptForUser(record.MotherName, user);
-                    // Check if decryption actually worked (not just returned the original)
-                    if (decryptedValue != originalValue && !decryptedValue.Contains("[ACCESS DENIED]"))
-                    {
-                        record.MotherName = decryptedValue;
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"DecryptImmunizationData: MotherName decryption failed or returned original for record {record.Id} - Original: {originalValue.Substring(0, Math.Min(20, originalValue.Length))}..., Result: {decryptedValue?.Substring(0, Math.Min(20, decryptedValue?.Length ?? 0))}...");
-                    }
+                    record.MotherName = encryptionService.Decrypt(record.MotherName);
                 }
                 catch (Exception ex)
                 {
@@ -580,227 +560,147 @@ namespace Barangay.Extensions
                 }
             }
 
-            if (!string.IsNullOrEmpty(record.FatherName))
-            {
-                record.FatherName = encryptionService.DecryptForUser(record.FatherName, user);
-            }
+            if (!string.IsNullOrEmpty(record.FatherName) && encryptionService.IsEncrypted(record.FatherName))
+                record.FatherName = encryptionService.Decrypt(record.FatherName);
 
-            if (!string.IsNullOrEmpty(record.Sex))
-            {
-                record.Sex = encryptionService.DecryptForUser(record.Sex, user);
-            }
+            if (!string.IsNullOrEmpty(record.Sex) && encryptionService.IsEncrypted(record.Sex))
+                record.Sex = encryptionService.Decrypt(record.Sex);
 
-            if (!string.IsNullOrEmpty(record.BirthHeight))
-            {
-                record.BirthHeight = encryptionService.DecryptForUser(record.BirthHeight, user);
-            }
+            if (!string.IsNullOrEmpty(record.BirthHeight) && encryptionService.IsEncrypted(record.BirthHeight))
+                record.BirthHeight = encryptionService.Decrypt(record.BirthHeight);
 
-            if (!string.IsNullOrEmpty(record.BirthWeight))
-            {
-                record.BirthWeight = encryptionService.DecryptForUser(record.BirthWeight, user);
-            }
+            if (!string.IsNullOrEmpty(record.BirthWeight) && encryptionService.IsEncrypted(record.BirthWeight))
+                record.BirthWeight = encryptionService.Decrypt(record.BirthWeight);
 
-            if (!string.IsNullOrEmpty(record.PlaceOfBirth))
-            {
-                record.PlaceOfBirth = encryptionService.DecryptForUser(record.PlaceOfBirth, user);
-            }
+            if (!string.IsNullOrEmpty(record.PlaceOfBirth) && encryptionService.IsEncrypted(record.PlaceOfBirth))
+                record.PlaceOfBirth = encryptionService.Decrypt(record.PlaceOfBirth);
 
-            if (!string.IsNullOrEmpty(record.Address))
-            {
-                record.Address = encryptionService.DecryptForUser(record.Address, user);
-            }
+            if (!string.IsNullOrEmpty(record.Address) && encryptionService.IsEncrypted(record.Address))
+                record.Address = encryptionService.Decrypt(record.Address);
 
-            if (!string.IsNullOrEmpty(record.HealthCenter))
-            {
-                record.HealthCenter = encryptionService.DecryptForUser(record.HealthCenter, user);
-            }
+            if (!string.IsNullOrEmpty(record.HealthCenter) && encryptionService.IsEncrypted(record.HealthCenter))
+                record.HealthCenter = encryptionService.Decrypt(record.HealthCenter);
 
-            if (!string.IsNullOrEmpty(record.Barangay))
-            {
-                record.Barangay = encryptionService.DecryptForUser(record.Barangay, user);
-            }
+            if (!string.IsNullOrEmpty(record.Barangay) && encryptionService.IsEncrypted(record.Barangay))
+                record.Barangay = encryptionService.Decrypt(record.Barangay);
 
-            if (!string.IsNullOrEmpty(record.FamilyNumber))
-            {
-                record.FamilyNumber = encryptionService.DecryptForUser(record.FamilyNumber, user);
-            }
+            if (!string.IsNullOrEmpty(record.Email) && encryptionService.IsEncrypted(record.Email))
+                record.Email = encryptionService.Decrypt(record.Email);
 
-            if (!string.IsNullOrEmpty(record.Email))
-            {
-                record.Email = encryptionService.DecryptForUser(record.Email, user);
-            }
-
-            if (!string.IsNullOrEmpty(record.ContactNumber))
-            {
-                record.ContactNumber = encryptionService.DecryptForUser(record.ContactNumber, user);
-            }
+            if (!string.IsNullOrEmpty(record.ContactNumber) && encryptionService.IsEncrypted(record.ContactNumber))
+                record.ContactNumber = encryptionService.Decrypt(record.ContactNumber);
 
             // Decrypt vaccine information
-            if (!string.IsNullOrEmpty(record.BCGVaccineDate))
-            {
-                record.BCGVaccineDate = encryptionService.DecryptForUser(record.BCGVaccineDate, user);
-            }
+            if (!string.IsNullOrEmpty(record.BCGVaccineDate) && encryptionService.IsEncrypted(record.BCGVaccineDate))
+                record.BCGVaccineDate = encryptionService.Decrypt(record.BCGVaccineDate);
 
-            if (!string.IsNullOrEmpty(record.BCGVaccineRemarks))
-            {
-                record.BCGVaccineRemarks = encryptionService.DecryptForUser(record.BCGVaccineRemarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.BCGVaccineRemarks) && encryptionService.IsEncrypted(record.BCGVaccineRemarks))
+                record.BCGVaccineRemarks = encryptionService.Decrypt(record.BCGVaccineRemarks);
 
-            if (!string.IsNullOrEmpty(record.HepatitisBVaccineDate))
-            {
-                record.HepatitisBVaccineDate = encryptionService.DecryptForUser(record.HepatitisBVaccineDate, user);
-            }
+            if (!string.IsNullOrEmpty(record.HepatitisBVaccineDate) && encryptionService.IsEncrypted(record.HepatitisBVaccineDate))
+                record.HepatitisBVaccineDate = encryptionService.Decrypt(record.HepatitisBVaccineDate);
 
-            if (!string.IsNullOrEmpty(record.HepatitisBVaccineRemarks))
-            {
-                record.HepatitisBVaccineRemarks = encryptionService.DecryptForUser(record.HepatitisBVaccineRemarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.HepatitisBVaccineRemarks) && encryptionService.IsEncrypted(record.HepatitisBVaccineRemarks))
+                record.HepatitisBVaccineRemarks = encryptionService.Decrypt(record.HepatitisBVaccineRemarks);
 
             // Decrypt Pentavalent doses
-            if (!string.IsNullOrEmpty(record.Pentavalent1Date))
-            {
-                record.Pentavalent1Date = encryptionService.DecryptForUser(record.Pentavalent1Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent1Date) && encryptionService.IsEncrypted(record.Pentavalent1Date))
+                record.Pentavalent1Date = encryptionService.Decrypt(record.Pentavalent1Date);
 
-            if (!string.IsNullOrEmpty(record.Pentavalent1Remarks))
-            {
-                record.Pentavalent1Remarks = encryptionService.DecryptForUser(record.Pentavalent1Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent1Remarks) && encryptionService.IsEncrypted(record.Pentavalent1Remarks))
+                record.Pentavalent1Remarks = encryptionService.Decrypt(record.Pentavalent1Remarks);
 
-            if (!string.IsNullOrEmpty(record.Pentavalent2Date))
-            {
-                record.Pentavalent2Date = encryptionService.DecryptForUser(record.Pentavalent2Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent2Date) && encryptionService.IsEncrypted(record.Pentavalent2Date))
+                record.Pentavalent2Date = encryptionService.Decrypt(record.Pentavalent2Date);
 
-            if (!string.IsNullOrEmpty(record.Pentavalent2Remarks))
-            {
-                record.Pentavalent2Remarks = encryptionService.DecryptForUser(record.Pentavalent2Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent2Remarks) && encryptionService.IsEncrypted(record.Pentavalent2Remarks))
+                record.Pentavalent2Remarks = encryptionService.Decrypt(record.Pentavalent2Remarks);
 
-            if (!string.IsNullOrEmpty(record.Pentavalent3Date))
-            {
-                record.Pentavalent3Date = encryptionService.DecryptForUser(record.Pentavalent3Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent3Date) && encryptionService.IsEncrypted(record.Pentavalent3Date))
+                record.Pentavalent3Date = encryptionService.Decrypt(record.Pentavalent3Date);
 
-            if (!string.IsNullOrEmpty(record.Pentavalent3Remarks))
-            {
-                record.Pentavalent3Remarks = encryptionService.DecryptForUser(record.Pentavalent3Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.Pentavalent3Remarks) && encryptionService.IsEncrypted(record.Pentavalent3Remarks))
+                record.Pentavalent3Remarks = encryptionService.Decrypt(record.Pentavalent3Remarks);
 
             // Decrypt OPV doses
-            if (!string.IsNullOrEmpty(record.OPV1Date))
-            {
-                record.OPV1Date = encryptionService.DecryptForUser(record.OPV1Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV1Date) && encryptionService.IsEncrypted(record.OPV1Date))
+                record.OPV1Date = encryptionService.Decrypt(record.OPV1Date);
 
-            if (!string.IsNullOrEmpty(record.OPV1Remarks))
-            {
-                record.OPV1Remarks = encryptionService.DecryptForUser(record.OPV1Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV1Remarks) && encryptionService.IsEncrypted(record.OPV1Remarks))
+                record.OPV1Remarks = encryptionService.Decrypt(record.OPV1Remarks);
 
-            if (!string.IsNullOrEmpty(record.OPV2Date))
-            {
-                record.OPV2Date = encryptionService.DecryptForUser(record.OPV2Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV2Date) && encryptionService.IsEncrypted(record.OPV2Date))
+                record.OPV2Date = encryptionService.Decrypt(record.OPV2Date);
 
-            if (!string.IsNullOrEmpty(record.OPV2Remarks))
-            {
-                record.OPV2Remarks = encryptionService.DecryptForUser(record.OPV2Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV2Remarks) && encryptionService.IsEncrypted(record.OPV2Remarks))
+                record.OPV2Remarks = encryptionService.Decrypt(record.OPV2Remarks);
 
-            if (!string.IsNullOrEmpty(record.OPV3Date))
-            {
-                record.OPV3Date = encryptionService.DecryptForUser(record.OPV3Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV3Date) && encryptionService.IsEncrypted(record.OPV3Date))
+                record.OPV3Date = encryptionService.Decrypt(record.OPV3Date);
 
-            if (!string.IsNullOrEmpty(record.OPV3Remarks))
-            {
-                record.OPV3Remarks = encryptionService.DecryptForUser(record.OPV3Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.OPV3Remarks) && encryptionService.IsEncrypted(record.OPV3Remarks))
+                record.OPV3Remarks = encryptionService.Decrypt(record.OPV3Remarks);
 
             // Decrypt IPV doses
-            if (!string.IsNullOrEmpty(record.IPV1Date))
-            {
-                record.IPV1Date = encryptionService.DecryptForUser(record.IPV1Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.IPV1Date) && encryptionService.IsEncrypted(record.IPV1Date))
+                record.IPV1Date = encryptionService.Decrypt(record.IPV1Date);
 
-            if (!string.IsNullOrEmpty(record.IPV1Remarks))
-            {
-                record.IPV1Remarks = encryptionService.DecryptForUser(record.IPV1Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.IPV1Remarks) && encryptionService.IsEncrypted(record.IPV1Remarks))
+                record.IPV1Remarks = encryptionService.Decrypt(record.IPV1Remarks);
 
-            if (!string.IsNullOrEmpty(record.IPV2Date))
-            {
-                record.IPV2Date = encryptionService.DecryptForUser(record.IPV2Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.IPV2Date) && encryptionService.IsEncrypted(record.IPV2Date))
+                record.IPV2Date = encryptionService.Decrypt(record.IPV2Date);
 
-            if (!string.IsNullOrEmpty(record.IPV2Remarks))
-            {
-                record.IPV2Remarks = encryptionService.DecryptForUser(record.IPV2Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.IPV2Remarks) && encryptionService.IsEncrypted(record.IPV2Remarks))
+                record.IPV2Remarks = encryptionService.Decrypt(record.IPV2Remarks);
 
             // Decrypt PCV doses
-            if (!string.IsNullOrEmpty(record.PCV1Date))
-            {
-                record.PCV1Date = encryptionService.DecryptForUser(record.PCV1Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV1Date) && encryptionService.IsEncrypted(record.PCV1Date))
+                record.PCV1Date = encryptionService.Decrypt(record.PCV1Date);
 
-            if (!string.IsNullOrEmpty(record.PCV1Remarks))
-            {
-                record.PCV1Remarks = encryptionService.DecryptForUser(record.PCV1Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV1Remarks) && encryptionService.IsEncrypted(record.PCV1Remarks))
+                record.PCV1Remarks = encryptionService.Decrypt(record.PCV1Remarks);
 
-            if (!string.IsNullOrEmpty(record.PCV2Date))
-            {
-                record.PCV2Date = encryptionService.DecryptForUser(record.PCV2Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV2Date) && encryptionService.IsEncrypted(record.PCV2Date))
+                record.PCV2Date = encryptionService.Decrypt(record.PCV2Date);
 
-            if (!string.IsNullOrEmpty(record.PCV2Remarks))
-            {
-                record.PCV2Remarks = encryptionService.DecryptForUser(record.PCV2Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV2Remarks) && encryptionService.IsEncrypted(record.PCV2Remarks))
+                record.PCV2Remarks = encryptionService.Decrypt(record.PCV2Remarks);
 
-            if (!string.IsNullOrEmpty(record.PCV3Date))
-            {
-                record.PCV3Date = encryptionService.DecryptForUser(record.PCV3Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV3Date) && encryptionService.IsEncrypted(record.PCV3Date))
+                record.PCV3Date = encryptionService.Decrypt(record.PCV3Date);
 
-            if (!string.IsNullOrEmpty(record.PCV3Remarks))
-            {
-                record.PCV3Remarks = encryptionService.DecryptForUser(record.PCV3Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.PCV3Remarks) && encryptionService.IsEncrypted(record.PCV3Remarks))
+                record.PCV3Remarks = encryptionService.Decrypt(record.PCV3Remarks);
 
             // Decrypt MMR doses
-            if (!string.IsNullOrEmpty(record.MMR1Date))
-            {
-                record.MMR1Date = encryptionService.DecryptForUser(record.MMR1Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.MMR1Date) && encryptionService.IsEncrypted(record.MMR1Date))
+                record.MMR1Date = encryptionService.Decrypt(record.MMR1Date);
 
-            if (!string.IsNullOrEmpty(record.MMR1Remarks))
-            {
-                record.MMR1Remarks = encryptionService.DecryptForUser(record.MMR1Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.MMR1Remarks) && encryptionService.IsEncrypted(record.MMR1Remarks))
+                record.MMR1Remarks = encryptionService.Decrypt(record.MMR1Remarks);
 
-            if (!string.IsNullOrEmpty(record.MMR2Date))
-            {
-                record.MMR2Date = encryptionService.DecryptForUser(record.MMR2Date, user);
-            }
+            if (!string.IsNullOrEmpty(record.MMR2Date) && encryptionService.IsEncrypted(record.MMR2Date))
+                record.MMR2Date = encryptionService.Decrypt(record.MMR2Date);
 
-            if (!string.IsNullOrEmpty(record.MMR2Remarks))
-            {
-                record.MMR2Remarks = encryptionService.DecryptForUser(record.MMR2Remarks, user);
-            }
+            if (!string.IsNullOrEmpty(record.MMR2Remarks) && encryptionService.IsEncrypted(record.MMR2Remarks))
+                record.MMR2Remarks = encryptionService.Decrypt(record.MMR2Remarks);
 
             // Decrypt audit fields
-            if (!string.IsNullOrEmpty(record.CreatedBy))
-            {
-                record.CreatedBy = encryptionService.DecryptForUser(record.CreatedBy, user);
-            }
+            if (!string.IsNullOrEmpty(record.CreatedBy) && encryptionService.IsEncrypted(record.CreatedBy))
+                record.CreatedBy = encryptionService.Decrypt(record.CreatedBy);
 
-            if (!string.IsNullOrEmpty(record.UpdatedBy))
-            {
-                record.UpdatedBy = encryptionService.DecryptForUser(record.UpdatedBy, user);
-            }
+            if (!string.IsNullOrEmpty(record.UpdatedBy) && encryptionService.IsEncrypted(record.UpdatedBy))
+                record.UpdatedBy = encryptionService.Decrypt(record.UpdatedBy);
+
+            if (!string.IsNullOrEmpty(record.CreatedAt) && encryptionService.IsEncrypted(record.CreatedAt))
+                record.CreatedAt = encryptionService.Decrypt(record.CreatedAt);
+
+            if (!string.IsNullOrEmpty(record.UpdatedAt) && encryptionService.IsEncrypted(record.UpdatedAt))
+                record.UpdatedAt = encryptionService.Decrypt(record.UpdatedAt);
+
+            if (!string.IsNullOrEmpty(record.Status) && encryptionService.IsEncrypted(record.Status))
+                record.Status = encryptionService.Decrypt(record.Status);
 
             return record;
         }

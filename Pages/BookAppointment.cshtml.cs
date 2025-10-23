@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using System.Linq;
 using Barangay.Extensions;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages
 {
@@ -30,6 +31,8 @@ namespace Barangay.Pages
         private readonly ILogger<BookAppointmentModel> _logger;
         private readonly IDatabaseDebugService _dbDebugService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
+        private readonly INotificationService _notificationService;
 
         public BookAppointmentModel(
             ApplicationDbContext context,
@@ -37,7 +40,9 @@ namespace Barangay.Pages
             IWebHostEnvironment webHostEnvironment,
             ILogger<BookAppointmentModel> logger,
             IDatabaseDebugService dbDebugService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail,
+            INotificationService notificationService)
         {
             _context = context;
             _userManager = userManager;
@@ -45,6 +50,8 @@ namespace Barangay.Pages
             _logger = logger;
             _dbDebugService = dbDebugService;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
+            _notificationService = notificationService;
         }
 
         [BindProperty]
@@ -661,6 +668,45 @@ namespace Barangay.Pages
 
                 _context.Appointments.Add(newAppointment);
                 await _context.SaveChangesAsync();
+
+                // AUDIT: Log appointment booking
+                await _auditTrail.LogAsync(
+                    "Create",
+                    $"Booked appointment for {appointmentDate:yyyy-MM-dd}",
+                    "Appointment",
+                    newAppointment.Id.ToString(),
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        AppointmentDate = appointmentDate.ToString("yyyy-MM-dd"),
+                        AppointmentTime = selectedApptTime,
+                        Type = selectedConsultationType,
+                        DoctorId = doctor?.Id,
+                        Status = initialStatus,
+                        BookingForOther = bookingForOther
+                    }),
+                    $"Patient booked appointment - Type: {selectedConsultationType}"
+                );
+
+                // Create notification for the user
+                try
+                {
+                    var notificationMessage = $"Your appointment on {appointmentDate:MMM dd, yyyy} at {bookingModel.TimeSlot} has been successfully booked. Type: {selectedConsultationType}.";
+                    
+                    await _notificationService.CreateNotificationForUserAsync(
+                        userId,
+                        "Appointment Booked",
+                        notificationMessage,
+                        "Appointment Booked",
+                        $"/User/Appointments"
+                    );
+                    
+                    _logger.LogInformation($"Notification created for user {userId} - Appointment booked");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error creating notification for appointment booking");
+                    // Don't fail the appointment booking if notification fails
+                }
 
                 return newAppointment.Id;
             }

@@ -728,20 +728,20 @@ body:not(.logged-in) .navbar .btn-outline-light:hover {
 
 /* Links Styling */
 .forgot-password, .register-link, .learn-more-link {
-    color: #1E88E5;
+    color: #FF8C42;
     text-decoration: none;
     transition: all 0.3s ease;
     display: inline-block;
 }
 
 .forgot-password:hover, .register-link:hover, .learn-more-link:hover {
-    color: #1565C0;
+    color: #fd7e14;
     text-decoration: none;
 }
 
 .register-link strong {
     position: relative;
-    color: #1E88E5;
+    color: #FF8C42;
     font-weight: 600;
     transition: all 0.3s ease;
 }
@@ -751,7 +751,7 @@ body:not(.logged-in) .navbar .btn-outline-light:hover {
     position: absolute;
     width: 100%;
     height: 2px;
-    background-color: #1E88E5;
+    background-color: #FF8C42;
     bottom: -2px;
     left: 0;
     transform: scaleX(0);
@@ -972,7 +972,7 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus {
 }
 
 .signup-container h2 {
-    color: #1E88E5;
+    color: #FF8C42;
     text-align: center;
     margin-bottom: 2rem;
     font-weight: 600;
@@ -1460,7 +1460,7 @@ input:focus, select:focus, textarea:focus, button:focus, a:focus {
 .service-icon {
     width: 70px;
     height: 70px;
-    background-color: #1E88E5;
+    background-color: #FF8C42;
     color: white;
     border-radius: 50%;
     display: flex;
@@ -1473,12 +1473,12 @@ input:focus, select:focus, textarea:focus, button:focus, a:focus {
 
 .service-card:hover .service-icon {
     transform: scale(1.1);
-    background-color: #1976D2;
+    background-color: #fd7e14;
 }
 
 .service-card h3 {
     margin-bottom: 12px;
-    color: #1E88E5;
+    color: #FF8C42;
     font-weight: 600;
 }
 

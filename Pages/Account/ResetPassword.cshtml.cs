@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Models;
 using Barangay.Data;
+using Barangay.Services;
 using System.ComponentModel.DataAnnotations;
 
 namespace Barangay.Pages.Account
@@ -13,15 +14,18 @@ namespace Barangay.Pages.Account
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ResetPasswordModel> _logger;
+        private readonly IAuditTrailService _auditTrail;
 
         public ResetPasswordModel(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
-            ILogger<ResetPasswordModel> logger)
+            ILogger<ResetPasswordModel> logger,
+            IAuditTrailService auditTrail)
         {
             _userManager = userManager;
             _context = context;
             _logger = logger;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -129,6 +133,17 @@ namespace Barangay.Pages.Account
                     await _context.SaveChangesAsync();
 
                     _logger.LogInformation($"Password reset successfully for user {email} after identity verification");
+
+                    // AUDIT: Log password change event
+                    await _auditTrail.LogAsync(
+                        "Update",
+                        "Password changed via reset",
+                        "ApplicationUser",
+                        user.Id,
+                        null,
+                        null,
+                        $"User {user.Email} successfully reset password after identity verification"
+                    );
 
                     TempData["SuccessMessage"] = "Password reset successfully! Your identity has been verified and your password has been changed. You can now log in with your new password.";
                     return RedirectToPage("./Login");

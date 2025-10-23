@@ -291,7 +291,8 @@ namespace Barangay.Pages.Nurse
                     }
                     
                     TempData["SuccessMessage"] = $"Immunization record updated successfully for family {FullForm.FamilyNumber}. Confirmation email sent to {FullForm.Email}.";
-                    return RedirectToPage();
+                    TempData["NewRecordId"] = existingRecord.Id; // Pass the ID for print button
+                    return RedirectToPage("/Nurse/ImmunizationRecords");
                 }
                 
                 // Debug: Log vaccine dates before processing
@@ -332,8 +333,9 @@ namespace Barangay.Pages.Nurse
                 }
 
                 TempData["SuccessMessage"] = $"Immunization record for {FullForm.ChildName} has been created successfully. Confirmation email sent to {FullForm.Email}.";
-                _logger.LogInformation("Immunization record created for child {ChildName} by user {User}", 
-                    FullForm.ChildName, User.Identity?.Name);
+                TempData["NewRecordId"] = FullForm.Id; // Pass the ID for print button
+                _logger.LogInformation("Immunization record created for child {ChildName} (ID: {RecordId}) by user {User}", 
+                    FullForm.ChildName, FullForm.Id, User.Identity?.Name);
 
                 return RedirectToPage("/Nurse/ImmunizationRecords");
             }

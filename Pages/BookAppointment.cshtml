@@ -94,7 +94,7 @@
                                     <option value="">Select relationship</option>
                                     <option value="parent">Parent</option>
                                     <option value="spouse">Spouse</option>
-                                    <option value="child">Child (Immunization available for age 0-1)</option>
+                                    <option value="child">Child</option>
                                     <option value="sibling">Sibling</option>
                                     <option value="guardian">Guardian</option>
                                     <option value="other">Other</option>
@@ -839,58 +839,47 @@
                                 Swal.fire({
                                     title: 'Appointment Saved!',
                                     text: isGeneralConsult 
-                                        ? 'Your appointment has been saved successfully! Continue to the assessment form or cancel the appointment.'
-                                        : 'Your appointment has been saved successfully! No additional assessment form is required.',
+                                        ? 'Your appointment has been saved successfully! Redirecting to assessment form...'
+                                        : 'Your appointment has been saved successfully!',
                                     icon: 'success',
-                                    confirmButtonText: isGeneralConsult ? 'Continue to Assessment' : 'View Appointments',
-                                    cancelButtonText: 'Cancel Appointment',
-                                    showCancelButton: true,
-                                    confirmButtonColor: '#28a745',
-                                    cancelButtonColor: '#dc3545',
+                                    showConfirmButton: false,
+                                    showCancelButton: false,
+                                    timer: 5000,
+                                    timerProgressBar: true,
                                     allowOutsideClick: false,
                                     allowEscapeKey: false
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        // User clicked "Continue to Form" - check consultation type first
-                                        console.log('[BookAppointment] User chose to continue to form');
-                                        const consultationType = $('#consultationType').val();
-                                        
-                                        // Only require assessment forms for General Consult appointments
-                                        if (consultationType === 'general consult') {
-                                            console.log('[BookAppointment] General Consult - redirecting to assessment form');
-                                            if (age >= 20) {
-                                                // Redirect to NCD Risk Assessment for users 20+
-                                                window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
-                                            } else if (age >= 10 && age <= 19) {
-                                                // Redirect to HEEADSSS Assessment for users 10-19
-                                                window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
-                                            } else {
-                                                // For users under 10, show message and redirect to appointments
-                                                alert('Appointment details saved! No assessment form is required for patients under 10 years old.');
-                                                window.location.href = '/User/Appointments';
-                                            }
-                                        } else if (consultationType === 'immunization') {
-                                            // For immunization appointments, redirect to Nurse CreateImmunizationRecord page
-                                            console.log('[BookAppointment] Immunization - redirecting to nurse immunization record form');
-                                            window.location.href = `/Nurse/CreateImmunizationRecord?appointmentId=${appointmentId}`;
+                                });
+                                
+                                // Auto-redirect after 5 seconds
+                                setTimeout(() => {
+                                    // Check consultation type first
+                                    console.log('[BookAppointment] Auto-redirecting after 5 seconds');
+                                    const consultationType = $('#consultationType').val();
+                                    
+                                    // Only require assessment forms for General Consult appointments
+                                    if (consultationType === 'general consult') {
+                                        console.log('[BookAppointment] General Consult - redirecting to assessment form');
+                                        if (age >= 20) {
+                                            // Redirect to NCD Risk Assessment for users 20+
+                                            window.location.href = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
+                                        } else if (age >= 10 && age <= 19) {
+                                            // Redirect to HEEADSSS Assessment for users 10-19
+                                            window.location.href = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
                                         } else {
-                                            // For non-General Consult appointments, skip assessment and go directly to appointments
-                                            console.log('[BookAppointment] Non-General Consult - skipping assessment form');
+                                            // For users under 10, redirect to appointments
+                                            console.log('[BookAppointment] Under 10 years old - no assessment required');
                                             window.location.href = '/User/Appointments';
                                         }
-                                    } else if (result.dismiss === Swal.DismissReason.cancel) {
-                                        // User clicked "Cancel Appointment" - redirect to appointments page
-                                        console.log('[BookAppointment] User chose to cancel appointment');
-                                        sessionStorage.removeItem('appointmentFormData');
+                                    } else if (consultationType === 'immunization') {
+                                        // For immunization appointments, redirect to Nurse CreateImmunizationRecord page
+                                        console.log('[BookAppointment] Immunization - redirecting to nurse immunization record form');
+                                        window.location.href = `/Nurse/CreateImmunizationRecord?appointmentId=${appointmentId}`;
+                                    } else {
+                                        // For non-General Consult appointments, skip assessment and go directly to appointments
+                                        console.log('[BookAppointment] Non-General Consult - skipping assessment form');
                                         window.location.href = '/User/Appointments';
                                     }
-                                }).catch((error) => {
-                                    console.error('[BookAppointment] SweetAlert2 error:', error);
-                                    // Fallback to alert if SweetAlert2 fails
-                                    alert('Your appointment has been saved successfully! You can complete the assessment form later from your Appointments page.');
-                                    sessionStorage.removeItem('appointmentFormData');
-                                    window.location.href = '/User/Appointments';
-                                });
+                                }, 5000);
                             } else {
                                 console.error('[BookAppointment] SweetAlert2 not available, using fallback alert');
                                 // Fallback to alert if SweetAlert2 is not available

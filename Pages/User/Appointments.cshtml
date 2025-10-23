@@ -273,7 +273,7 @@
                                             <td>@appointment.ReasonForVisit</td>
                                             <td><span class="badge bg-@GetStatusClass(appointment.Status)">@appointment.Status</span></td>
                                             <td>
-                                                <button class="btn btn-sm btn-outline-primary">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewAppointmentDetails(@appointment.Id)">
                                                     <i class="fa-solid fa-eye"></i> View
                                                 </button>
                                             </td>
@@ -290,6 +290,34 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Appointment Details Modal -->
+<div class="modal fade" id="appointmentDetailsModal" tabindex="-1" aria-labelledby="appointmentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appointmentDetailsModalLabel">Appointment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="appointmentDetails">
+                    <!-- Loading state -->
+                    <div class="text-center py-4" id="loadingState">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading appointment details...</p>
+                    </div>
+                    <!-- Details content (populated by JavaScript) -->
+                    <div id="detailsContent" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -1133,5 +1161,128 @@
         document.addEventListener('DOMContentLoaded', function() {
             appointmentsManager = new AppointmentsManager();
         });
+
+        // Function to view appointment details
+        async function viewAppointmentDetails(appointmentId) {
+            console.log('Viewing appointment details for ID:', appointmentId);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
+            modal.show();
+            
+            // Show loading state
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('detailsContent').style.display = 'none';
+            
+            try {
+                // Fetch appointment details
+                const response = await fetch(`?handler=AppointmentDetails&id=${appointmentId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Populate modal with appointment details
+                    const appointment = data.appointment;
+                    
+                    // Build immunization schedule section if available
+                    let immunizationSection = '';
+                    if (appointment.immunizationSchedule && appointment.immunizationSchedule !== 'N/A') {
+                        const scheduleItems = appointment.immunizationSchedule.split('; ');
+                        let scheduleHtml = '<table class="table table-sm table-bordered mt-2"><thead><tr><th>Vaccine</th><th>Date Given</th><th>Remarks</th></tr></thead><tbody>';
+                        
+                        scheduleItems.forEach(item => {
+                            const parts = item.split(': ');
+                            if (parts.length === 2) {
+                                const vaccine = parts[0];
+                                const dateAndRemarks = parts[1].split(' - ');
+                                const date = dateAndRemarks[0] || 'N/A';
+                                const remarks = dateAndRemarks[1] || 'N/A';
+                                scheduleHtml += `<tr><td>${vaccine}</td><td>${date}</td><td>${remarks}</td></tr>`;
+                            }
+                        });
+                        
+                        scheduleHtml += '</tbody></table>';
+                        immunizationSection = `
+                            <div class="col-12 mb-3">
+                                <label class="fw-bold text-muted small">Immunization Schedule</label>
+                                ${scheduleHtml}
+                            </div>
+                        `;
+                    }
+                    
+                    const detailsHtml = `
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Appointment ID</label>
+                                <div class="fs-6">#${appointment.id}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Status</label>
+                                <div class="fs-6"><span class="badge bg-${getStatusBadgeClass(appointment.status)}">${appointment.status}</span></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Date</label>
+                                <div class="fs-6"><i class="fa-solid fa-calendar text-primary me-2"></i>${appointment.date}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Time</label>
+                                <div class="fs-6"><i class="fa-solid fa-clock text-primary me-2"></i>${appointment.time}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Consultation Type</label>
+                                <div class="fs-6">${appointment.consultationType}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold text-muted small">Age</label>
+                                <div class="fs-6">${appointment.age}</div>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="fw-bold text-muted small">Reason for Visit</label>
+                                <div class="fs-6">${appointment.reasonForVisit}</div>
+                            </div>
+                            ${immunizationSection}
+                        </div>
+                    `;
+                    
+                    document.getElementById('detailsContent').innerHTML = detailsHtml;
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('detailsContent').style.display = 'block';
+                } else {
+                    // Show error message
+                    document.getElementById('detailsContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fa-solid fa-exclamation-circle me-2"></i>
+                            ${data.error || 'Failed to load appointment details.'}
+                        </div>
+                    `;
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('detailsContent').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading appointment details:', error);
+                document.getElementById('detailsContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fa-solid fa-exclamation-circle me-2"></i>
+                        An error occurred while loading appointment details.
+                    </div>
+                `;
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('detailsContent').style.display = 'block';
+            }
+        }
+
+        // Helper function to get badge class based on status
+        function getStatusBadgeClass(status) {
+            const statusMap = {
+                'Confirmed': 'success',
+                'Pending': 'warning',
+                'Cancelled': 'danger',
+                'Completed': 'secondary',
+                'InProgress': 'info',
+                'Urgent': 'danger',
+                'NoShow': 'dark',
+                'Draft': 'primary'
+            };
+            return statusMap[status] || 'secondary';
+        }
     </script>
 } 

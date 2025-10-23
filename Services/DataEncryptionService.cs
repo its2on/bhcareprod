@@ -98,12 +98,7 @@ namespace Barangay.Services
                 Console.WriteLine($"Decrypt called with: {cipherText?.Substring(0, Math.Min(20, cipherText?.Length ?? 0))}...");
                 Console.WriteLine($"IsEncrypted: {IsEncrypted(cipherText)}");
                 
-                if (!IsEncrypted(cipherText))
-                {
-                    Console.WriteLine("Decrypt: Not encrypted, returning original");
-                    return cipherText;
-                }
-                    
+                // Try to decrypt - if it fails, the catch block will handle it
                 var encryptedBytes = Convert.FromBase64String(cipherText);
 
                 // Try with the new DataEncryption key first

@@ -27,8 +27,19 @@
             @if (TempData["SuccessMessage"] != null)
             {
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle me-2"></i>
-                    @TempData["SuccessMessage"]
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-check-circle me-2"></i>
+                            @TempData["SuccessMessage"]
+                        </div>
+                        @if (TempData["NewRecordId"] != null)
+                        {
+                            <a href="/Nurse/PrintImmunizationRecord/@TempData["NewRecordId"]" target="_blank" 
+                               class="btn btn-sm ms-3" style="background-color: #FF8C42; border-color: #FF8C42; color: white;">
+                                <i class="fas fa-print me-1"></i>Print / Export PDF
+                            </a>
+                        }
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             }
@@ -377,6 +388,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <a href="/Nurse/PrintImmunizationRecord/@record.Id" target="_blank" class="btn btn-primary" style="background-color: #FF8C42; border-color: #FF8C42;">
+                        <i class="fas fa-print me-1"></i>Print / Export PDF
+                    </a>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>

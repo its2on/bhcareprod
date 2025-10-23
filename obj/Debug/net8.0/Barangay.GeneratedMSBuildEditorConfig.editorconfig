@@ -112,6 +112,18 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQXNzaWduUm9sZXMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/AuditTrail.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQXVkaXRUcmFpbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/AuditTrailDiagnostic.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQXVkaXRUcmFpbERpYWdub3N0aWMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/AuditTrailNew.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQXVkaXRUcmFpbE5ldy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Admin/DeleteStaffMember.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cRGVsZXRlU3RhZmZNZW1iZXIuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -440,6 +452,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTnVyc2VcUHJpbnRIRUVBRFNTU0Fzc2Vzc21lbnQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Nurse/PrintImmunizationRecord.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTnVyc2VcUHJpbnRJbW11bml6YXRpb25SZWNvcmQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/Nurse/PrintNCDAssessment.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTnVyc2VcUHJpbnROQ0RBc3Nlc3NtZW50LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
@@ -606,6 +622,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/User/NCDRiskAssessment.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVXNlclxOQ0RSaXNrQXNzZXNzbWVudC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/WIN 10/Desktop/BHCARE-main/Pages/User/Notifications.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVXNlclxOb3RpZmljYXRpb25zLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/WIN 10/Desktop/BHCARE-main/Pages/User/Print.cshtml]

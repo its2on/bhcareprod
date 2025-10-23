@@ -20,6 +20,7 @@ using System.Text;
 using Barangay.Attributes;
 using Barangay.Services;
 using Barangay.Extensions;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Doctor
 {
@@ -34,6 +35,7 @@ namespace Barangay.Pages.Doctor
         private readonly IConsultationPdfService _consultationPdfService;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IAppointmentReminderService _appointmentReminderService;
+        private readonly IAuditTrailService _auditTrail;
 
         public ConsultationModel(
             ApplicationDbContext context,
@@ -42,12 +44,14 @@ namespace Barangay.Pages.Doctor
             IConfiguration configuration,
             IConsultationPdfService consultationPdfService,
             IDataEncryptionService encryptionService,
-            IAppointmentReminderService appointmentReminderService)
+            IAppointmentReminderService appointmentReminderService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
             _configuration = configuration;
+            _auditTrail = auditTrail;
             _consultationPdfService = consultationPdfService;
             _encryptionService = encryptionService;
             _appointmentReminderService = appointmentReminderService;
@@ -807,6 +811,23 @@ namespace Barangay.Pages.Doctor
 
                 _context.MedicalRecords.Add(medicalRecord);
                 await _context.SaveChangesAsync(); // Save to get the MedicalRecord ID
+
+                // AUDIT: Log medical record creation
+                await _auditTrail.LogAsync(
+                    "Create",
+                    "Created medical consultation record",
+                    "MedicalRecord",
+                    medicalRecord.Id.ToString(),
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        PatientId = appointment.PatientId,
+                        ChiefComplaint = ChiefComplaint,
+                        Diagnosis = Diagnosis,
+                        Treatment = Treatment,
+                        Type = "Consultation"
+                    }),
+                    $"Doctor completed consultation for patient - Medical record created"
+                );
 
                 // Create prescription record if prescription details are provided
                 if (!string.IsNullOrEmpty(Prescribe))

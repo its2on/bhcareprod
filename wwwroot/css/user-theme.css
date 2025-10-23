@@ -169,9 +169,8 @@
 }
 .user-theme .dashboard-navbar,
 .user-theme .app-navbar {
-  left: 0 !important; /* navbar spans full width; sidebar sits below it via JS top offset */
-  right: 0 !important;
-  width: auto !important;
+  /* Position handled by dashboard-nav.css to account for sidebar */
+  z-index: 1030 !important; /* Ensure it stays above content */
   transition: left var(--transition-speed) ease !important;
 }
 /* Small breathing room so the sidebar active highlight doesn't visually touch navbar content */
@@ -315,6 +314,16 @@
   margin-left: var(--sidebar-width) !important;
   width: auto;
   transition: margin-left var(--transition-speed) ease;
+}
+
+/* Ensure content doesn't overlap with fixed navbar */
+.user-theme .content-wrapper {
+  padding-top: 0 !important; /* JavaScript will handle this dynamically */
+}
+
+/* When dashboard navbar is present, ensure proper spacing */
+body.user-theme .content-wrapper.with-navbar {
+  padding-top: 60px !important; /* Exact navbar height, no extra spacing */
 }
 .user-theme .form-control,
 .user-theme .form-select {

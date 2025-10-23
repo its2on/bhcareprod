@@ -14,6 +14,7 @@ using System.Data; // Added for DBNull
 using Barangay.Services;
 using Barangay.Extensions; // Added for DecryptSensitiveData extension method
 using Microsoft.AspNetCore.Authorization;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.User
 {
@@ -26,6 +27,7 @@ namespace Barangay.Pages.User
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IFamilyNumberService _familyNumberService;
+        private readonly IAuditTrailService _auditTrail;
         private static readonly Random _random = new Random();
 
         private static readonly string[] _healthFacilities = new[]
@@ -41,13 +43,15 @@ namespace Barangay.Pages.User
             ILogger<NCDRiskAssessmentModel> logger,
             UserManager<ApplicationUser> userManager,
             IDataEncryptionService encryptionService,
-            IFamilyNumberService familyNumberService)
+            IFamilyNumberService familyNumberService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _encryptionService = encryptionService;
             _familyNumberService = familyNumberService;
+            _auditTrail = auditTrail;
             Assessment = new NCDRiskAssessmentViewModel();
         }
 
@@ -792,6 +796,24 @@ namespace Barangay.Pages.User
                 if (rowsAffected > 0)
                 {
                     _logger.LogInformation("NCD Risk Assessment saved successfully with ID: {Id}", ncdEntity.Id);
+                    
+                    // AUDIT: Log NCD assessment submission
+                    await _auditTrail.LogAsync(
+                        "Create",
+                        "Submitted NCD Risk Assessment",
+                        "NCDRiskAssessment",
+                        ncdEntity.Id.ToString(),
+                        null,
+                        JsonConvert.SerializeObject(new {
+                            AppointmentId = ncdEntity.AppointmentId,
+                            HasDiabetes = ncdEntity.HasDiabetes,
+                            HasHypertension = ncdEntity.HasHypertension,
+                            HasCancer = ncdEntity.HasCancer,
+                            HasCOPD = ncdEntity.HasCOPD,
+                            SmokingStatus = "Assessed"
+                        }),
+                        "Patient completed NCD risk screening assessment"
+                    );
                     
                     // DEBUGGING: Log successful save with Risk Status fields
                     _logger.LogInformation("=== RISK STATUS FIELDS SAVED TO DATABASE ===");

@@ -479,6 +479,9 @@ builder.Services.AddScoped<IProtectedUrlService, ProtectedUrlService>();
 // Register Family Number Service
 builder.Services.AddScoped<IFamilyNumberService, FamilyNumberService>();
 
+// Register Audit Trail Service
+builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();
 

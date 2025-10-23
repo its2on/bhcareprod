@@ -24,12 +24,14 @@ namespace Barangay.Controllers
         private readonly EncryptedDbContext _context;
         private readonly ILogger<VitalsApiController> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
-        public VitalsApiController(EncryptedDbContext context, ILogger<VitalsApiController> logger, IDataEncryptionService encryptionService)
+        public VitalsApiController(EncryptedDbContext context, ILogger<VitalsApiController> logger, IDataEncryptionService encryptionService, IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         // POST: api/Vitals
@@ -74,6 +76,27 @@ namespace Barangay.Controllers
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"Successfully saved vital signs for patient {request.PatientId}");
+
+                // AUDIT: Log vital signs creation
+                await _auditTrail.LogAsync(
+                    "Create",
+                    "Vital signs recorded",
+                    "VitalSign",
+                    vitalSign.Id.ToString(),
+                    null,
+                    Newtonsoft.Json.JsonConvert.SerializeObject(new
+                    {
+                        PatientId = request.PatientId,
+                        Temperature = request.Temperature,
+                        BloodPressure = request.BloodPressure,
+                        HeartRate = request.HeartRate,
+                        RespiratoryRate = request.RespiratoryRate,
+                        SpO2 = request.SpO2,
+                        Weight = request.Weight,
+                        Height = request.Height
+                    }),
+                    $"Recorded vital signs for patient {request.PatientId}"
+                );
 
                 return Ok(new { success = true, message = "Vital signs recorded successfully!" });
             }

@@ -7,6 +7,7 @@ using Barangay.Models;
 using Barangay.Services;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Nurse
 {
@@ -18,17 +19,20 @@ namespace Barangay.Pages.Nurse
         private readonly ILogger<CreateImmunizationRecordModel> _logger;
         private readonly IImmunizationReminderService _immunizationReminderService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public CreateImmunizationRecordModel(
             EncryptedDbContext context,
             ILogger<CreateImmunizationRecordModel> logger,
             IImmunizationReminderService immunizationReminderService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _immunizationReminderService = immunizationReminderService;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -131,6 +135,23 @@ namespace Barangay.Pages.Nurse
                 _logger.LogInformation("Saving changes to database...");
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Successfully saved ImmunizationRecord to database");
+
+                // AUDIT: Log immunization record creation
+                await _auditTrail.LogAsync(
+                    "Create",
+                    $"Created immunization record for child: {Record.ChildName}",
+                    "ImmunizationRecord",
+                    Record.Id.ToString(),
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        ChildName = Record.ChildName,
+                        DateOfBirth = Record.DateOfBirth,
+                        MotherName = Record.MotherName,
+                        HealthCenter = Record.HealthCenter,
+                        CreatedBy = Record.CreatedBy
+                    }),
+                    $"Nurse created immunization card for child {Record.ChildName}"
+                );
 
                 // Send email notification to parent
                 if (!string.IsNullOrEmpty(Record.Email))

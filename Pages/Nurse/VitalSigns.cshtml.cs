@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Nurse
 {
@@ -26,12 +27,14 @@ namespace Barangay.Pages.Nurse
         private readonly EncryptedDbContext _context;
         private readonly ILogger<VitalSignsModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
-        public VitalSignsModel(EncryptedDbContext context, ILogger<VitalSignsModel> logger, IDataEncryptionService encryptionService)
+        public VitalSignsModel(EncryptedDbContext context, ILogger<VitalSignsModel> logger, IDataEncryptionService encryptionService, IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         public class VitalSignViewModel
@@ -588,6 +591,26 @@ namespace Barangay.Pages.Nurse
                 }
                 
                 await _context.SaveChangesAsync();
+
+                // Log audit trail
+                await _auditTrail.LogAsync(
+                    "Create",
+                    "Recorded patient vital signs",
+                    "VitalSign",
+                    vitalSign.Id.ToString(),
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        PatientId = NewVitalSign.PatientId,
+                        BloodPressure = NewVitalSign.BloodPressure,
+                        HeartRate = NewVitalSign.HeartRate,
+                        Temperature = NewVitalSign.Temperature,
+                        RespiratoryRate = NewVitalSign.RespiratoryRate,
+                        SpO2 = NewVitalSign.SpO2,
+                        Weight = NewVitalSign.Weight,
+                        Height = NewVitalSign.Height
+                    }),
+                    $"Nurse recorded vital signs for patient"
+                );
 
                 _logger.LogInformation($"Successfully saved vital signs for patient {NewVitalSign.PatientId}");
                 TempData["SuccessMessage"] = "Vital signs recorded successfully! Appointment marked as completed.";

@@ -49,20 +49,22 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="stat-card dashboard-card" style="border:1px solid #eef0f3;">
-                            <div class="stat-card-body standard-padding">
-                                <div class="stat-card-icon" style="background:#fff0e6;color:#e86a17;">
-                                    <i class="fa-solid fa-clock"></i>
-                                </div>
-                                <div class="stat-card-info">
-                                    <div class="stat-card-title" style="color:#334155;font-weight:600;">Pending Requests</div>
-                                    <div class="stat-card-value" style="color:#111827;font-weight:700;">@Model.TotalAppointments</div>
-                                    <div class="stat-card-detail" style="color:#6b7280;">
-                                        Appointments to review
+                        <a href="/Admin/UserManagement?status=pending" style="text-decoration: none; color: inherit;">
+                            <div class="stat-card dashboard-card" style="border:1px solid #eef0f3; cursor: pointer;">
+                                <div class="stat-card-body standard-padding">
+                                    <div class="stat-card-icon" style="background:#fff0e6;color:#e86a17;">
+                                        <i class="fa-solid fa-user-clock"></i>
+                                    </div>
+                                    <div class="stat-card-info">
+                                        <div class="stat-card-title" style="color:#334155;font-weight:600;">Pending Requests</div>
+                                        <div class="stat-card-value" style="color:#111827;font-weight:700;">@Model.PendingAccountsCount</div>
+                                        <div class="stat-card-detail" style="color:#6b7280;">
+                                            Accounts to review
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
                     <div class="col-md-4">
                         <div class="stat-card dashboard-card" style="border:1px solid #eef0f3;">

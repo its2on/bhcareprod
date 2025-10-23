@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Barangay.Services;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Doctor
 {
@@ -23,19 +24,22 @@ namespace Barangay.Pages.Doctor
         private readonly ILogger<AppointmentsModel> _logger;
         private readonly IPermissionService _permissionService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public AppointmentsModel(
             ApplicationDbContext context, 
             UserManager<ApplicationUser> userManager,
             ILogger<AppointmentsModel> logger,
             IPermissionService permissionService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
             _permissionService = permissionService;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         public List<Barangay.Models.Appointment> TodayAppointments { get; set; } = new();
@@ -117,10 +121,23 @@ namespace Barangay.Pages.Doctor
                 return NotFound();
             }
 
+            var oldStatus = appointment.Status;
             appointment.Status = status;
             appointment.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            
+            // AUDIT: Log appointment status update
+            await _auditTrail.LogAsync(
+                "Update",
+                $"Updated appointment status: {oldStatus} → {status}",
+                "Appointment",
+                appointmentId.ToString(),
+                oldStatus.ToString(),
+                status.ToString(),
+                $"Doctor changed appointment #{appointmentId} status from {oldStatus} to {status}"
+            );
+            
             return RedirectToPage();
         }
         

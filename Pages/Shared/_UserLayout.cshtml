@@ -1,5 +1,11 @@
 @using Microsoft.AspNetCore.Antiforgery
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Barangay.Data
 @inject IAntiforgery Antiforgery
+@inject SignInManager<Barangay.Models.ApplicationUser> SignInManager
+@inject UserManager<Barangay.Models.ApplicationUser> UserManager
+@inject ApplicationDbContext _context
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,10 +16,14 @@
     <link rel="stylesheet" href="~/css/user-theme.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css?v=2" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/dashboard-nav.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
     <style>
         /* Custom styles for maximizing space */
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
             background-color: #f8f9fa;
             margin: 0;
@@ -40,16 +50,117 @@
             width: 60px;
             background-color: var(--color-primary);
             box-shadow: 1px 0 5px rgba(0,0,0,0.05);
-            /* padding-top is handled dynamically based on header/nav height */
             position: fixed;
+            top: 0 !important;
+            left: 0 !important;
             height: 100vh;
             transition: width 0.3s ease;
             z-index: 1020;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Sidebar Header Section */
+        .sidebar-header {
+            padding: 1.5rem 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
+        }
+        
+        /* Logo */
+        .sidebar-logo {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .sidebar-logo i {
+            font-size: 2rem;
+            color: #fff;
+        }
+        
+        .sidebar-logo .logo-text {
+            display: none; /* Hidden when collapsed */
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+        
+        .minimal-sidebar.expanded .sidebar-logo .logo-text {
+            display: block;
+        }
+        
+        /* User Profile in Sidebar */
+        .sidebar-user-profile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .sidebar-profile-picture {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            object-fit: cover;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sidebar-user-info {
+            display: none; /* Hidden when collapsed */
+            text-align: center;
+        }
+        
+        .minimal-sidebar.expanded .sidebar-user-info {
+            display: block;
+        }
+        
+        .sidebar-user-name {
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sidebar-user-role {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Notification in Sidebar */
+        .sidebar-notification {
+            display: flex;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+        
+        .sidebar-notification .notification-bell {
+            color: #fff !important;
+            font-size: 1.2rem;
+        }
+        
+        .sidebar-notification .notification-badge {
+            background-color: #ea4335;
         }
         
         .minimal-sidebar.expanded {
-            width: 220px;
+            width: 250px; /* Slightly wider to accommodate user info */
+        }
+        
+        /* Navigation section should flex to fill space */
+        .minimal-sidebar .nav {
+            flex: 1;
         }
         
         .sidebar-toggle {
@@ -105,6 +216,39 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+        }
+        
+        /* Notification Badge beside text */
+        .nav-link-text-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .notification-badge-text {
+            background-color:rgb(255, 0, 0);
+            color: white;
+            border-radius: 12px;
+            min-width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Hide badge when sidebar is collapsed (only show text when expanded) */
+        .minimal-sidebar:not(.expanded) .notification-badge-text {
+            display: none;
+        }
+        
+        /* Show badge when sidebar is expanded */
+        .minimal-sidebar.expanded .notification-badge-text {
+            display: inline-flex;
         }
         
         .minimal-sidebar.expanded .nav-link {
@@ -183,25 +327,128 @@
         /* Content area - maximize space */
         .content-wrapper {
             margin-left: 0 !important; /* margins handled on #content via user-theme.css */
-            margin-top: 0 !important; /* Remove default margin-top from site.css */
-            padding-top: 0 !important; /* Padding handled dynamically by JavaScript */
+            margin-top: 0 !important; /* Remove default margin-top: 98px from site.css */
             padding-bottom: 60px;
             transition: margin-left 0.3s ease;
         }
         
-        /* Override site.css content-wrapper styles */
-        body .content-wrapper {
+        /* Extra specificity to ensure margin-top is removed */
+        body.user-theme .content-wrapper,
+        body.user-theme .content-wrapper.with-navbar,
+        body.user-theme .app-content {
+            margin-top: 0 !important; /* Force override site.css margin-top: 98px */
+        }
+        
+        /* Ensure wrapper div itself has no spacing */
+        .wrapper,
+        body.user-theme .wrapper {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Content wrapper without navbar - no top padding needed */
+        .content-wrapper {
+            padding-top: 0 !important; /* No navbar, content starts at top */
+            margin-left: 60px; /* Sidebar width */
+            transition: margin-left 0.3s ease;
+        }
+        
+        /* When sidebar is expanded */
+        .minimal-sidebar.expanded ~ .content-wrapper {
+            margin-left: 250px;
+        }
+        
+        /* Main content padding */
+        .content-wrapper main {
+            padding: 1.5rem;
+            padding-top: 0 !important;
             margin-top: 0 !important;
         }
         
-        /* Ensure main content has no top margin/padding */
-        .content-wrapper main {
+        /* Ensure NO top spacing on any containers */
+        .content-wrapper main > .container-fluid,
+        .content-wrapper main > .container,
+        .content-wrapper main > .ncd-container,
+        .content-wrapper > main,
+        body.user-theme .content-wrapper main,
+        body.user-theme main,
+        .content-wrapper .main-content,
+        .content-wrapper main .main-content,
+        #mainContent,
+        #dashboard-container {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+            margin-left: 0 !important; /* Override admin-dashboard/custom-site.css */
+        }
+        
+        /* Override all .main-content spacings from other stylesheets */
+        body.user-theme .main-content,
+        .user-theme .main-content,
+        .content-wrapper.with-navbar + .main-content,
+        .content-wrapper.with-navbar .main-content {
+            margin-left: 0 !important;
             margin-top: 0 !important;
             padding-top: 0 !important;
         }
         
-        /* Ensure container-fluid has no top padding */
-        .content-wrapper .container-fluid {
+        /* Remove ALL top margins from Bootstrap rows in content area */
+        .content-wrapper .row,
+        .content-wrapper main .row,
+        .main-content .row,
+        #mainContent .row,
+        #dashboard-container .row {
+            margin-top: 0 !important;
+        }
+        
+        /* Override Bootstrap margin-bottom utilities on first elements */
+        .content-wrapper main > .container-fluid > .row.mb-1,
+        .content-wrapper main > .container-fluid > .row.mb-2,
+        .content-wrapper main > .container-fluid > .row.mb-3,
+        .content-wrapper main > .container-fluid > .row.mb-4,
+        .content-wrapper main > .container-fluid > .row.mb-5 {
+            margin-top: 0 !important;
+        }
+        
+        /* Only the very first row gets small spacing from top edge */
+        .content-wrapper .main-content > .container-fluid > .row:first-child,
+        .content-wrapper main .container-fluid > .row:first-child,
+        .content-wrapper main .container > .row:first-child,
+        #mainContent > .container-fluid > .row:first-child,
+        #dashboard-container > .row:first-child {
+            margin-top: 20px !important; /* Breathing room from top edge */
+        }
+        
+        /* Bootstrap alert boxes at top of page should have minimal top spacing */
+        .content-wrapper main > .container-fluid > .row:first-child .alert,
+        .content-wrapper .container-fluid > .row:first-child .alert {
+            margin-top: 0 !important;
+        }
+        
+        /* Control Bootstrap alert default margins (Bootstrap sets margin-bottom: 1rem) */
+        .content-wrapper .alert.alert-info,
+        .content-wrapper .alert.alert-success,
+        .content-wrapper .alert.alert-warning,
+        .content-wrapper .alert.alert-danger {
+            margin-bottom: 1rem !important; /* Keep bottom margin for separation */
+            margin-top: 0 !important; /* Remove top margin */
+        }
+        
+        /* Ensure welcome-section has no extra spacing */
+        .welcome-section,
+        .content-wrapper .welcome-section {
+            margin-top: 0 !important;
+        }
+        
+        /* Override Bootstrap padding utilities on container-fluid */
+        .content-wrapper .container-fluid.p-0,
+        .content-wrapper main > .container-fluid {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Force remove any lingering spacing from col elements */
+        .content-wrapper .row:first-child > .col-12:first-child {
             padding-top: 0 !important;
         }
         
@@ -210,18 +457,16 @@
         @@media (max-width: 768px) {
             .minimal-sidebar {
                 width: 0;
+                transform: translateX(-100%);
             }
             
             .minimal-sidebar.expanded {
-                width: 220px;
+                width: 250px;
+                transform: translateX(0);
             }
             
             .content-wrapper {
-                margin-left: 0;
-            }
-            
-            .content-wrapper.sidebar-expanded {
-                margin-left: 220px;
+                margin-left: 0 !important;
             }
         }
         
@@ -280,6 +525,18 @@
 
         /* Dark mode styles removed */
 
+        /* Ensure wrapper doesn't interfere with fixed positioning */
+        .wrapper {
+            position: relative;
+            overflow: visible !important;
+            min-height: 100vh;
+        }
+        
+        /* Ensure body allows fixed positioning */
+        body {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
 
     </style>
 
@@ -315,6 +572,32 @@
 
         <!-- Vertical Sidebar -->
         <aside class="minimal-sidebar app-sidebar" id="sidebar">
+            <!-- Sidebar Branding & User Section -->
+            <div class="sidebar-header">
+                <!-- Logo -->
+                <div class="sidebar-logo">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span class="logo-text">BHCARE</span>
+                </div>
+                
+                <!-- User Profile -->
+                <div class="sidebar-user-profile">
+                    @{
+                        var currentUser = await UserManager.GetUserAsync(User);
+                        var displayName = !string.IsNullOrWhiteSpace(currentUser?.FullName)
+                            ? currentUser.FullName
+                            : (!string.IsNullOrWhiteSpace(currentUser?.Name) ? currentUser.Name : User.Identity?.Name);
+                    }
+                    <img src="@(string.IsNullOrEmpty(currentUser?.ProfileImage) ? "/images/default-profile.png" : $"/images/profiles/{currentUser.ProfileImage}?v={currentUser.UpdatedAt.Ticks}")"
+                         alt="Profile"
+                         class="sidebar-profile-picture">
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name">@displayName</div>
+                    </div>
+                </div>
+                
+            
+            <!-- Navigation Links -->
             <ul class="nav flex-column">
                 <li class="nav-item">
                     <a class="nav-link" id="dashboard-link" href="/User/UserDashboard" title="Dashboard">
@@ -330,6 +613,29 @@
                             <i class="fa-solid fa-calendar-check"></i>
                         </div>
                         <span>Appointments</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="notifications-link" href="/User/Notifications" title="Notifications">
+                        <div class="nav-icon">
+                            <i class="fa-solid fa-bell"></i>
+                        </div>
+                        <span class="nav-link-text-wrapper">
+                            Notifications
+                            @{
+                                var notifUser = await UserManager.GetUserAsync(User);
+                                if (notifUser != null)
+                                {
+                                    var unreadCount = await _context.Notifications
+                                        .Where(n => (n.UserId == notifUser.Id || n.RecipientId == notifUser.Id) && !n.IsRead)
+                                        .CountAsync();
+                                    if (unreadCount > 0)
+                                    {
+                                        <span class="notification-badge-text">@(unreadCount > 99 ? "99+" : unreadCount.ToString())</span>
+                                    }
+                                }
+                            }
+                        </span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -364,12 +670,6 @@
                 <i class="fa-solid fa-chevron-right" id="sidebarToggleIcon"></i>
             </button>
         </aside>
-
-        <!-- Main Content -->
-        @if (ViewData["ShowDashboardNav"] as bool? == true)
-        {
-            <partial name="_DashboardNavbar" />
-        }
 
         <!-- Main Content -->
         <div class="content-wrapper app-content" id="content">
@@ -428,32 +728,12 @@
                 });
             }
 
-            // Prevent overlap with top header or dashboard navbar by setting sidebar offset
-            const applyTopOffset = () => {
-                const headerEl = document.querySelector('.top-header');
-                const navEl = document.querySelector('.dashboard-navbar');
-                const headerH = headerEl ? headerEl.offsetHeight : 0;
-                const navH = navEl ? navEl.offsetHeight : 0;
-                const offset = Math.max(headerH, navH); // only one is visible at a time in this layout
-                if (sidebar) {
-                    sidebar.style.top = offset + 'px';
-                    sidebar.style.height = `calc(100vh - ${offset}px)`;
-                }
-                // expose header height as CSS variable for CSS-variable layout
-                document.documentElement.style.setProperty('--header-height', offset + 'px');
-                // Ensure content has enough top padding to clear any fixed header/nav
-                const content = document.getElementById('content');
-                if (content) {
-                    // Only add padding if there's a fixed header/navbar
-                    if (offset > 0) {
-                        content.style.paddingTop = (offset + 20) + 'px';
-                    }
-                }
-            };
-            applyTopOffset();
-            // Re-run shortly after first paint to ensure correct measurements
-            setTimeout(applyTopOffset, 60);
-            window.addEventListener('resize', applyTopOffset);
+            // Sidebar is now full-height from top:0, no offset needed
+            // (navbar elements are integrated into sidebar)
+            if (sidebar) {
+                sidebar.style.top = '0';
+                sidebar.style.height = '100vh';
+            }
 
             // Enable Bootstrap tooltips for sidebar items (helpful when collapsed)
             if (window.bootstrap) {
@@ -469,6 +749,7 @@
                 const map = [
                     { id: 'dashboard-link', match: ['/user/userdashboard'] },
                     { id: 'appointments-link', match: ['/user/appointments', '/bookappointment'] },
+                    { id: 'notifications-link', match: ['/user/notifications'] },
                     { id: 'records-link', match: ['/user/records'] },
                     { id: 'settings-link', match: ['/user/settings'] }
                 ];

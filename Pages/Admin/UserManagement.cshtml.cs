@@ -14,6 +14,7 @@ using System;
 using System.Text.Json;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
@@ -50,6 +51,7 @@ namespace Barangay.Pages.Admin
         private readonly IWebHostEnvironment _environment;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IEmailService _emailService;
+        private readonly IAuditTrailService _auditTrail;
 
         public UserManagementModel(
             ApplicationDbContext context,
@@ -58,7 +60,8 @@ namespace Barangay.Pages.Admin
             ILogger<UserManagementModel> logger,
             IWebHostEnvironment environment,
             IDataEncryptionService encryptionService,
-            IEmailService emailService)
+            IEmailService emailService,
+            IAuditTrailService auditTrail)
             : base(notificationService)
         {
             _context = context;
@@ -67,6 +70,7 @@ namespace Barangay.Pages.Admin
             _environment = environment;
             _encryptionService = encryptionService;
             _emailService = emailService;
+            _auditTrail = auditTrail;
         }
 
         public List<ApplicationUser> Users { get; set; } = new();
@@ -449,6 +453,17 @@ namespace Barangay.Pages.Admin
                 _logger.LogInformation($"Saving changes to database");
                 await _context.SaveChangesAsync();
 
+                // AUDIT: Log user approval
+                await _auditTrail.LogAsync(
+                    "Update",
+                    $"Approved user account: {user.Email}",
+                    "ApplicationUser",
+                    user.Id,
+                    "Pending",
+                    "Verified",
+                    $"Admin approved user account for {user.Email} - Status changed from Pending to Verified"
+                );
+
                 // Create notification
                 _logger.LogInformation($"Creating notification for user approval");
                 await _notificationService.CreateNotificationAsync(
@@ -616,7 +631,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "Empty request body." });
                 }
 
-                var payload = JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
+                var payload = System.Text.Json.JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -898,7 +913,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "Empty request body." });
                 }
 
-                var payload = JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
+                var payload = System.Text.Json.JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -913,6 +928,9 @@ namespace Barangay.Pages.Admin
                 {
                     return new JsonResult(new { success = false, message = "User not found." });
                 }
+
+                // Capture old status for audit trail
+                var oldStatus = user.Status;
 
                 var status = payload.Status.Trim();
                 _logger.LogInformation($"UpdateUserStatus handler: setting user {user.Email} to status '{status}'");
@@ -1013,6 +1031,25 @@ namespace Barangay.Pages.Admin
 
                 await _context.SaveChangesAsync();
 
+                // AUDIT: Log user status change
+                var actionDescription = status.ToLowerInvariant() switch
+                {
+                    "verified" => "Approved user account",
+                    "rejected" => "Rejected user account",
+                    "pending" => "Set user account to pending",
+                    _ => "Updated user account status"
+                };
+                
+                await _auditTrail.LogAsync(
+                    "Update",
+                    $"{actionDescription}: {user.Email}",
+                    "ApplicationUser",
+                    user.Id,
+                    oldStatus,
+                    user.Status,
+                    $"Admin changed user status from {oldStatus} to {user.Status}"
+                );
+
                 // Handle suspension logic for rejections
                 SuspensionResult? suspensionResult = null;
                 if (status.Equals("rejected", StringComparison.OrdinalIgnoreCase))
@@ -1107,7 +1144,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "Empty request body." });
                 }
 
-                var payload = JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
+                var payload = System.Text.Json.JsonSerializer.Deserialize<UpdateUserStatusRequest>(body, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -1210,6 +1247,18 @@ namespace Barangay.Pages.Admin
                     }
 
                     await transaction.CommitAsync();
+                    
+                    // AUDIT: Log user deletion
+                    await _auditTrail.LogAsync(
+                        "Delete",
+                        $"Deleted user account: {user.Email}",
+                        "ApplicationUser",
+                        userId,
+                        null,
+                        null,
+                        $"Admin permanently deleted user account for {user.Email}"
+                    );
+                    
                     _logger.LogInformation($"User {user.Email} deleted successfully");
                     return new JsonResult(new { success = true, message = "User account deleted successfully." });
                 }

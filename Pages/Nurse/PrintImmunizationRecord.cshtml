@@ -1,0 +1,446 @@
+@page "{id:int}"
+@model Barangay.Pages.Nurse.PrintImmunizationRecordModel
+@{
+    ViewData["Title"] = "Print Immunization Record";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Immunization Record - @Model.Record?.ChildName</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        @@page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        
+        body {
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            line-height: 1.6;
+        }
+        
+        .page-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+            padding-bottom: 25px;
+            border-bottom: 3px solid #FF8C42;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #FF8C42;
+            font-weight: 700;
+            font-size: 28px;
+            letter-spacing: 0.5px;
+        }
+        
+        .header p {
+            margin: 5px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .record-id {
+            display: inline-block;
+            background-color: #fff4ed;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #FF8C42;
+            margin-top: 10px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #FF8C42;
+            border-bottom: 2px solid #FF8C42;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        
+        .field-name {
+            display: table-cell;
+            font-weight: 600;
+            width: 180px;
+            padding-right: 15px;
+            color: #495057;
+            vertical-align: top;
+        }
+        
+        .field-value {
+            display: table-cell;
+            color: #212529;
+            vertical-align: top;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        table thead {
+            background-color: #FF8C42;
+            color: white;
+        }
+        
+        table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 11px;
+            color: #6c757d;
+            padding-top: 25px;
+            border-top: 2px solid #dee2e6;
+            page-break-inside: avoid;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        .btn-action {
+            margin-right: 10px;
+        }
+        
+        .action-buttons {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .badge {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        @@media print {
+            body {
+                padding: 0;
+                background-color: #fff;
+            }
+            
+            .page-container {
+                box-shadow: none;
+                padding: 20px;
+                max-width: 100%;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+            
+            table thead {
+                background-color: #FF8C42 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="action-buttons no-print">
+            <button class="btn btn-primary btn-action" onclick="window.print()" style="background-color: #FF8C42; border-color: #FF8C42;">
+                <i class="bi bi-printer"></i> Print
+            </button>
+            <a href="javascript:history.back()" class="btn btn-secondary btn-action">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+        
+        <div class="page-container">
+            @if (Model.Record == null)
+            {
+                <div class="alert alert-danger">
+                    <h4>Error</h4>
+                    <p>Immunization record not found.</p>
+                </div>
+            }
+            else
+            {
+                <div class="header">
+                    <h1>Barangay Health Center</h1>
+                    <p>Complete Immunization Record</p>
+                    <p>Record ID: <span class="record-id">@Model.Record.Id</span></p>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Child Information</div>
+                    <div class="info-row">
+                        <span class="field-name">Child's Name:</span>
+                        <span class="field-value"><strong>@Model.Record.ChildName</strong></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Date of Birth:</span>
+                        <span class="field-value">@Model.Record.DateOfBirth</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Place of Birth:</span>
+                        <span class="field-value">@Model.Record.PlaceOfBirth</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Sex:</span>
+                        <span class="field-value">@Model.Record.Sex</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Birth Height:</span>
+                        <span class="field-value">@Model.Record.BirthHeight cm</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Birth Weight:</span>
+                        <span class="field-value">@Model.Record.BirthWeight kg</span>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Family Information</div>
+                    <div class="info-row">
+                        <span class="field-name">Family Number:</span>
+                        <span class="field-value">@Model.Record.FamilyNumber</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Mother's Name:</span>
+                        <span class="field-value">@Model.Record.MotherName</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Father's Name:</span>
+                        <span class="field-value">@Model.Record.FatherName</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Address:</span>
+                        <span class="field-value">@Model.Record.Address</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Barangay:</span>
+                        <span class="field-value">@Model.Record.Barangay</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Health Center:</span>
+                        <span class="field-value">@Model.Record.HealthCenter</span>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Contact Information</div>
+                    <div class="info-row">
+                        <span class="field-name">Email:</span>
+                        <span class="field-value">@Model.Record.Email</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="field-name">Contact Number:</span>
+                        <span class="field-value">@Model.Record.ContactNumber</span>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Vaccination Records</div>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Vaccine</th>
+                                <th style="width: 30%;">Date Given</th>
+                                <th style="width: 30%;">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!string.IsNullOrEmpty(Model.Record.BCGVaccineDate) || !string.IsNullOrEmpty(Model.Record.BCGVaccineRemarks))
+                            {
+                                <tr>
+                                    <td><strong>BCG Vaccine</strong><br><small class="text-muted">At Birth</small></td>
+                                    <td>@(Model.Record.BCGVaccineDate ?? "Not given")</td>
+                                    <td>@Model.Record.BCGVaccineRemarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.HepatitisBVaccineDate) || !string.IsNullOrEmpty(Model.Record.HepatitisBVaccineRemarks))
+                            {
+                                <tr>
+                                    <td><strong>Hepatitis B Vaccine</strong><br><small class="text-muted">At Birth</small></td>
+                                    <td>@(Model.Record.HepatitisBVaccineDate ?? "Not given")</td>
+                                    <td>@Model.Record.HepatitisBVaccineRemarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.Pentavalent1Date) || !string.IsNullOrEmpty(Model.Record.Pentavalent1Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pentavalent Vaccine - Dose 1</strong><br><small class="text-muted">6-8 weeks</small></td>
+                                    <td>@(Model.Record.Pentavalent1Date ?? "Not given")</td>
+                                    <td>@Model.Record.Pentavalent1Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.Pentavalent2Date) || !string.IsNullOrEmpty(Model.Record.Pentavalent2Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pentavalent Vaccine - Dose 2</strong><br><small class="text-muted">10-12 weeks</small></td>
+                                    <td>@(Model.Record.Pentavalent2Date ?? "Not given")</td>
+                                    <td>@Model.Record.Pentavalent2Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.Pentavalent3Date) || !string.IsNullOrEmpty(Model.Record.Pentavalent3Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pentavalent Vaccine - Dose 3</strong><br><small class="text-muted">14-16 weeks</small></td>
+                                    <td>@(Model.Record.Pentavalent3Date ?? "Not given")</td>
+                                    <td>@Model.Record.Pentavalent3Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.OPV1Date) || !string.IsNullOrEmpty(Model.Record.OPV1Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Oral Polio Vaccine (OPV) - Dose 1</strong><br><small class="text-muted">6-8 weeks</small></td>
+                                    <td>@(Model.Record.OPV1Date ?? "Not given")</td>
+                                    <td>@Model.Record.OPV1Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.OPV2Date) || !string.IsNullOrEmpty(Model.Record.OPV2Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Oral Polio Vaccine (OPV) - Dose 2</strong><br><small class="text-muted">10-12 weeks</small></td>
+                                    <td>@(Model.Record.OPV2Date ?? "Not given")</td>
+                                    <td>@Model.Record.OPV2Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.OPV3Date) || !string.IsNullOrEmpty(Model.Record.OPV3Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Oral Polio Vaccine (OPV) - Dose 3</strong><br><small class="text-muted">14-16 weeks</small></td>
+                                    <td>@(Model.Record.OPV3Date ?? "Not given")</td>
+                                    <td>@Model.Record.OPV3Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.IPV1Date) || !string.IsNullOrEmpty(Model.Record.IPV1Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Inactivated Polio Vaccine (IPV) - Dose 1</strong><br><small class="text-muted">6-8 weeks</small></td>
+                                    <td>@(Model.Record.IPV1Date ?? "Not given")</td>
+                                    <td>@Model.Record.IPV1Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.IPV2Date) || !string.IsNullOrEmpty(Model.Record.IPV2Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Inactivated Polio Vaccine (IPV) - Dose 2</strong><br><small class="text-muted">14-16 weeks</small></td>
+                                    <td>@(Model.Record.IPV2Date ?? "Not given")</td>
+                                    <td>@Model.Record.IPV2Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.PCV1Date) || !string.IsNullOrEmpty(Model.Record.PCV1Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pneumococcal Conjugate Vaccine (PCV) - Dose 1</strong><br><small class="text-muted">6 weeks-2 months</small></td>
+                                    <td>@(Model.Record.PCV1Date ?? "Not given")</td>
+                                    <td>@Model.Record.PCV1Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.PCV2Date) || !string.IsNullOrEmpty(Model.Record.PCV2Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pneumococcal Conjugate Vaccine (PCV) - Dose 2</strong><br><small class="text-muted">10-16 weeks</small></td>
+                                    <td>@(Model.Record.PCV2Date ?? "Not given")</td>
+                                    <td>@Model.Record.PCV2Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.PCV3Date) || !string.IsNullOrEmpty(Model.Record.PCV3Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Pneumococcal Conjugate Vaccine (PCV) - Dose 3</strong><br><small class="text-muted">14 weeks-6 months</small></td>
+                                    <td>@(Model.Record.PCV3Date ?? "Not given")</td>
+                                    <td>@Model.Record.PCV3Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.MMR1Date) || !string.IsNullOrEmpty(Model.Record.MMR1Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Measles, Mumps, Rubella Vaccine (MMR) - Dose 1</strong><br><small class="text-muted">9 months-1 year</small></td>
+                                    <td>@(Model.Record.MMR1Date ?? "Not given")</td>
+                                    <td>@Model.Record.MMR1Remarks</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Record.MMR2Date) || !string.IsNullOrEmpty(Model.Record.MMR2Remarks))
+                            {
+                                <tr>
+                                    <td><strong>Measles, Mumps, Rubella Vaccine (MMR) - Dose 2</strong><br><small class="text-muted">12-15 months</small></td>
+                                    <td>@(Model.Record.MMR2Date ?? "Not given")</td>
+                                    <td>@Model.Record.MMR2Remarks</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="footer">
+                    <p><strong>This is an official immunization record from Barangay Health Center.</strong></p>
+                    <p>Created: @Model.Record.CreatedAt | Created By: @Model.Record.CreatedBy</p>
+                    <p>Last Updated: @Model.Record.UpdatedAt | Updated By: @Model.Record.UpdatedBy</p>
+                    <p>Printed on: @DateTime.Now.ToString("MMMM dd, yyyy hh:mm tt")</p>
+                </div>
+            }
+        </div>
+    </div>
+    
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-print when page loads
+        window.onload = function() {
+            if (@(Model.Record != null ? "true" : "false")) {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            }
+        };
+    </script>
+</body>
+</html>

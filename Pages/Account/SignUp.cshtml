@@ -41,6 +41,7 @@
                                 <input asp-for="Input.Username" class="form-control" placeholder="Username (min. 3 characters)" aria-label="Username input" />
                             </div>
                             <div class="invalid-feedback" id="usernameError">Username is required</div>
+                            <small class="form-text text-muted">Username can only contain letters, numbers, and underscores</small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -146,7 +147,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-calendar-alt"></i>
                                 </span>
-                                <input asp-for="Input.Age" class="form-control" placeholder="e.g., 25" aria-label="Age input" maxlength="3" />
+                                <input asp-for="Input.Age" class="form-control" type="number" min="1" max="120" placeholder="e.g., 25" aria-label="Age input" pattern="[0-9]*" inputmode="numeric" />
                             </div>
                             <div class="invalid-feedback" id="ageError">Age is required</div>
                             <small class="form-text text-muted">Enter your age in years</small>
@@ -487,7 +488,13 @@
                                 this.updateStep1NextButtonState();
                             });
                             usernameInput.addEventListener('input', () => {
-                                this.clearError('username');
+                                const value = usernameInput.value.trim();
+                                // Only clear error if value doesn't have obvious spam
+                                if (value && !this.hasExcessiveRepetition(value, 2)) {
+                                    this.clearError('username');
+                                } else if (value && this.hasExcessiveRepetition(value, 2)) {
+                                    this.showError('username', 'Username contains too many repeated characters');
+                                }
                                 this.updateStep1NextButtonState();
                             });
                         }
@@ -514,7 +521,13 @@
                                     this.updateStep1NextButtonState();
                                 });
                                 input.addEventListener('input', () => {
-                                    this.clearError(field.toLowerCase());
+                                    const value = input.value.trim();
+                                    // Only clear error if value doesn't have obvious spam
+                                    if (value && !this.hasExcessiveRepetition(value, 3)) {
+                                        this.clearError(field.toLowerCase());
+                                    } else if (value && this.hasExcessiveRepetition(value, 3)) {
+                                        this.showError(field.toLowerCase(), `${field} contains too many repeated characters`);
+                                    }
                                     this.updateStep1NextButtonState();
                                 });
                             }
@@ -528,7 +541,14 @@
                                 this.updateStep1NextButtonState();
                             });
                             contactInput.addEventListener('input', () => {
-                                this.clearError('contactNumber');
+                                const value = contactInput.value.trim();
+                                const digits = value.replace(/\D/g, '');
+                                // Only clear error if value doesn't have obvious spam
+                                if (digits && !this.hasExcessiveRepetition(digits, 4)) {
+                                    this.clearError('contactNumber');
+                                } else if (digits && this.hasExcessiveRepetition(digits, 4)) {
+                                    this.showError('contactNumber', 'Contact number contains too many repeated digits');
+                                }
                                 this.updateStep1NextButtonState();
                             });
                         }
@@ -541,7 +561,13 @@
                                 this.updateStep1NextButtonState();
                             });
                             addressInput.addEventListener('input', () => {
-                                this.clearError('address');
+                                const value = addressInput.value.trim();
+                                // Only clear error if value doesn't have obvious spam
+                                if (value && !this.hasExcessiveRepetition(value, 4)) {
+                                    this.clearError('address');
+                                } else if (value && this.hasExcessiveRepetition(value, 4)) {
+                                    this.showError('address', 'Address contains too many repeated characters');
+                                }
                                 this.updateStep1NextButtonState();
                             });
                         }
@@ -549,6 +575,32 @@
                         // Age validation
                         const ageInput = document.getElementById('Input_Age');
                         if (ageInput) {
+                            // Prevent non-numeric input in real-time
+                            ageInput.addEventListener('keypress', (e) => {
+                                // Allow only digits (0-9)
+                                const charCode = e.which ? e.which : e.keyCode;
+                                if (charCode < 48 || charCode > 57) {
+                                    e.preventDefault();
+                                    return false;
+                                }
+                            });
+                            
+                            // Prevent paste of non-numeric content
+                            ageInput.addEventListener('paste', (e) => {
+                                e.preventDefault();
+                                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                                const numericOnly = pastedText.replace(/\D/g, '');
+                                if (numericOnly) {
+                                    // Only paste if there are digits and within max length
+                                    const maxLength = 3;
+                                    const currentLength = ageInput.value.length;
+                                    const availableSpace = maxLength - currentLength;
+                                    if (availableSpace > 0) {
+                                        ageInput.value += numericOnly.substring(0, availableSpace);
+                                    }
+                                }
+                            });
+                            
                             ageInput.addEventListener('blur', () => {
                                 this.validateAge();
                                 this.updateStep1NextButtonState();
@@ -753,8 +805,23 @@
                             return false;
                         }
                         
-                        if (!/^[a-zA-Z0-9_]+$/.test(value)) {
-                            this.showError('username', 'Username can only contain letters, numbers, and underscores');
+                        // Allow letters, numbers, underscores, dots, and hyphens
+                        const usernamePattern = /^[a-zA-Z0-9._-]+$/;
+                        if (!usernamePattern.test(value)) {
+                            this.showError('username', 'Username can only contain letters, numbers, dots, hyphens, and underscores');
+                            return false;
+                        }
+                        
+                        // Username should not start or end with special characters
+                        const edgePattern = /^[._-]|[._-]$/;
+                        if (edgePattern.test(value)) {
+                            this.showError('username', 'Username cannot start or end with special characters');
+                            return false;
+                        }
+                        
+                        // Prevent spam: check for excessive repetition
+                        if (this.hasExcessiveRepetition(value, 2)) {
+                            this.showError('username', 'Username contains too many repeated characters');
                             return false;
                         }
                         
@@ -821,8 +888,15 @@
                             return false;
                         }
                         
-                        if (!/^[a-zA-Z\s'-]+$/.test(value)) {
+                        const namePattern = /^[a-zA-Z\s'\-]+$/;
+                        if (!namePattern.test(value)) {
                             this.showError(field.toLowerCase(), `${field} can only contain letters, spaces, hyphens, and apostrophes`);
+                            return false;
+                        }
+                        
+                        // Prevent spam: check for excessive repetition
+                        if (this.hasExcessiveRepetition(value, 3)) {
+                            this.showError(field.toLowerCase(), `${field} contains too many repeated characters`);
                             return false;
                         }
                         
@@ -839,6 +913,13 @@
                             return false;
                         }
                         
+                        // Allow only digits, spaces, hyphens, parentheses, and plus sign
+                        const phonePattern = /^[0-9\s()+-]+$/;
+                        if (!phonePattern.test(value)) {
+                            this.showError('contactNumber', 'Contact number can only contain digits and formatting characters (+, -, (), spaces)');
+                            return false;
+                        }
+                        
                         // Remove all non-digit characters for validation
                         const digits = value.replace(/\D/g, '');
                         
@@ -848,8 +929,15 @@
                         }
                         
                         // Check for dummy numbers (all same digits)
-                        if (/^(\d)\1+$/.test(digits)) {
+                        const sameDigitPattern = /^(\d)\1+$/;
+                        if (sameDigitPattern.test(digits)) {
                             this.showError('contactNumber', 'Please enter a valid contact number');
+                            return false;
+                        }
+                        
+                        // Prevent spam: check for excessive repetition in original value
+                        if (this.hasExcessiveRepetition(digits, 4)) {
+                            this.showError('contactNumber', 'Contact number contains too many repeated digits');
                             return false;
                         }
                         
@@ -884,6 +972,19 @@
                             return false;
                         }
                         
+                        // Allow letters, numbers, spaces, and common address punctuation
+                        const addressPattern = /^[a-zA-Z0-9\s.,#@@'\-/()]+$/;
+                        if (!addressPattern.test(value)) {
+                            this.showError('address', 'Address contains invalid characters');
+                            return false;
+                        }
+                        
+                        // Prevent spam: check for excessive repetition
+                        if (this.hasExcessiveRepetition(value, 4)) {
+                            this.showError('address', 'Address contains too many repeated characters');
+                            return false;
+                        }
+                        
                         this.clearError('address');
                         return true;
                     }
@@ -894,6 +995,13 @@
                         
                         if (!value) {
                             this.showError('age', 'Age is required');
+                            return false;
+                        }
+                        
+                        // Only allow digits
+                        const digitPattern = /^\d+$/;
+                        if (!digitPattern.test(value)) {
+                            this.showError('age', 'Age must contain only numbers');
                             return false;
                         }
                         
@@ -1264,6 +1372,31 @@
                         }
                         
                         delete this.validationErrors[field];
+                    }
+
+                    // Anti-spam validation: detect excessive character repetition
+                    hasExcessiveRepetition(value, maxRepeat = 3) {
+                        if (!value) return false;
+                        
+                        // Check for consecutive repeated characters (e.g., "aaaa", "dddd")
+                        const consecutivePattern = new RegExp(`(.)\\1{${maxRepeat},}`, 'i');
+                        if (consecutivePattern.test(value)) {
+                            return true;
+                        }
+                        
+                        // Check for alternating patterns (e.g., "adadad", "121212")
+                        const alternatingPattern = /(.)(.)\1\2\1\2/;
+                        if (alternatingPattern.test(value)) {
+                            return true;
+                        }
+                        
+                        // Check for repeated patterns (e.g., "abcabc")
+                        const patternRepeatRegex = /(.{2,})\1{2,}/;
+                        if (patternRepeatRegex.test(value)) {
+                            return true;
+                        }
+                        
+                        return false;
                     }
 
                     showStepError(message) {

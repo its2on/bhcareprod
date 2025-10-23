@@ -1,5 +1,7 @@
 using System.Threading.Tasks;
+using System.Security.Claims;
 using Barangay.Models;
+using Barangay.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +14,13 @@ namespace Barangay.Pages.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<LogoutModel> _logger;
+        private readonly IAuditTrailService _auditTrail;
 
-        public LogoutModel(SignInManager<ApplicationUser> signInManager, ILogger<LogoutModel> logger)
+        public LogoutModel(SignInManager<ApplicationUser> signInManager, ILogger<LogoutModel> logger, IAuditTrailService auditTrail)
         {
             _signInManager = signInManager;
             _logger = logger;
+            _auditTrail = auditTrail;
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -34,6 +38,21 @@ namespace Barangay.Pages.Account
         {
             if (User.Identity?.IsAuthenticated == true)
             {
+                // Capture user info BEFORE logout for audit trail
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var userName = User.Identity.Name;
+                
+                // AUDIT: Log logout event
+                await _auditTrail.LogAsync(
+                    "Logout",
+                    "User logged out",
+                    "Authentication",
+                    userId,
+                    null,
+                    null,
+                    $"User {userName} ended session"
+                );
+                
                 // Sign out the user
                 await _signInManager.SignOutAsync();
                 

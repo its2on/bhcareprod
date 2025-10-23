@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
 using Barangay.Extensions;
 using Microsoft.AspNetCore.Authorization;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.User
 {
@@ -24,17 +25,20 @@ namespace Barangay.Pages.User
         private readonly ILogger<HEEADSSSAssessmentModel> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public HEEADSSSAssessmentModel(
             EncryptedDbContext context,
             ILogger<HEEADSSSAssessmentModel> logger,
             UserManager<ApplicationUser> userManager,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -799,6 +803,17 @@ namespace Barangay.Pages.User
                     var rowsAffected = await _context.SaveChangesAsync();
                     _logger.LogInformation("=== DATABASE SAVE COMPLETED ===");
                     _logger.LogInformation("HEEADSSS assessment saved successfully with ID: {Id}, rows affected: {RowsAffected}", assessment.Id, rowsAffected);
+                    
+                    // AUDIT: Log HEEADSSS assessment submission
+                    await _auditTrail.LogAsync(
+                        "Create",
+                        "Submitted HEEADSSS Assessment",
+                        "HEEADSSSAssessment",
+                        assessment.Id.ToString(),
+                        null,
+                        "[Sensitive adolescent health data - encrypted]",
+                        "Patient completed HEEADSSS adolescent health screening"
+                    );
                     
                     // DEBUGGING: Verify the saved data by querying it back
                     _logger.LogInformation("=== VERIFYING SAVED DATA ===");

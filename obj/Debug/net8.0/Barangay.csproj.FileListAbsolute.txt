@@ -697,6 +697,7 @@ C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\CleanupSampleData.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\complete-cleanup.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\ConsolidateDashboardPermissions.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\CreateMissingPatientRecords.sql
+C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\Create_AuditTrail_Immutability_Trigger.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\final-cleanup.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\Fix-All-NCD-Fields-Final.sql
 C:\Users\WIN 10\Desktop\BHCARE-main\bin\Debug\net8.0\SQL\fix-guardian-information.sql

@@ -37,7 +37,7 @@ namespace Barangay.Pages.Admin
 
         public int TotalDoctors { get; set; }
         public int TotalNurses { get; set; }
-        public int TotalAppointments { get; set; }
+        public int PendingAccountsCount { get; set; }
         public int ActiveStaffCount { get; set; }
         public List<StaffOverviewModel> RecentStaff { get; set; }
         public DateTime CurrentPhilippineTime { get; set; }
@@ -168,15 +168,29 @@ namespace Barangay.Pages.Admin
                     ActiveStaffCount = 0;
                 }
                 
-                // Get appointment count - place outside the inner try/catch so it still runs
+                // Get pending accounts count - place outside the inner try/catch so it still runs
                 try 
                 {
-                    TotalAppointments = await _context.Appointments.CountAsync();
+                    // Get the IDs of users with special roles to exclude (Admin, Doctor, Nurse, etc.)
+                    var excludedRoleNames = new[] { "Admin", "System Administrator", "Admin Staff", "System Admin", "Staff Admin", "Doctor", "Nurse", "Head Nurse", "Head Doctor" };
+                    var excludedRoles = await _context.Roles
+                        .Where(r => excludedRoleNames.Contains(r.Name))
+                        .ToListAsync();
+                        
+                    var excludedUserIds = await _context.UserRoles
+                        .Where(ur => excludedRoles.Select(r => r.Id).Contains(ur.RoleId))
+                        .Select(ur => ur.UserId)
+                        .ToListAsync();
+
+                    // Count pending users (patients only, exclude staff)
+                    PendingAccountsCount = await _userManager.Users
+                        .Where(u => u.Status.ToLower() == "pending" && !excludedUserIds.Contains(u.Id))
+                        .CountAsync();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error loading appointment count");
-                    TotalAppointments = 0;
+                    _logger.LogError(ex, "Error loading pending accounts count");
+                    PendingAccountsCount = 0;
                 }
 
                 _logger.LogInformation($"Admin dashboard loaded successfully by user {User.Identity?.Name}");

@@ -16,6 +16,7 @@ using Barangay.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Barangay.Services;
 using System.Globalization;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Doctor
 {
@@ -28,6 +29,7 @@ namespace Barangay.Pages.Doctor
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IPermissionService _permissionService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
         
         // Simplified view model properties
         public List<string> MonthOptions { get; set; } = new List<string>();
@@ -58,13 +60,15 @@ namespace Barangay.Pages.Doctor
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             IPermissionService permissionService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _encryptionService = encryptionService ?? throw new ArgumentNullException(nameof(encryptionService));
+            _auditTrail = auditTrail ?? throw new ArgumentNullException(nameof(auditTrail));
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -120,6 +124,21 @@ namespace Barangay.Pages.Doctor
                 
                 await LoadMonthlyData(selectedMonth);
             }
+
+            // AUDIT: Log PHI reports access
+            await _auditTrail.LogAsync(
+                "View",
+                "Viewed patient health reports",
+                "HealthReport",
+                null,
+                null,
+                JsonConvert.SerializeObject(new {
+                    ViewType = ViewType,
+                    SelectedPeriod = ViewType == "yearly" ? SelectedYearLabel : SelectedMonthLabel,
+                    TopConditionsCount = TopConditionStats.Count
+                }),
+                $"Doctor accessed aggregated patient health reports ({ViewType} view)"
+            );
 
             return Page();
         }

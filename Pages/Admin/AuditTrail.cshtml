@@ -1,0 +1,612 @@
+@page
+@model Barangay.Pages.Admin.AuditTrailModel
+@{
+    ViewData["Title"] = "Audit Trail Logs";
+}
+
+<style>
+    :root {
+        --primary-orange: #f97316;  /* Search button */
+        --success-green: #22c55e;   /* Success badges */
+        --danger-red: #ef4444;      /* Failed badges */
+        --export-red: #dc2626;      /* Export PDF button */
+        --role-orange: #fb923c;     /* Role badges */
+        --reset-gray: #9ca3af;      /* Reset button */
+    }
+    
+    .stat-card {
+        border-radius: 12px;
+        padding: 24px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 8px 0;
+        color: white;
+    }
+    
+    .stat-label {
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-trend {
+        font-size: 0.85rem;
+        margin-top: 8px;
+    }
+    
+    .badge-orange {
+        background-color: var(--role-orange) !important;
+        color: white !important;
+        font-weight: 600;
+    }
+    
+    .btn-export {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-export:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .btn-primary {
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+
+    .btn-outline-secondary {
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        border-color: var(--reset-gray);
+        color: var(--reset-gray);
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: var(--reset-gray);
+        border-color: var(--reset-gray);
+        color: white;
+        transform: scale(1.02);
+    }
+    
+    .audit-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .audit-table thead {
+        background: #f9fafb;
+        color: #1f2937;
+        font-weight: 600;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .audit-table tbody tr {
+        transition: background-color 0.2s;
+    }
+    
+    .audit-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .modal-header {
+        background: #FF8C42;
+        color: white !important;
+        border-radius: 16px 16px 0 0;
+        border: none;
+    }
+    
+    .modal-header .modal-title,
+    .modal-header .modal-title i {
+        color: white !important;
+    }
+    
+    .modal-header .btn-close-white {
+        filter: brightness(0) invert(1);
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    
+    .detail-value {
+        font-size: 1rem;
+        color: #212529;
+        background: #f7fafc;
+        padding: 12px;
+        border-radius: 8px;
+        border-left: 4px solid var(--primary-orange);
+        font-weight: 500;
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 fw-bold">
+            <i class="fas fa-clipboard-list text-primary me-2"></i>
+            Audit Trail Logs
+        </h1>
+        <div class="text-muted small">
+            <i class="far fa-calendar me-1"></i>
+            @DateTime.Now.ToString("dddd, MMMM dd, yyyy")
+        </div>
+    </div>
+
+
+    <!-- Filters & Search Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 fw-bold">Filters & Search</h5>
+                <div>
+                    <button type="button" class="btn btn-export export-pdf-btn">
+    <i class="fas fa-file-pdf me-2"></i>Export PDF
+</button>
+                </div>
+            </div>
+
+            <form method="get" class="row g-3">
+                <div class="col-lg-3 col-md-4">
+                    <label class="form-label fw-semibold small">Search</label>
+                    <input type="text" name="search" value="@Model.SearchTerm" 
+                           placeholder="User, action, or entity..." class="form-control" />
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">User Role</label>
+                    <select name="role" class="form-select">
+                        <option value="">All Roles</option>
+                        <option value="Admin" selected="@(Model.RoleFilter == "Admin")">Admin</option>
+                        <option value="Doctor" selected="@(Model.RoleFilter == "Doctor")">Doctor</option>
+                        <option value="Nurse" selected="@(Model.RoleFilter == "Nurse")">Nurse</option>
+                        <option value="Patient" selected="@(Model.RoleFilter == "Patient")">Patient</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Action Type</label>
+                    <select name="actionType" class="form-select">
+                        <option value="">All Actions</option>
+                        <option value="Create" selected="@(Model.ActionTypeFilter == "Create")">Create</option>
+                        <option value="Update" selected="@(Model.ActionTypeFilter == "Update")">Update</option>
+                        <option value="Delete" selected="@(Model.ActionTypeFilter == "Delete")">Delete</option>
+                        <option value="View" selected="@(Model.ActionTypeFilter == "View")">View</option>
+                        <option value="Login" selected="@(Model.ActionTypeFilter == "Login")">Login</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Outcome</label>
+                    <select name="outcome" class="form-select">
+                        <option value="">All Outcomes</option>
+                        <option value="Success" selected="@(Model.OutcomeFilter == "Success")">Success</option>
+                        <option value="Failed" selected="@(Model.OutcomeFilter == "Failed")">Failed</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Date From</label>
+                    <input type="date" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" 
+                           class="form-control" />
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label fw-semibold small">Date To</label>
+                    <input type="date" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" 
+                           class="form-control" />
+                </div>
+
+                <div class="col-lg-1 col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100" style="background-color: var(--primary-orange); border-color: var(--primary-orange);">
+                        <i class="fas fa-search me-1"></i>Search
+                    </button>
+                </div>
+
+                <div class="col-lg-1 col-md-3 d-flex align-items-end">
+                    <a href="/Admin/AuditTrail" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-redo me-1"></i>Reset
+                    </a>
+                </div>
+            </form>
+
+            <div class="mt-3 small" style="color: #495057; font-weight: 500;">
+                <i class="fas fa-info-circle me-1" style="color: var(--primary-orange);"></i>
+                Showing <strong style="color: #212529;">@Model.AuditLogs.Count</strong> of <strong style="color: #212529;">@Model.TotalCount</strong> audit logs
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Logs Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive audit-table">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 160px;">Timestamp (UTC)</th>
+                            <th style="width: 200px;">User</th>
+                            <th style="width: 100px;">Role</th>
+                            <th>Action</th>
+                            <th style="width: 150px;">Resource</th>
+                            <th style="width: 120px;">Outcome</th>
+                            <th style="width: 150px;">Device</th>
+                            <th style="width: 100px;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.AuditLogs.Any())
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-search fa-3x mb-3 d-block"></i>
+                                        <h5>No audit logs found</h5>
+                                        <p>Try adjusting your search filters</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @foreach (var log in Model.AuditLogs)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="small text-muted">@log.Timestamp.ToString("MMM dd, yyyy")</div>
+                                    <strong>@log.Timestamp.ToString("HH:mm:ss")</strong>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@log.PerformedBy</div>
+                                    @if (!string.IsNullOrEmpty(log.UserId))
+                                    {
+                                        <div class="small text-muted">
+                                            <i class="fas fa-id-badge me-1"></i>@log.UserId.Substring(0, Math.Min(8, log.UserId.Length))
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge badge-orange" style="color: white !important;">@log.Role</span>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@log.Action</div>
+                                    @if (!string.IsNullOrEmpty(log.Description))
+                                    {
+                                        <div class="small text-muted">@log.Description</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <span class="badge bg-light text-dark">@log.EntityName</span>
+                                        @if (!string.IsNullOrEmpty(log.EntityId))
+                                        {
+                                            <div class="mt-1"><code class="small">ID: @log.EntityId</code></div>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (log.Outcome == "Success")
+                                    {
+                                        <span class="badge" style="background-color: var(--success-green); color: white; font-weight: 500;">
+                                            Success
+                                        </span>
+                                    }
+                                    else if (log.Outcome == "Failed")
+                                    {
+                                        <span class="badge" style="background-color: var(--danger-red); color: white; font-weight: 500;">
+                                            Failed
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@log.Outcome</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.DeviceInfo))
+                                    {
+                                        <div class="small" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@log.DeviceInfo">
+                                            @{
+                                                var browser = "Browser";
+                                                var icon = "fas fa-desktop";
+                                                if (log.DeviceInfo.Contains("Chrome"))
+                                                {
+                                                    browser = "Chrome";
+                                                    icon = "fab fa-chrome";
+                                                }
+                                                else if (log.DeviceInfo.Contains("Firefox"))
+                                                {
+                                                    browser = "Firefox";
+                                                    icon = "fab fa-firefox";
+                                                }
+                                                else if (log.DeviceInfo.Contains("Safari") && !log.DeviceInfo.Contains("Chrome"))
+                                                {
+                                                    browser = "Safari";
+                                                    icon = "fab fa-safari";
+                                                }
+                                                else if (log.DeviceInfo.Contains("Edg"))
+                                                {
+                                                    browser = "Edge";
+                                                    icon = "fab fa-edge";
+                                                }
+                                            }
+                                            <i class="@icon me-1" style="color: var(--primary-orange);"></i><span>@browser</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">N/A</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm view-details-btn" data-audit-id="@log.Id" style="background-color: var(--primary-orange); border-color: var(--primary-orange); color: white !important; font-weight: 600;">
+                                        <i class="fas fa-eye me-1" style="color: white !important;"></i>View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        @if (Model.TotalPages > 1)
+        {
+            <div class="card-footer bg-light">
+                <nav aria-label="Audit trail pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.CurrentPage - 1)&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); i++)
+                        {
+                            <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
+                                <a class="page-link" href="?page=@i&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">@i</a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.CurrentPage + 1)&search=@Model.SearchTerm&role=@Model.RoleFilter&actionType=@Model.ActionTypeFilter&fromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&toDate=@Model.ToDate?.ToString("yyyy-MM-dd")&outcome=@Model.OutcomeFilter">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <div class="text-center text-muted small mt-2">
+                    Page @Model.CurrentPage of @Model.TotalPages
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Audit Detail Modal -->
+<div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-info-circle me-2"></i>Audit Trail Details
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3" id="auditDetailContent">
+                    <div class="col-md-6">
+                        <div class="detail-label">Audit ID</div>
+                        <div class="detail-value" id="detail-id">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Session ID</div>
+                        <div class="detail-value" id="detail-sessionId">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Request Method</div>
+                        <div class="detail-value" id="detail-requestMethod">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Response Code</div>
+                        <div class="detail-value" id="detail-outcome">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-label">Request URL</div>
+                        <div class="detail-value" id="detail-requestUrl">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">User Role</div>
+                        <div class="detail-value" id="detail-role">-</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Performed By</div>
+                        <div class="detail-value" id="detail-performedBy">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-label">Full Device Information</div>
+                        <div class="detail-value" id="detail-deviceInfo" style="word-break: break-all;">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <script>
+    (function() {
+        'use strict';
+        
+        console.log('🟢 [AUDIT] Script initialization started');
+        
+        // ============ SHOW DETAILS FUNCTION ============
+        window.showDetails = async function(id) {
+            console.log('🟢 [AUDIT] showDetails called with ID:', id);
+            
+            try {
+                const url = `/Admin/AuditTrail?handler=Details&id=${id}`;
+                console.log('🟢 [AUDIT] Fetching:', url);
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                console.log('🟢 [AUDIT] Data received:', data);
+                
+                // Populate modal
+                document.getElementById('detail-id').textContent = data.id || '-';
+                document.getElementById('detail-sessionId').textContent = data.sessionId || 'N/A';
+                document.getElementById('detail-requestMethod').textContent = data.requestMethod || 'N/A';
+                document.getElementById('detail-outcome').textContent = data.outcome || 'N/A';
+                document.getElementById('detail-requestUrl').textContent = data.requestUrl || 'N/A';
+                document.getElementById('detail-role').textContent = data.role || '-';
+                document.getElementById('detail-performedBy').textContent = data.performedBy || '-';
+                document.getElementById('detail-deviceInfo').textContent = data.deviceInfo || 'N/A';
+                
+                // Show modal
+                const modalEl = document.getElementById('auditDetailModal');
+                if (!modalEl) {
+                    throw new Error('Modal element #auditDetailModal not found!');
+                }
+                
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+                console.log('🟢 [AUDIT] Modal displayed successfully');
+                
+            } catch (error) {
+                console.error('🔴 [AUDIT] Error in showDetails:', error);
+                alert('Failed to load details: ' + error.message);
+            }
+        };
+        
+        // ============ EXPORT PDF FUNCTION ============
+        window.exportToPDF = function() {
+            console.log('🟢 [AUDIT] exportToPDF called');
+            
+            try {
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('jsPDF library not loaded');
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                
+                // Header
+                doc.setFontSize(20);
+                doc.setTextColor(249, 115, 22);
+                doc.text('BHCare - Audit Trail Report', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Generated: ' + new Date().toLocaleString(), 105, 28, { align: 'center' });
+                
+                // Simple table
+                const tableData = [
+                    @foreach (var log in Model.AuditLogs)
+                    {
+                        <text>['@log.Timestamp.ToString("yyyy-MM-dd HH:mm")', '@log.PerformedBy', '@log.Role', '@log.Action', '@log.Outcome'],</text>
+                    }
+                ];
+                
+                doc.autoTable({
+                    startY: 35,
+                    head: [['Timestamp', 'User', 'Role', 'Action', 'Outcome']],
+                    body: tableData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [249, 115, 22] }
+                });
+                
+                // Save
+                const filename = 'BHCare_AuditTrail_' + new Date().toISOString().slice(0,10).replace(/-/g, '') + '.pdf';
+                doc.save(filename);
+                console.log('🟢 [AUDIT] PDF saved:', filename);
+                
+            } catch (error) {
+                console.error('🔴 [AUDIT] Error in exportToPDF:', error);
+                alert('PDF export failed: ' + error.message);
+            }
+        };
+        
+        // ============ EVENT LISTENERS ============
+        function attachListeners() {
+            console.log('🟢 [AUDIT] Attaching event listeners...');
+            
+            // View buttons
+            const viewBtns = document.querySelectorAll('.view-details-btn');
+            console.log(`🟢 [AUDIT] Found ${viewBtns.length} view buttons`);
+            
+            viewBtns.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const id = this.getAttribute('data-audit-id');
+                    console.log('🟢 [AUDIT] View button clicked, ID:', id);
+                    window.showDetails(id);
+                });
+            });
+            
+            // Export PDF button
+            const exportBtn = document.querySelector('.export-pdf-btn');
+            if (exportBtn) {
+                console.log('🟢 [AUDIT] Export PDF button found');
+                exportBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🟢 [AUDIT] Export PDF button clicked');
+                    window.exportToPDF();
+                });
+            } else {
+                console.warn('⚠️ [AUDIT] Export PDF button NOT found (.export-pdf-btn)');
+            }
+            
+            console.log('✅ [AUDIT] All listeners attached successfully');
+        }
+        
+        // Attach when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attachListeners);
+        } else {
+            attachListeners();
+        }
+        
+    })();
+    </script>
+    }

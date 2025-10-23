@@ -20,12 +20,18 @@ namespace Barangay.Pages.User
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly INotificationService _notificationService;
         private readonly IDataEncryptionService _encryptionService;
 
-        public AppointmentsModel(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IDataEncryptionService encryptionService)
+        public AppointmentsModel(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            INotificationService notificationService,
+            IDataEncryptionService encryptionService)
         {
             _context = context;
             _userManager = userManager;
+            _notificationService = notificationService;
             _encryptionService = encryptionService;
         }
 
@@ -340,6 +346,25 @@ namespace Barangay.Pages.User
             {
                 Console.WriteLine($"DEBUG: Appointment {appointmentId} cancelled successfully and verified in database.");
                 TempData["Success"] = "Appointment cancelled successfully.";
+                
+                // Create notification for the user
+                try
+                {
+                    var notificationMessage = $"Your appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt} has been cancelled successfully.";
+                    
+                    await _notificationService.CreateNotificationForUserAsync(
+                        user.Id,
+                        "Appointment Cancelled",
+                        notificationMessage,
+                        "Appointment Cancelled",
+                        "/User/Appointments"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DEBUG: Error creating cancellation notification: {ex.Message}");
+                    // Don't fail the cancellation if notification fails
+                }
             }
             else
             {
@@ -389,6 +414,181 @@ namespace Barangay.Pages.User
 
             TempData["Success"] = $"Test appointment created successfully with ID: {testAppointment.Id}";
             return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnGetAppointmentDetailsAsync(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return new JsonResult(new { success = false, error = "User not authenticated" });
+            }
+
+            var appointment = await _context.Appointments
+                .FirstOrDefaultAsync(a => a.Id == id && a.PatientId == user.Id);
+
+            if (appointment == null)
+            {
+                return new JsonResult(new { success = false, error = "Appointment not found" });
+            }
+
+            // Calculate age display (months if 0 years, or calculate from DateOfBirth)
+            var ageDisplay = appointment.AgeValue.ToString();
+            
+            if (appointment.AgeValue == 0)
+            {
+                // Calculate age in months from birth date if available
+                if (appointment.DateOfBirth.HasValue)
+                {
+                    var today = DateTime.Today;
+                    var birthDate = appointment.DateOfBirth.Value;
+                    
+                    // Calculate total months
+                    int months = ((today.Year - birthDate.Year) * 12) + today.Month - birthDate.Month;
+                    
+                    // If the day hasn't occurred yet this month, subtract one month
+                    if (today.Day < birthDate.Day)
+                    {
+                        months--;
+                    }
+                    
+                    // Handle negative months (future date)
+                    if (months < 0)
+                    {
+                        months = 0;
+                    }
+                    
+                    ageDisplay = months == 1 ? "1 month old" : $"{months} months old";
+                }
+                else
+                {
+                    // No birth date available, show as newborn
+                    ageDisplay = "Newborn";
+                }
+            }
+            else if (appointment.AgeValue == 1)
+            {
+                ageDisplay = "1 year old";
+            }
+            else
+            {
+                ageDisplay = $"{appointment.AgeValue} years old";
+            }
+
+            // Get immunization schedule for immunization appointments
+            string immunizationSchedule = "N/A";
+            if (appointment.Type?.ToLower() == "immunization")
+            {
+                // Try to find immunization record for this user
+                var immunizationRecords = await _context.ImmunizationRecords
+                    .Where(r => r.Status == "Active")
+                    .ToListAsync();
+                
+                // Decrypt and match by user details
+                var matchingRecord = immunizationRecords
+                    .Select(r => {
+                        try {
+                            var decrypted = new ImmunizationRecord {
+                                Id = r.Id,
+                                ChildName = r.ChildName.DecryptForUser(_encryptionService, User) ?? "",
+                                DateOfBirth = r.DateOfBirth.DecryptForUser(_encryptionService, User) ?? "",
+                                BCGVaccineDate = r.BCGVaccineDate?.DecryptForUser(_encryptionService, User),
+                                BCGVaccineRemarks = r.BCGVaccineRemarks?.DecryptForUser(_encryptionService, User),
+                                HepatitisBVaccineDate = r.HepatitisBVaccineDate?.DecryptForUser(_encryptionService, User),
+                                HepatitisBVaccineRemarks = r.HepatitisBVaccineRemarks?.DecryptForUser(_encryptionService, User),
+                                Pentavalent1Date = r.Pentavalent1Date?.DecryptForUser(_encryptionService, User),
+                                Pentavalent1Remarks = r.Pentavalent1Remarks?.DecryptForUser(_encryptionService, User),
+                                Pentavalent2Date = r.Pentavalent2Date?.DecryptForUser(_encryptionService, User),
+                                Pentavalent2Remarks = r.Pentavalent2Remarks?.DecryptForUser(_encryptionService, User),
+                                Pentavalent3Date = r.Pentavalent3Date?.DecryptForUser(_encryptionService, User),
+                                Pentavalent3Remarks = r.Pentavalent3Remarks?.DecryptForUser(_encryptionService, User),
+                                OPV1Date = r.OPV1Date?.DecryptForUser(_encryptionService, User),
+                                OPV1Remarks = r.OPV1Remarks?.DecryptForUser(_encryptionService, User),
+                                OPV2Date = r.OPV2Date?.DecryptForUser(_encryptionService, User),
+                                OPV2Remarks = r.OPV2Remarks?.DecryptForUser(_encryptionService, User),
+                                OPV3Date = r.OPV3Date?.DecryptForUser(_encryptionService, User),
+                                OPV3Remarks = r.OPV3Remarks?.DecryptForUser(_encryptionService, User),
+                                IPV1Date = r.IPV1Date?.DecryptForUser(_encryptionService, User),
+                                IPV1Remarks = r.IPV1Remarks?.DecryptForUser(_encryptionService, User),
+                                IPV2Date = r.IPV2Date?.DecryptForUser(_encryptionService, User),
+                                IPV2Remarks = r.IPV2Remarks?.DecryptForUser(_encryptionService, User),
+                                PCV1Date = r.PCV1Date?.DecryptForUser(_encryptionService, User),
+                                PCV1Remarks = r.PCV1Remarks?.DecryptForUser(_encryptionService, User),
+                                PCV2Date = r.PCV2Date?.DecryptForUser(_encryptionService, User),
+                                PCV2Remarks = r.PCV2Remarks?.DecryptForUser(_encryptionService, User),
+                                PCV3Date = r.PCV3Date?.DecryptForUser(_encryptionService, User),
+                                PCV3Remarks = r.PCV3Remarks?.DecryptForUser(_encryptionService, User),
+                                MMR1Date = r.MMR1Date?.DecryptForUser(_encryptionService, User),
+                                MMR1Remarks = r.MMR1Remarks?.DecryptForUser(_encryptionService, User),
+                                MMR2Date = r.MMR2Date?.DecryptForUser(_encryptionService, User),
+                                MMR2Remarks = r.MMR2Remarks?.DecryptForUser(_encryptionService, User)
+                            };
+                            return decrypted;
+                        } catch {
+                            return null;
+                        }
+                    })
+                    .Where(r => r != null)
+                    .FirstOrDefault();
+
+                if (matchingRecord != null)
+                {
+                    var scheduleList = new List<string>();
+                    
+                    // Build immunization schedule table
+                    if (!string.IsNullOrEmpty(matchingRecord.BCGVaccineDate))
+                        scheduleList.Add($"BCG Vaccine: {matchingRecord.BCGVaccineDate} - {matchingRecord.BCGVaccineRemarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.HepatitisBVaccineDate))
+                        scheduleList.Add($"Hepatitis B: {matchingRecord.HepatitisBVaccineDate} - {matchingRecord.HepatitisBVaccineRemarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.Pentavalent1Date))
+                        scheduleList.Add($"Pentavalent 1: {matchingRecord.Pentavalent1Date} - {matchingRecord.Pentavalent1Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.Pentavalent2Date))
+                        scheduleList.Add($"Pentavalent 2: {matchingRecord.Pentavalent2Date} - {matchingRecord.Pentavalent2Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.Pentavalent3Date))
+                        scheduleList.Add($"Pentavalent 3: {matchingRecord.Pentavalent3Date} - {matchingRecord.Pentavalent3Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.OPV1Date))
+                        scheduleList.Add($"OPV 1: {matchingRecord.OPV1Date} - {matchingRecord.OPV1Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.OPV2Date))
+                        scheduleList.Add($"OPV 2: {matchingRecord.OPV2Date} - {matchingRecord.OPV2Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.OPV3Date))
+                        scheduleList.Add($"OPV 3: {matchingRecord.OPV3Date} - {matchingRecord.OPV3Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.IPV1Date))
+                        scheduleList.Add($"IPV 1: {matchingRecord.IPV1Date} - {matchingRecord.IPV1Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.IPV2Date))
+                        scheduleList.Add($"IPV 2: {matchingRecord.IPV2Date} - {matchingRecord.IPV2Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.PCV1Date))
+                        scheduleList.Add($"PCV 1: {matchingRecord.PCV1Date} - {matchingRecord.PCV1Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.PCV2Date))
+                        scheduleList.Add($"PCV 2: {matchingRecord.PCV2Date} - {matchingRecord.PCV2Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.PCV3Date))
+                        scheduleList.Add($"PCV 3: {matchingRecord.PCV3Date} - {matchingRecord.PCV3Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.MMR1Date))
+                        scheduleList.Add($"MMR 1: {matchingRecord.MMR1Date} - {matchingRecord.MMR1Remarks ?? "Completed"}");
+                    if (!string.IsNullOrEmpty(matchingRecord.MMR2Date))
+                        scheduleList.Add($"MMR 2: {matchingRecord.MMR2Date} - {matchingRecord.MMR2Remarks ?? "Completed"}");
+                    
+                    if (scheduleList.Any())
+                    {
+                        immunizationSchedule = string.Join("; ", scheduleList);
+                    }
+                }
+            }
+
+            return new JsonResult(new
+            {
+                success = true,
+                appointment = new
+                {
+                    id = appointment.Id,
+                    date = appointment.AppointmentDate.ToString("MMMM dd, yyyy"),
+                    time = appointment.GetFormattedTime(),
+                    age = ageDisplay,
+                    consultationType = GetFullConsultationType(appointment.Type),
+                    reasonForVisit = appointment.ReasonForVisit,
+                    status = appointment.Status.ToString(),
+                    immunizationSchedule = immunizationSchedule
+                }
+            });
         }
 
         public async Task<IActionResult> OnGetFixWeekendsAsync()

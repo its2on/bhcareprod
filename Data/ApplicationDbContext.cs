@@ -66,6 +66,7 @@ namespace Barangay.Data
         public DbSet<UrlToken> UrlTokens { get; set; }
         public DbSet<UserSuspension> UserSuspensions { get; set; }
         public DbSet<FamilyNumberCounter> FamilyNumberCounters { get; set; }
+        public DbSet<AuditTrail> AuditTrails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -454,6 +455,27 @@ namespace Barangay.Data
                 entity.Property(e => e.FamilyNo)
                     .HasColumnType("nvarchar(max)");
             });
+
+            // Configure AuditTrail entity
+            builder.Entity<AuditTrail>()
+                .HasOne(at => at.User)
+                .WithMany()
+                .HasForeignKey(at => at.UserId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            // Add indexes for AuditTrail performance
+            builder.Entity<AuditTrail>()
+                .HasIndex(at => at.Timestamp);
+            
+            builder.Entity<AuditTrail>()
+                .HasIndex(at => at.EntityName);
+            
+            builder.Entity<AuditTrail>()
+                .HasIndex(at => at.UserId);
+            
+            builder.Entity<AuditTrail>()
+                .HasIndex(at => at.ActionType);
         }
     }
 }

@@ -594,6 +594,91 @@ namespace Barangay.Migrations
                     b.ToTable("Assessments");
                 });
 
+            modelBuilder.Entity("Barangay.Models.AuditTrail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AdditionalContext")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("IPAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OldValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestMethod")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SessionId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionType");
+
+                    b.HasIndex("EntityName");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AuditTrails");
+                });
+
             modelBuilder.Entity("Barangay.Models.ConsultationTimeSlot", b =>
                 {
                     b.Property<int>("Id")
@@ -1060,8 +1145,7 @@ namespace Barangay.Migrations
 
                     b.HasKey("GuardianId");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                    b.HasIndex("UserId");
 
                     b.ToTable("GuardianInformation");
                 });
@@ -4074,6 +4158,16 @@ namespace Barangay.Migrations
                     b.Navigation("Appointment");
                 });
 
+            modelBuilder.Entity("Barangay.Models.AuditTrail", b =>
+                {
+                    b.HasOne("Barangay.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Barangay.Models.Doctor", b =>
                 {
                     b.HasOne("Barangay.Models.ApplicationUser", "User")
@@ -4129,8 +4223,8 @@ namespace Barangay.Migrations
             modelBuilder.Entity("Barangay.Models.GuardianInformation", b =>
                 {
                     b.HasOne("Barangay.Models.ApplicationUser", "User")
-                        .WithOne()
-                        .HasForeignKey("Barangay.Models.GuardianInformation", "UserId")
+                        .WithMany("GuardianConsents")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
@@ -4539,6 +4633,8 @@ namespace Barangay.Migrations
                     b.Navigation("DoctorMedicalRecords");
 
                     b.Navigation("DoctorPrescriptions");
+
+                    b.Navigation("GuardianConsents");
 
                     b.Navigation("UserDocuments");
 

@@ -14,6 +14,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
@@ -25,19 +26,22 @@ namespace Barangay.Pages.Admin
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<AddStaffMemberModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public AddStaffMemberModel(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             ILogger<AddStaffMemberModel> logger,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -650,6 +654,23 @@ namespace Barangay.Pages.Admin
                     }
 
                     await transaction.CommitAsync();
+
+                    // Log audit trail
+                    await _auditTrail.LogAsync(
+                        "Create",
+                        $"Created staff member: {user.Email}",
+                        "ApplicationUser",
+                        user.Id,
+                        null,
+                        JsonConvert.SerializeObject(new {
+                            Email = user.Email,
+                            FullName = user.FullName,
+                            Role = StaffMember.Role,
+                            Position = StaffMember.Position,
+                            Department = StaffMember.Department
+                        }),
+                        $"Admin created new {StaffMember.Role} account"
+                    );
 
                     _logger.LogInformation("Successfully created staff member with ID {StaffMemberId}", StaffMember.Id);
                     TempData["SuccessMessage"] = "Staff member created successfully.";

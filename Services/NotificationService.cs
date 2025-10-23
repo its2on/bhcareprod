@@ -15,9 +15,11 @@ namespace Barangay.Services
         Task CreateNotificationAsync(string title, string message, string type, string link = null, string recipientId = null);
         Task CreateNotificationForUserAsync(string userId, string title, string message, string type, string link = null);
         Task<List<Notification>> GetUnreadNotificationsAsync(string userId = null);
+        Task<List<Notification>> GetAllNotificationsForUserAsync(string userId);
         Task<int> GetUnreadNotificationCountAsync(string userId = null);
         Task MarkAsReadAsync(int notificationId);
         Task MarkAllAsReadAsync(string userId = null);
+        Task DeleteNotificationAsync(int notificationId);
     }
     
     public class NotificationService : INotificationService
@@ -238,6 +240,47 @@ namespace Barangay.Services
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error marking all notifications as read");
+            }
+        }
+        
+        public async Task<List<Notification>> GetAllNotificationsForUserAsync(string userId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return new List<Notification>();
+                }
+                
+                return await _context.Notifications
+                    .AsNoTracking()
+                    .Where(n => n.UserId == userId || n.RecipientId == userId)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, $"Error retrieving all notifications for user {userId}");
+                return new List<Notification>();
+            }
+        }
+        
+        public async Task DeleteNotificationAsync(int notificationId)
+        {
+            try
+            {
+                var notification = await _context.Notifications.FindAsync(notificationId);
+                
+                if (notification != null)
+                {
+                    _context.Notifications.Remove(notification);
+                    await _context.SaveChangesAsync();
+                    _logger?.LogInformation($"Notification {notificationId} deleted successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, $"Error deleting notification {notificationId}");
             }
         }
     }

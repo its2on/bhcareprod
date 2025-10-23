@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
 using Barangay.Models;
+using Barangay.Services;
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Doctor.Prescriptions
 {
@@ -15,13 +17,16 @@ namespace Barangay.Pages.Doctor.Prescriptions
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AddMedicationModel> _logger;
+        private readonly IAuditTrailService _auditTrail;
 
         public AddMedicationModel(
             ApplicationDbContext context,
-            ILogger<AddMedicationModel> logger)
+            ILogger<AddMedicationModel> logger,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -125,6 +130,23 @@ namespace Barangay.Pages.Doctor.Prescriptions
                 prescriptionMedication.MedicalRecordId = medicalRecord.Id;
                 _context.PrescriptionMedications.Add(prescriptionMedication);
                 await _context.SaveChangesAsync();
+
+                // Log audit trail
+                await _auditTrail.LogAsync(
+                    "Create",
+                    $"Added prescription medication: {medication.Name}",
+                    "PrescriptionMedication",
+                    prescriptionMedication.Id.ToString(),
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        MedicationName = medication.Name,
+                        Dosage = Medication.Dosage,
+                        Frequency = Medication.Frequency,
+                        Duration = Medication.Duration,
+                        PatientId = prescription.PatientId
+                    }),
+                    $"Doctor prescribed {medication.Name} for patient"
+                );
 
                 TempData["SuccessMessage"] = "Medication added successfully to the prescription.";
                 return RedirectToPage("/Doctor/Prescriptions/Details", new { id = PrescriptionId });

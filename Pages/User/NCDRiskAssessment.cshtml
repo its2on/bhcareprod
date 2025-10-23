@@ -103,6 +103,27 @@
         .conditional-section.hidden {
             display: none !important; /* Force hidden when this class is applied */
         }
+        
+        /* Readonly field styling - make them visually distinct */
+        .ncd-container input[readonly],
+        .ncd-container select[disabled],
+        .ncd-container input[type="radio"][disabled] + label {
+            background-color: #e9ecef !important;
+            color: #6c757d !important;
+            cursor: not-allowed !important;
+            opacity: 0.7;
+        }
+        
+        .ncd-container input[type="radio"][disabled] {
+            cursor: not-allowed !important;
+            opacity: 0.5;
+        }
+        
+        /* Required field indicator */
+        .ncd-container label span[style*="color: red"] {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
     </style>
 }
 
@@ -148,55 +169,55 @@
                     </div>
                     <div class="form-group">
                         <label for="first-name">Unang Pangalan:</label>
-                        <input type="text" id="first-name" name="firstName" value="@Model.Assessment.FirstName" required>
+                        <input type="text" id="first-name" name="firstName" value="@Model.Assessment.FirstName" required readonly class="text-only-field">
                     </div>
                     <div class="form-group">
                         <label for="middle-name">Gitnang Pangalan:</label>
-                        <input type="text" id="middle-name" name="middleName" value="@Model.Assessment.MiddleName">
+                        <input type="text" id="middle-name" name="middleName" value="@Model.Assessment.MiddleName" readonly class="text-only-field">
                     </div>
                     <div class="form-group">
                         <label for="last-name">Apelyido:</label>
-                        <input type="text" id="last-name" name="lastName" value="@Model.Assessment.LastName" required>
+                        <input type="text" id="last-name" name="lastName" value="@Model.Assessment.LastName" required readonly class="text-only-field">
                     </div>
                     <div class="form-group">
                         <label for="address">Address:</label>
-                        <input type="text" id="address" name="address" value="@Model.Assessment.Address">
+                        <input type="text" id="address" name="address" value="@Model.Assessment.Address" readonly>
                     </div>
                     <div class="form-group">
                         <label for="barangay">Barangay:</label>
-                        <input type="text" id="barangay" name="barangay" value="@Model.Assessment.Barangay">
+                        <input type="text" id="barangay" name="barangay" value="@Model.Assessment.Barangay" readonly>
                     </div>
                     <div class="form-group">
                         <label for="telefono">Telepono:</label>
-                        <input type="text" id="telefono" name="telefono" value="@Model.Assessment.Telepono" pattern="[0-9]{11}" maxlength="11">
+                        <input type="text" id="telefono" name="telefono" value="@Model.Assessment.Telepono" pattern="[0-9]{11}" maxlength="11" readonly>
                         <small class="form-text text-muted">11 digits only, Philippine format (e.g. 09123456789)</small>
                     </div>
                     <div class="form-group">
                         <label for="birthday">Birthday:</label>
-                        <input type="date" id="birthday" name="birthday" value="@Model.Assessment.Birthday" required>
+                        <input type="date" id="birthday" name="birthday" value="@Model.Assessment.Birthday" required readonly>
                     </div>
                     <div class="form-group">
                         <label for="edad">Edad:</label>
-                        <input type="number" id="edad" name="edad" value="@Model.Assessment.Edad" min="1" max="120" required>
+                        <input type="number" id="edad" name="edad" value="@Model.Assessment.Edad" min="1" max="120" required readonly>
                     </div>
                     <div class="form-group">
                         <label>Kasarian:</label>
                         <div class="radio-group">
-                            <label><input type="radio" name="kasarian" value="Male" @(Model.Assessment.Kasarian == "Lalaki" || Model.Assessment.Kasarian == "Male" ? "checked" : "") required> Male</label>
-                            <label><input type="radio" name="kasarian" value="Female" @(Model.Assessment.Kasarian == "Babae" || Model.Assessment.Kasarian == "Female" ? "checked" : "")> Female</label>
+                            <label><input type="radio" name="kasarian" value="Male" @(Model.Assessment.Kasarian == "Lalaki" || Model.Assessment.Kasarian == "Male" ? "checked" : "") required disabled> Male</label>
+                            <label><input type="radio" name="kasarian" value="Female" @(Model.Assessment.Kasarian == "Babae" || Model.Assessment.Kasarian == "Female" ? "checked" : "") disabled> Female</label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="relihiyon">Relihiyon:</label>
-                        <input type="text" id="relihiyon" name="relihiyon" value="@Model.Assessment.Relihiyon">
+                        <label for="relihiyon">Relihiyon: <span style="color: red;">*</span></label>
+                        <input type="text" id="relihiyon" name="relihiyon" value="@Model.Assessment.Relihiyon" required class="text-only-field">
                     </div>
                     <div class="form-group">
-                        <label for="hanapbuhay">Hanapbuhay:</label>
-                        <input type="text" id="hanapbuhay" name="Occupation" value="@Model.Assessment.Occupation">
+                        <label for="hanapbuhay">Hanapbuhay: <span style="color: red;">*</span></label>
+                        <input type="text" id="hanapbuhay" name="Occupation" value="@Model.Assessment.Occupation" required class="text-only-field">
                     </div>
                     <div class="form-group">
-                        <label for="estado-sibil">Estado Sibil:</label>
-                        <input type="text" id="estado-sibil" name="CivilStatus" value="@Model.Assessment.CivilStatus">
+                        <label for="estado-sibil">Estado Sibil: <span style="color: red;">*</span></label>
+                        <input type="text" id="estado-sibil" name="CivilStatus" value="@Model.Assessment.CivilStatus" required class="text-only-field">
                     </div>
                 </div>
                 <div class="wizard-nav">
@@ -1160,9 +1181,25 @@
             let isValid = true;
             container.querySelectorAll('.error-text').forEach(e => e.remove());
             const requiredFields = container.querySelectorAll('[required]');
+            
+            // For Step 1, these fields will have custom validation messages
+            const specialFieldIds = ['relihiyon', 'hanapbuhay', 'estado-sibil'];
+            
             requiredFields.forEach(field => {
                 field.classList.remove('error');
                 const type = field.getAttribute('type');
+                
+                // Skip validation for readonly and disabled fields (prefilled/locked)
+                if (field.readOnly || field.disabled) {
+                    return;
+                }
+                
+                // For Step 1, skip the three special fields in general validation
+                // They will be validated with custom messages below
+                if (step === 1 && specialFieldIds.includes(field.id)) {
+                    return;
+                }
+                
                 if ((type === 'text' || type === 'date' || type === 'number') && !field.value.trim()) {
                     isValid = false;
                     field.classList.add('error');
@@ -1175,20 +1212,55 @@
                     }
                 }
             });
-            // Additional logical validation for Step 1 (Edad)
+            
+            // Additional logical validation for Step 1
             if (step === 1) {
+                // Validate Edad
                 const edadField = document.getElementById('edad');
                 const v = parseInt(edadField.value, 10);
                 if (isNaN(v)) { isValid = false; edadField.classList.add('error'); addError(edadField, 'Enter a valid number'); }
+                
+                // Validate required fields with custom messages: Relihiyon, Hanapbuhay, Estado Sibil
+                const relihiyon = document.getElementById('relihiyon');
+                const hanapbuhay = document.getElementById('hanapbuhay');
+                const estadoSibil = document.getElementById('estado-sibil');
+                
+                if (!relihiyon.value.trim()) {
+                    isValid = false;
+                    relihiyon.classList.add('error');
+                    addError(relihiyon, 'Relihiyon is required');
+                }
+                
+                if (!hanapbuhay.value.trim()) {
+                    isValid = false;
+                    hanapbuhay.classList.add('error');
+                    addError(hanapbuhay, 'Hanapbuhay is required');
+                }
+                
+                if (!estadoSibil.value.trim()) {
+                    isValid = false;
+                    estadoSibil.classList.add('error');
+                    addError(estadoSibil, 'Estado Sibil is required');
+                }
             }
             return isValid;
         }
 
         function addError(target, message) {
+            const parent = target.closest('.form-group') || target.parentElement;
+            
+            // Check if error message already exists to prevent duplicates
+            const existingError = parent.querySelector('.error-text');
+            if (existingError) {
+                // Update existing error message instead of creating duplicate
+                existingError.textContent = message;
+                return;
+            }
+            
+            // Create new error message
             const msg = document.createElement('div');
             msg.className = 'error-text';
             msg.textContent = message;
-            const parent = target.closest('.form-group') || target.parentElement;
             parent.appendChild(msg);
         }
 
@@ -1840,6 +1912,57 @@
                 });
             }
         }
+        
+        // Add real-time validation for text-only fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const textOnlyFields = document.querySelectorAll('.text-only-field');
+            
+            textOnlyFields.forEach(field => {
+                // Validate on input (as user types)
+                field.addEventListener('input', function(e) {
+                    // Allow only letters, spaces, and common Filipino characters
+                    // Pattern: Letters (a-z, A-Z), spaces, and accented characters (ñ, Ñ, á, é, í, ó, ú, etc.)
+                    const validPattern = /^[a-zA-ZñÑáéíóúÁÉÍÓÚüÜ\s]*$/;
+                    
+                    if (!validPattern.test(this.value)) {
+                        // Remove invalid characters
+                        this.value = this.value.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚüÜ\s]/g, '');
+                        
+                        // Show error message
+                        const existingError = this.parentElement.querySelector('.text-only-error');
+                        if (!existingError) {
+                            const errorMsg = document.createElement('div');
+                            errorMsg.className = 'error-text text-only-error';
+                            errorMsg.textContent = 'Only letters and spaces are allowed';
+                            this.parentElement.appendChild(errorMsg);
+                            
+                            // Remove error message after 3 seconds
+                            setTimeout(() => {
+                                errorMsg.remove();
+                            }, 3000);
+                        }
+                    }
+                });
+                
+                // Validate on paste
+                field.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                    // Clean the pasted text
+                    const cleanedText = pastedText.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚüÜ\s]/g, '');
+                    
+                    // Insert cleaned text
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    const currentValue = this.value;
+                    this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
+                    
+                    // Set cursor position
+                    const newPosition = start + cleanedText.length;
+                    this.setSelectionRange(newPosition, newPosition);
+                });
+            });
+        });
     </script>
 }
 

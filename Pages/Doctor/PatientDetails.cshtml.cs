@@ -7,6 +7,7 @@ using Barangay.Data;
 using Barangay.Models;
 using Barangay.Services;
 using Barangay.Extensions;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,12 +22,14 @@ namespace Barangay.Pages.Doctor
         private readonly ApplicationDbContext _context;
         private readonly ILogger<PatientDetailsModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
-        public PatientDetailsModel(ApplicationDbContext context, ILogger<PatientDetailsModel> logger, IDataEncryptionService encryptionService)
+        public PatientDetailsModel(ApplicationDbContext context, ILogger<PatientDetailsModel> logger, IDataEncryptionService encryptionService, IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         public Patient? Patient { get; set; }
@@ -166,6 +169,22 @@ namespace Barangay.Pages.Doctor
                     _logger.LogWarning(ex, "Error loading medications for patient {PatientId}", id);
                     // Continue even if we can't load medications
                 }
+
+                // AUDIT: Log PHI access - CRITICAL for HIPAA compliance
+                await _auditTrail.LogAsync(
+                    "View",
+                    $"Viewed patient medical records",
+                    "Patient",
+                    id,
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        PatientName = Patient.FullName,
+                        MedicalRecordsCount = MedicalRecords.Count,
+                        MedicationsCount = Medications.Count,
+                        HasGuardian = Guardian != null
+                    }),
+                    $"Doctor accessed confidential medical information for patient {Patient.User?.Email}"
+                );
 
                 return Page();
             }

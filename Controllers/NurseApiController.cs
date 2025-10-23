@@ -24,17 +24,20 @@ namespace Barangay.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<NurseApiController> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public NurseApiController(
             EncryptedDbContext context,
             UserManager<ApplicationUser> userManager,
             ILogger<NurseApiController> logger,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [HttpGet("appointments")]
@@ -177,6 +180,27 @@ namespace Barangay.Controllers
                 // EncryptedDbContext will handle encryption automatically
                 _context.VitalSigns.Add(vitalSign);
                 await _context.SaveChangesAsync();
+
+                // AUDIT: Log vital signs creation
+                await _auditTrail.LogAsync(
+                    "Create",
+                    "Vital signs recorded",
+                    "VitalSign",
+                    vitalSign.Id.ToString(),
+                    null,
+                    Newtonsoft.Json.JsonConvert.SerializeObject(new
+                    {
+                        PatientId = model.PatientId,
+                        BloodPressure = model.BloodPressure,
+                        HeartRate = model.HeartRate,
+                        Temperature = model.Temperature,
+                        RespiratoryRate = model.RespiratoryRate,
+                        SpO2 = model.SpO2,
+                        Weight = model.Weight,
+                        Height = model.Height
+                    }),
+                    $"Nurse recorded vital signs for patient {model.PatientId}"
+                );
 
                 // If appointment ID is provided, update the appointment's vital signs
                 if (!string.IsNullOrEmpty(model.AppointmentId))
