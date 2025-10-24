@@ -22,19 +22,22 @@ namespace Barangay.Pages.Nurse
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IAuthorizationService _authorizationService;
+        private readonly IFamilyNumberService _familyNumberService;
 
         public ImmunizationRecordModel(
             ApplicationDbContext context, 
             ILogger<ImmunizationRecordModel> logger,
             UserManager<ApplicationUser> userManager,
             IDataEncryptionService encryptionService,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            IFamilyNumberService familyNumberService)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _encryptionService = encryptionService;
             _authorizationService = authorizationService;
+            _familyNumberService = familyNumberService;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -311,16 +314,17 @@ namespace Barangay.Pages.Nurse
                         if (parentNameParts.Length >= 1) MotherFirstName = parentNameParts[0];
                         if (parentNameParts.Length >= 2) MotherMiddleName = string.Join(" ", parentNameParts.Skip(1).Take(parentNameParts.Length - 2));
                         if (parentNameParts.Length >= 2) MotherLastName = parentNameParts[parentNameParts.Length - 1];
-                        
-                        // Generate family number based on first letter of last name
-                        if (!string.IsNullOrEmpty(MotherLastName))
-                        {
-                            var firstLetter = MotherLastName.ToUpper().Substring(0, 1);
-                            var existingFamilyCount = await _context.ImmunizationRecords
-                                .Where(r => !string.IsNullOrEmpty(r.FamilyNumber) && r.FamilyNumber.StartsWith(firstLetter))
-                                .CountAsync();
-                            FamilyNumber = $"{firstLetter}-{(existingFamilyCount + 1):D3}";
-                        }
+                    }
+                    
+                    // Check if patient already has a family number
+                    if (patientUser != null && !string.IsNullOrWhiteSpace(patientUser.FamilyNumber))
+                    {
+                        FamilyNumber = patientUser.FamilyNumber;
+                        _logger.LogInformation("Using existing family number {FamilyNumber} from patient profile", FamilyNumber);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No existing family number found for patient {PatientId}", Appointment.PatientId);
                     }
                     
                     // Use appointment contact number if available, otherwise use patient's
@@ -456,11 +460,29 @@ namespace Barangay.Pages.Nurse
 
                 _logger.LogInformation("Immunization record saved successfully with ID {RecordId}", immunizationRecord.Id);
 
-                // Update appointment status to Completed
-                var appointment = await _context.Appointments.FindAsync(AppointmentId);
-                if (appointment != null)
+                // Save family number to patient profile if they don't have one
+                if (!string.IsNullOrWhiteSpace(FamilyNumber))
                 {
-                    appointment.Status = AppointmentStatus.Completed;
+                    var appointment = await _context.Appointments.FindAsync(AppointmentId);
+                    
+                    if (appointment != null)
+                    {
+                        var patientUser = await _context.Users.FindAsync(appointment.PatientId);
+                        
+                        if (patientUser != null && string.IsNullOrWhiteSpace(patientUser.FamilyNumber))
+                        {
+                            patientUser.FamilyNumber = FamilyNumber;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation("Family number {FamilyNumber} saved to patient {PatientId} profile", FamilyNumber, appointment.PatientId);
+                        }
+                    }
+                }
+
+                // Update appointment status to Completed
+                var completedAppointment = await _context.Appointments.FindAsync(AppointmentId);
+                if (completedAppointment != null)
+                {
+                    completedAppointment.Status = AppointmentStatus.Completed;
                     await _context.SaveChangesAsync();
                     _logger.LogInformation("Appointment {AppointmentId} marked as completed", AppointmentId);
                 }
@@ -476,6 +498,39 @@ namespace Barangay.Pages.Nurse
                 _logger.LogError(ex, "Error saving immunization record");
                 TempData["StatusMessage"] = $"Error: {ex.Message}";
                 return RedirectToPage("/Nurse/ImmunizationRecords");
+            }
+        }
+        
+        // Handler for generating family numbers
+        public async Task<JsonResult> OnPostGenerateFamilyNumberAsync([FromBody] GenerateFamilyNumberRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("=== GENERATE FAMILY NUMBER REQUEST (Immunization) ===");
+                _logger.LogInformation("LastName: {LastName}", request.LastName);
+                
+                if (string.IsNullOrWhiteSpace(request.LastName))
+                {
+                    return new JsonResult(new { success = false, error = "Last name is required" });
+                }
+                
+                // Generate family number using the service
+                var response = await _familyNumberService.GenerateFamilyNumberAsync(request.LastName);
+                
+                if (!response.Success)
+                {
+                    _logger.LogError("Failed to generate family number: {Error}", response.Error);
+                    return new JsonResult(new { success = false, error = response.Error });
+                }
+                
+                _logger.LogInformation("Family number {FamilyNumber} generated for immunization record", response.FamilyNumber);
+                
+                return new JsonResult(new { success = true, familyNumber = response.FamilyNumber });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating family number");
+                return new JsonResult(new { success = false, error = "An error occurred while generating the family number" });
             }
         }
     }

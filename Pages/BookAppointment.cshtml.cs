@@ -33,6 +33,7 @@ namespace Barangay.Pages
         private readonly IDataEncryptionService _encryptionService;
         private readonly IAuditTrailService _auditTrail;
         private readonly INotificationService _notificationService;
+        private readonly IFamilyNumberService _familyNumberService;
 
         public BookAppointmentModel(
             ApplicationDbContext context,
@@ -42,7 +43,8 @@ namespace Barangay.Pages
             IDatabaseDebugService dbDebugService,
             IDataEncryptionService encryptionService,
             IAuditTrailService auditTrail,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IFamilyNumberService familyNumberService)
         {
             _context = context;
             _userManager = userManager;
@@ -52,6 +54,7 @@ namespace Barangay.Pages
             _encryptionService = encryptionService;
             _auditTrail = auditTrail;
             _notificationService = notificationService;
+            _familyNumberService = familyNumberService;
         }
 
         [BindProperty]
@@ -166,6 +169,19 @@ namespace Barangay.Pages
                         BookingModel.PhoneNumber = user.PhoneNumber;
                         NCDModel.Telepono = user.PhoneNumber;
                     }
+                    
+                    // Initialize UserProfile with FamilyNumber
+                    UserProfile = new UserProfile
+                    {
+                        FullName = user.FullName ?? $"{user.FirstName} {user.LastName}".Trim(),
+                        Email = user.Email,
+                        FamilyNo = user.FamilyNumber
+                    };
+                }
+                else
+                {
+                    // Initialize empty UserProfile if user not found
+                    UserProfile = new UserProfile();
                 }
 
                 // Load available doctors with safe fallback
@@ -750,6 +766,56 @@ namespace Barangay.Pages
             var age = today.Year - dateOfBirth.Year;
             if (dateOfBirth.Date > today.AddYears(-age)) age--;
             return age;
+        }
+        
+        // Handler for generating family numbers
+        public async Task<JsonResult> OnPostGenerateFamilyNumberAsync([FromBody] GenerateFamilyNumberRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("=== GENERATE FAMILY NUMBER REQUEST ===");
+                _logger.LogInformation("LastName: {LastName}", request.LastName);
+                
+                if (string.IsNullOrWhiteSpace(request.LastName))
+                {
+                    return new JsonResult(new { success = false, error = "Last name is required" });
+                }
+                
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return new JsonResult(new { success = false, error = "User not found" });
+                }
+                
+                // Check if user already has a family number
+                if (!string.IsNullOrWhiteSpace(user.FamilyNumber))
+                {
+                    _logger.LogInformation("User already has family number: {FamilyNumber}", user.FamilyNumber);
+                    return new JsonResult(new { success = true, familyNumber = user.FamilyNumber, alreadyExists = true });
+                }
+                
+                // Generate family number using the service
+                var response = await _familyNumberService.GenerateFamilyNumberAsync(request.LastName);
+                
+                if (!response.Success)
+                {
+                    _logger.LogError("Failed to generate family number: {Error}", response.Error);
+                    return new JsonResult(new { success = false, error = response.Error });
+                }
+                
+                // Save family number to user profile
+                user.FamilyNumber = response.FamilyNumber;
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("Family number {FamilyNumber} assigned to user {UserId}", response.FamilyNumber, user.Id);
+                
+                return new JsonResult(new { success = true, familyNumber = response.FamilyNumber });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating family number");
+                return new JsonResult(new { success = false, error = "An error occurred while generating the family number" });
+            }
         }
 
         private int GetConsultationTypeDuration(string consultationType)

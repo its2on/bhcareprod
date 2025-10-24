@@ -10,7 +10,7 @@
     <style>
         /* Scoped variables for this page */
         :root {
-            --primary-color: #007bff;
+            --primary-color: #FF8C42;
             --secondary-color: #6c757d;
             --background-color: #f8f9fa;
             --form-bg-color: #ffffff;
@@ -52,13 +52,31 @@
         }
         
         .age-indicator {
-            background: #007bff;
+            background: #FF8C42;
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
             display: inline-block;
             margin-bottom: 20px;
             font-weight: bold;
+        }
+        
+        /* Wizard navigation buttons */
+        .wizard-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+        }
+        
+        .wizard-nav .prev-step {
+            order: 1;
+        }
+        
+        .wizard-nav .next-step,
+        .wizard-nav button[type="submit"] {
+            order: 2;
+            margin-left: auto;
         }
     </style>
 }
@@ -95,7 +113,7 @@
 
     <!-- Step 1: Demographics/Intro -->
     <div class="wizard-step" data-step="1">
-        <!-- Age restriction, header, options, confidentiality, profile -->
+
         <!-- Header Section -->
         <div class="form-section">
             <div class="row">
@@ -139,7 +157,8 @@
                     <input class="form-check-input" type="checkbox" id="IsOwnPhilHealth" onchange="updateCheckboxValue('IsOwnPhilHealth', 'Assessment.IsOwnPhilHealth')" />
                     <input type="hidden" asp-for="Assessment.IsOwnPhilHealth" />
                     <label class="form-check-label" for="IsOwnPhilHealth">Own PhilHealth / PIN:</label>
-                    <input type="text" class="form-control d-inline-block ms-2" style="width: 200px;" asp-for="Assessment.PhilHealthPIN" />
+                    <input type="text" class="form-control d-inline-block ms-2" style="width: 200px;" asp-for="Assessment.PhilHealthPIN" id="philHealthPINInput" />
+                    <small class="form-text text-muted d-block ms-2">Numbers only</small>
                 </div>
             </div>
         </div>
@@ -170,14 +189,14 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label required">Birthday</label>
-                        <input type="date" class="form-control" asp-for="Assessment.Birthday" value="@ViewData["PatientBirthdate"]" required />
+                        <input type="date" class="form-control" asp-for="Assessment.Birthday" value="@ViewData["PatientBirthdate"]" required readonly style="background-color: #e9ecef;" />
                         <span asp-validation-for="Assessment.Birthday" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label required">Patient Name</label>
-                        <input type="text" class="form-control" asp-for="Assessment.FullName" value="@ViewData["PatientName"]" required />
+                        <input type="text" class="form-control" asp-for="Assessment.FullName" value="@ViewData["PatientName"]" required readonly style="background-color: #e9ecef;" />
                         <span asp-validation-for="Assessment.FullName" class="text-danger"></span>
                     </div>
                     <div class="mb-3">
@@ -190,7 +209,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label required">Contact Number</label>
-                        <input type="text" class="form-control" asp-for="Assessment.ContactNumber" value="@ViewData["PatientPhone"]" required />
+                        <input type="text" class="form-control" asp-for="Assessment.ContactNumber" value="@ViewData["PatientPhone"]" required readonly style="background-color: #e9ecef;" />
                         <small class="form-text text-muted">11 digits only, Philippine format (e.g. 09123456789)</small>
                         <span asp-validation-for="Assessment.ContactNumber" class="text-danger"></span>
                     </div>
@@ -489,7 +508,7 @@
                 <input type="text" class="form-control" asp-for="Assessment.AssessedBy" />
             </div>
         </div>
-        <div class="wizard-nav mt-3 text-center">
+        <div class="wizard-nav mt-3">
             <button type="button" class="btn btn-secondary prev-step">Previous</button>
             <button type="submit" class="btn btn-primary btn-lg">
                 <i class="fas fa-save me-2"></i>
@@ -505,6 +524,49 @@
     <!-- SweetAlert2 for notifications -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        // Load existing assessment data if available (for draft editing)
+        @if (ViewData["ExistingAssessment"] != null)
+        {
+            var existingAssessment = ViewData["ExistingAssessment"] as Barangay.Models.HEEADSSSAssessment;
+            var draftDataJson = Newtonsoft.Json.JsonConvert.SerializeObject(existingAssessment);
+            <text>
+            const draftData = @Html.Raw(draftDataJson);
+            console.log('=== LOADING EXISTING DRAFT ASSESSMENT ===', draftData);
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                if (draftData) {
+                    console.log('Loading draft data...');
+                    
+                    // Load all text fields
+                    Object.keys(draftData).forEach(key => {
+                        const value = draftData[key];
+                        if (value !== null && value !== undefined && value !== '') {
+                            const field = document.querySelector(`[name="Assessment.${key}"]`);
+                            if (field && field.type !== 'hidden') {
+                                field.value = value;
+                                console.log(`Loaded ${key}: ${value}`);
+                            }
+                            
+                            // Handle checkboxes
+                            const checkbox = document.getElementById(key);
+                            if (checkbox && checkbox.type === 'checkbox') {
+                                const isChecked = value === 'True' || value === true || value === 'true';
+                                checkbox.checked = isChecked;
+                                const hiddenField = document.querySelector(`[name="Assessment.${key}"]`);
+                                if (hiddenField) {
+                                    hiddenField.value = isChecked.toString();
+                                }
+                                console.log(`Loaded checkbox ${key}: ${isChecked}`);
+                            }
+                        }
+                    });
+                    
+                    console.log('Draft data loaded successfully!');
+                }
+            });
+            </text>
+        }
+        
         // Manual fix function to force checkbox and radio button states
         function forceFixFormBinding() {
             console.log('=== FORCE FIXING FORM BINDING ===');
@@ -727,171 +789,10 @@
             });
         }
 
-        // Track if form has been modified
-        let formModified = false;
-        
-        // Function to check if form has data
-        function hasFormData() {
-            const inputs = document.querySelectorAll('input, select, textarea');
-            for (let input of inputs) {
-                if (input.type === 'checkbox' || input.type === 'radio') {
-                    if (input.checked) return true;
-                } else if (input.value && input.value.trim() !== '') {
-                    return true;
-                }
-            }
-            return false;
-        }
-        
-        // Function to show navigation warning with options
-        function showNavigationWarning(event) {
-            if (event) {
-                event.preventDefault();
-                event.returnValue = '';
-            }
-            
-            Swal.fire({
-                title: 'Leave Assessment Form?',
-                text: 'You want to leave? Continue later or cancel the appointment.',
-                icon: 'question',
-                showCancelButton: true,
-                showDenyButton: true,
-                confirmButtonText: 'Continue Later',
-                denyButtonText: 'Cancel Appointment',
-                cancelButtonText: 'Stay on Form',
-                confirmButtonColor: '#17a2b8',
-                denyButtonColor: '#dc3545',
-                cancelButtonColor: '#6c757d'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // User chose "Continue Later" - go to appointments page
-                    console.log('User chose to continue later');
-                    window.location.href = '/User/Appointments';
-                } else if (result.isDenied) {
-                    // User chose "Cancel Appointment" - cancel the appointment and go to appointments page
-                    console.log('User chose to cancel appointment');
-                    
-                    // Get appointment ID from URL
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const appointmentId = urlParams.get('appointmentId');
-                    
-                    if (appointmentId) {
-                        // Call API to cancel the appointment
-                        fetch(`/User/HEEADSSSAssessment?handler=CancelAppointment&appointmentId=${appointmentId}`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                            }
-                        }).then(response => response.json()).then(data => {
-                            console.log('Appointment cancellation response:', data);
-                            if (data.success) {
-                                console.log('Appointment cancelled successfully');
-                            } else {
-                                console.error('Failed to cancel appointment:', data.error);
-                            }
-                            // Redirect to appointments page regardless of API response
-                            window.location.href = '/User/Appointments';
-                        }).catch(error => {
-                            console.error('Error cancelling appointment:', error);
-                            // Still redirect even if cancellation fails
-                            window.location.href = '/User/Appointments';
-                        });
-                    } else {
-                        // No appointment ID, just redirect
-                        window.location.href = '/User/Appointments';
-                    }
-                } else {
-                    // User chose "Stay on Form" - do nothing, stay on page
-                    console.log('User chose to stay on form');
-                }
-            });
-            
-            return false;
-        }
-        
-        // Function to show assessment completion reminder
-        function showAssessmentCompletionReminder() {
-            Swal.fire({
-                title: 'Complete Assessment Form',
-                text: 'Your appointment has been saved as a draft. Would you like to complete the assessment form now? (You can also complete it later from your Appointments page)',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Complete Now',
-                cancelButtonText: 'Complete Later',
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#6c757d'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // User wants to complete the assessment now - stay on the page
-                    console.log('User chose to complete assessment now - staying on page');
-                } else {
-                    // User wants to complete later - stay on page but show info message
-                    console.log('User chose to complete later - staying on page');
-                    Swal.fire({
-                        title: 'Assessment Form Available',
-                        text: 'You can complete this assessment form anytime. It will be saved when you submit it.',
-                        icon: 'info',
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#17a2b8'
-                    });
-                }
-            });
-        }
-        
-        // Add event listeners for form modification tracking
-        function trackFormChanges() {
-            const form = document.getElementById('heeadsssForm');
-            if (form) {
-                form.addEventListener('input', function() {
-                    formModified = true;
-                });
-                
-                form.addEventListener('change', function() {
-                    formModified = true;
-                });
-            }
-        }
-        
-        // Add beforeunload event listener - DISABLED to remove browser alert
-        function addBeforeUnloadListener() {
-            // Removed browser beforeunload alert as requested
-            // window.addEventListener('beforeunload', function(event) {
-            //     if (formModified || hasFormData()) {
-            //         const message = 'You have unsaved changes. Are you sure you want to leave?';
-            //         event.preventDefault();
-            //         event.returnValue = message;
-            //         return message;
-            //     }
-            // });
-        }
-        
-        // Add click listeners to navigation links
-        function addNavigationListeners() {
-            // Listen for clicks on navigation links
-            document.addEventListener('click', function(event) {
-                const target = event.target.closest('a');
-                if (target && target.href && !target.href.includes('javascript:')) {
-                    // Check if it's a navigation link (not a form submission)
-                    if (!target.closest('form') && !target.classList.contains('btn-submit')) {
-                        showNavigationWarning(event);
-                        return false;
-                    }
-                }
-            });
-        }
-
         $(document).ready(function() {
             console.log('=== DOCUMENT READY STARTED ===');
             console.log('jQuery version:', $.fn.jquery);
             console.log('SweetAlert2 available:', typeof Swal !== 'undefined');
-            
-            // Initialize form tracking
-            trackFormChanges();
-            addBeforeUnloadListener();
-            addNavigationListeners();
-            
-            // Don't show popup on page load - only show when user tries to leave
             
             // Add a small delay to ensure all form fields are properly loaded
             setTimeout(function() {
@@ -1143,8 +1044,7 @@
             document.getElementById('generate-family-no').addEventListener('click', async function() {
                 console.log("Generate button clicked"); // Debug logging
                 
-                const patientName = '@ViewData["PatientName"]';
-                const lastName = patientName ? patientName.split(' ').pop() : ''; // Get last name from patient name
+                const lastName = '@ViewData["PatientName"]'.split(' ').pop(); // Get last name from patient name
                 if (!lastName || lastName.length === 0) {
                     alert('Please enter your last name first to generate a family number.');
                     return;
@@ -1158,7 +1058,7 @@
                             'Content-Type': 'application/json',
                             'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
                         },
-                        body: JSON.stringify({ LastName: lastName })
+                        body: JSON.stringify({ lastName: lastName })
                     });
                     
                     const result = await response.json();
@@ -1168,60 +1068,16 @@
                         console.log("Generated family number:", result.familyNo);
                         document.getElementById('family-no').value = result.familyNo;
                         if (result.isPreexisting) {
-                            // Use SweetAlert2 for success message
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    title: 'Family Number Found',
-                                    text: 'Using existing family number: ' + result.familyNo,
-                                    icon: 'info',
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#17a2b8'
-                                });
-                            } else {
-                                alert('Using existing family number: ' + result.familyNo);
-                            }
-                            } else {
-                                // Use SweetAlert2 for success message
-                                if (typeof Swal !== 'undefined') {
-                                    Swal.fire({
-                                        title: 'Success!',
-                                        text: 'Family number generated successfully: ' + result.familyNo,
-                                        icon: 'success',
-                                        confirmButtonText: 'OK',
-                                        confirmButtonColor: '#28a745'
-                                    });
-                                } else {
-                                    alert('Family number generated successfully: ' + result.familyNo);
-                                }
-                            }
-                    } else {
-                        // Use SweetAlert2 for error message
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                title: 'Error',
-                                text: 'Error generating family number: ' + (result.error || 'Unknown error'),
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                confirmButtonColor: '#dc3545'
-                            });
+                            alert('Using existing family number: ' + result.familyNo);
                         } else {
-                            alert('Error generating family number: ' + (result.error || 'Unknown error'));
+                            alert('New family number generated: ' + result.familyNo);
                         }
+                    } else {
+                        alert('Error generating family number: ' + (result.error || 'Unknown error'));
                     }
                 } catch (error) {
                     console.error('Error generating family number:', error);
-                    // Use SweetAlert2 for error message
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            title: 'Error',
-                            text: 'Error generating family number. Please try again.',
-                            icon: 'error',
-                            confirmButtonText: 'OK',
-                            confirmButtonColor: '#dc3545'
-                        });
-                    } else {
-                        alert('Error generating family number. Please try again.');
-                    }
+                    alert('Error generating family number. Please try again.');
                 }
             });
             
@@ -1546,6 +1402,117 @@
                     $field.removeClass('is-invalid');
                 }
             });
+            
+            // Validation for "Referred by" field - letters and spaces only
+            $('#referredByInput').on('input', function() {
+                let value = this.value;
+                // Remove any characters that are not letters or spaces
+                value = value.replace(/[^A-Za-z\s]/g, '');
+                this.value = value;
+            });
+            
+            // Validation for "PhilHealth PIN" field - numbers only
+            $('#philHealthPINInput').on('input', function() {
+                let value = this.value;
+                // Remove any characters that are not numbers
+                value = value.replace(/[^0-9]/g, '');
+                this.value = value;
+            });
+            
+            // Function to show navigation warning with options
+            function showNavigationWarning(event) {
+                if (event) {
+                    event.preventDefault();
+                    event.returnValue = '';
+                }
+                
+                // Use SweetAlert2 if available
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Leave Assessment Form?',
+                        text: 'You want to leave? Continue later or cancel the appointment.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Continue Later',
+                        denyButtonText: 'Cancel Appointment',
+                        cancelButtonText: 'Stay on Form',
+                        confirmButtonColor: '#17a2b8',
+                        denyButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // User chose "Continue Later" - go to appointments page
+                            console.log('User chose to continue later');
+                            window.location.href = '/User/Appointments';
+                        } else if (result.isDenied) {
+                            // User chose "Cancel Appointment" - cancel the appointment and go to appointments page
+                            console.log('User chose to cancel appointment');
+                            
+                            // Get appointment ID from URL
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const appointmentId = urlParams.get('appointmentId');
+                            
+                            if (appointmentId) {
+                                // Call API to cancel the appointment
+                                fetch(`/User/HEEADSSSAssessment?handler=CancelAppointment&appointmentId=${appointmentId}`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                    }
+                                }).then(response => response.json()).then(data => {
+                                    console.log('Appointment cancellation response:', data);
+                                    if (data.success) {
+                                        console.log('Appointment cancelled successfully');
+                                    } else {
+                                        console.error('Failed to cancel appointment:', data.error);
+                                    }
+                                    // Redirect to appointments page regardless of API response
+                                    window.location.href = '/User/Appointments';
+                                }).catch(error => {
+                                    console.error('Error cancelling appointment:', error);
+                                    // Still redirect even if cancellation fails
+                                    window.location.href = '/User/Appointments';
+                                });
+                            } else {
+                                // No appointment ID, just redirect
+                                window.location.href = '/User/Appointments';
+                            }
+                        } else {
+                            // User chose "Stay on Form" - do nothing, stay on page
+                            console.log('User chose to stay on form');
+                        }
+                    });
+                } else {
+                    // Fallback to browser confirm if SweetAlert2 fails
+                    console.error('SweetAlert2 not available, using browser confirm');
+                    const choice = confirm('You want to leave? Continue later or cancel the appointment.');
+                    if (choice) {
+                        window.location.href = '/User/Appointments';
+                    }
+                }
+                
+                return false;
+            }
+            
+            // Add click listeners to navigation links
+            function addNavigationListeners() {
+                // Listen for clicks on navigation links
+                document.addEventListener('click', function(event) {
+                    const target = event.target.closest('a');
+                    if (target && target.href && !target.href.includes('javascript:')) {
+                        // Check if it's a navigation link (not a form submission)
+                        if (!target.closest('form') && !target.classList.contains('btn-submit')) {
+                            showNavigationWarning(event);
+                            return false;
+                        }
+                    }
+                });
+            }
+            
+            // Initialize navigation listeners
+            addNavigationListeners();
         });
     </script>
 }

@@ -207,10 +207,12 @@ namespace Barangay.Pages.Nurse
         // New method to load today's appointments (excluding those with vital signs already recorded)
         private async Task LoadTodayAppointmentsAsync()
         {
-            // Get only In Progress appointments for today
+            // Get Pending, Confirmed, and In Progress appointments for today
             var todayAppointments = await _context.Appointments
                 .Where(a => a.AppointmentDate.Date == Today && 
-                           a.Status == AppointmentStatus.InProgress)
+                           (a.Status == AppointmentStatus.Pending || 
+                            a.Status == AppointmentStatus.Confirmed ||
+                            a.Status == AppointmentStatus.InProgress))
                 .OrderBy(a => a.AppointmentTime)
                 .Include(a => a.Doctor)
                 .ToListAsync();
@@ -259,12 +261,14 @@ namespace Barangay.Pages.Nurse
         // New method to load patients with today's appointments for the dropdown (excluding those with vital signs already recorded)
         private async Task LoadPatientsWithTodayAppointmentsAsync()
         {
-            // Get patients with today's In Progress appointments only
+            // Get patients with today's Pending, Confirmed, and In Progress appointments
             var patientsWithTodayAppointments = await _context.Appointments
                 .Where(a => a.AppointmentDate.Date == Today &&
                        a.PatientName != "System Administrator" && 
                        a.PatientId != "0e03f06e-ba88-46ed-b047-4974d8b8252a" &&
-                       a.Status == AppointmentStatus.InProgress)
+                       (a.Status == AppointmentStatus.Pending ||
+                        a.Status == AppointmentStatus.Confirmed ||
+                        a.Status == AppointmentStatus.InProgress))
                 .Select(a => new { PatientId = a.PatientId, PatientName = a.PatientName })
                 .Distinct()
                 .ToListAsync();

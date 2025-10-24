@@ -354,6 +354,11 @@
             // Smart "How It Works" popup for new visitors
             showHowItWorksPopup();
             
+            // Reset login button state on page load (in case of validation errors or failed login)
+            $("#loginText").removeClass("d-none");
+            $("#loginSpinner").addClass("d-none");
+            $("#loginButton").attr("disabled", false);
+            
             // Prevent admin users from submitting home page login form
             $("#loginForm").on("submit", function(e) {
                 const email = $('input[name="Input.Email"]').val().toLowerCase();

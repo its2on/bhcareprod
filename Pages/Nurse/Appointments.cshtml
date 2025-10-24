@@ -58,7 +58,7 @@
                                                             appointment.Status == AppointmentStatus.Cancelled ? "bg-danger" : 
                                                             appointment.Status == AppointmentStatus.Urgent ? "bg-danger" : 
                                                             appointment.Status == AppointmentStatus.NoShow ? "bg-secondary" : "bg-secondary")">
-                                            @(appointment.Status == AppointmentStatus.InProgress ? "On-Going" : appointment.Status.ToString())
+                                            @(appointment.Status == AppointmentStatus.Pending ? "On-Going" : appointment.Status == AppointmentStatus.InProgress ? "On-Going" : appointment.Status.ToString())
                                         </span>
                                     </td>
                                     <td>
@@ -119,7 +119,7 @@
                                                                     appointment.Status == AppointmentStatus.Cancelled ? "bg-danger" : 
                                                                     appointment.Status == AppointmentStatus.Urgent ? "bg-danger" : 
                                                                     appointment.Status == AppointmentStatus.NoShow ? "bg-secondary" : "bg-secondary")">
-                                                    @(appointment.Status == AppointmentStatus.InProgress ? "On-Going" : appointment.Status.ToString())
+                                                    @(appointment.Status == AppointmentStatus.Pending ? "On-Going" : appointment.Status == AppointmentStatus.InProgress ? "On-Going" : appointment.Status.ToString())
                                                 </span>
                                             </td>
                                             <td>@appointment.Type</td>

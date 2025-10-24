@@ -115,13 +115,12 @@
                                 </div>
                             </button>
                         </h2>
-                        <div id="draftCollapse" class="accordion-collapse collapse" aria-labelledby="draftHeader" 
-                             data-bs-parent="#appointmentsAccordion">
-                            <div class="accordion-body p-0">
-                                <div class="table-container">
+                        <div id="draftCollapse" class="accordion-collapse collapse" aria-labelledby="draftHeader">
+                            <div class="accordion-body">
+                                <div class="table-wrapper">
                                     <div class="table-responsive">
-                                        <table class="table appointments-table mb-0">
-                                            <thead class="table-light">
+                                        <table class="table table-striped" id="draftAppointmentsTableWrapper">
+                                            <thead>
                                                 <tr>
                                                     <th>Date & Time</th>
                                                     <th>Consultation Type</th>
@@ -135,6 +134,7 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <!-- Empty state for when there are no appointments -->
                                     <div class="empty-state" id="draftEmptyState" style="display: none;">
                                         <div class="text-center py-5">
                                             <i class="fa-solid fa-file-pen fa-3x text-muted mb-3"></i>
@@ -723,6 +723,7 @@
                         date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
                         time: '@appointment.GetFormattedTime()',
                         age: @appointment.AgeValue,
+                        patientName: '@(!string.IsNullOrEmpty(appointment.DependentFullName) ? appointment.DependentFullName : appointment.PatientName)',
                         consultationType: '@Model.GetFullConsultationType(appointment.Type)',
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
@@ -742,6 +743,7 @@
                         date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
                         time: '@appointment.GetFormattedTime()',
                         age: @appointment.AgeValue,
+                        patientName: '@(!string.IsNullOrEmpty(appointment.DependentFullName) ? appointment.DependentFullName : appointment.PatientName)',
                         consultationType: '@Model.GetFullConsultationType(appointment.Type)',
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
@@ -761,6 +763,7 @@
                         date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
                         time: '@appointment.GetFormattedTime()',
                         age: @appointment.AgeValue,
+                        patientName: '@(!string.IsNullOrEmpty(appointment.DependentFullName) ? appointment.DependentFullName : appointment.PatientName)',
                         consultationType: '@Model.GetFullConsultationType(appointment.Type)',
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
@@ -780,6 +783,7 @@
                         date: '@appointment.AppointmentDate.ToString("MMMM dd, yyyy")',
                         time: '@appointment.GetFormattedTime()',
                         age: @appointment.AgeValue,
+                        patientName: '@(!string.IsNullOrEmpty(appointment.DependentFullName) ? appointment.DependentFullName : appointment.PatientName)',
                         consultationType: '@Model.GetFullConsultationType(appointment.Type)',
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
@@ -830,6 +834,7 @@
                             <div class="fw-bold">${appointment.date}</div>
                             <div class="fw-semibold text-primary">${appointment.time}</div>
                             <div class="small text-muted">Age: ${appointment.age}</div>
+                            ${appointment.patientName ? `<div class="small text-info"><i class="fa-solid fa-user"></i> ${appointment.patientName}</div>` : ''}
                         </td>
                         <td>${appointment.consultationType}</td>
                         <td>${appointment.reason}</td>

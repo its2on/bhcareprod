@@ -26,19 +26,22 @@ namespace Barangay.Pages.User
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IAuditTrailService _auditTrail;
+        private readonly INotificationService _notificationService;
 
         public HEEADSSSAssessmentModel(
             EncryptedDbContext context,
             ILogger<HEEADSSSAssessmentModel> logger,
             UserManager<ApplicationUser> userManager,
             IDataEncryptionService encryptionService,
-            IAuditTrailService auditTrail)
+            IAuditTrailService auditTrail,
+            INotificationService notificationService)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _encryptionService = encryptionService;
             _auditTrail = auditTrail;
+            _notificationService = notificationService;
         }
 
         [BindProperty]
@@ -376,10 +379,52 @@ namespace Barangay.Pages.User
 
             try
             {
+                var oldStatus = appointment.Status;
                 appointment.Status = AppointmentStatus.Cancelled;
                 appointment.UpdatedAt = DateTime.Now;
                 
                 await _context.SaveChangesAsync();
+                
+                // Delete appointment booking notifications for this user
+                try
+                {
+                    var notifications = await _context.Notifications
+                        .Where(n => n.UserId == user.Id && 
+                                    n.Title == "Appointment Booked" && 
+                                    n.Message.Contains(appointment.AppointmentDate.ToString("MMM dd, yyyy")))
+                        .ToListAsync();
+                    
+                    foreach (var notification in notifications)
+                    {
+                        await _notificationService.DeleteNotificationAsync(notification.Id);
+                    }
+                    
+                    _logger.LogInformation("Deleted {Count} appointment booking notifications for user {UserId}", notifications.Count, user.Id);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogWarning(notifEx, "Error deleting appointment booking notifications");
+                    // Don't fail the cancellation if notification deletion fails
+                }
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrail.LogAsync(
+                        "Appointment Cancelled",
+                        "Cancel Appointment",
+                        "Appointment",
+                        appointmentId.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Cancelled}",
+                        $"User cancelled appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Error logging to audit trail");
+                    // Don't fail the cancellation if audit logging fails
+                }
                 
                 return new JsonResult(new { success = true, message = "Appointment cancelled successfully" });
             }
@@ -774,6 +819,14 @@ namespace Barangay.Pages.User
                 
                 _context.HEEADSSSAssessments.Add(assessment);
                 
+                // Determine if form is complete (check if key required fields are filled)
+                bool isFormComplete = !string.IsNullOrWhiteSpace(assessment.HomeEnvironment) &&
+                                     !string.IsNullOrWhiteSpace(assessment.SchoolPerformance) &&
+                                     !string.IsNullOrWhiteSpace(assessment.DietDescription) &&
+                                     !string.IsNullOrWhiteSpace(assessment.Hobbies);
+                
+                _logger.LogInformation("Form completion check: {IsComplete}", isFormComplete);
+                
                 // Update appointment status if AppointmentId is provided
                 if (!string.IsNullOrEmpty(appointmentId) && int.TryParse(appointmentId, out int parsedAppointmentIdForStatus) && parsedAppointmentIdForStatus > 0)
                 {
@@ -782,9 +835,27 @@ namespace Barangay.Pages.User
                     if (appointment != null)
                     {
                         _logger.LogInformation("Found appointment {AppointmentId}, current status: {Status}", parsedAppointmentIdForStatus, appointment.Status);
-                        appointment.Status = Barangay.Models.AppointmentStatus.InProgress;
+                        var oldStatus = appointment.Status;
+                        
+                        // Set status based on form completion
+                        if (isFormComplete)
+                        {
+                            appointment.Status = Barangay.Models.AppointmentStatus.InProgress;
+                            _logger.LogInformation("Form is complete - setting status to InProgress");
+                        }
+                        else
+                        {
+                            appointment.Status = Barangay.Models.AppointmentStatus.Draft;
+                            _logger.LogInformation("Form is incomplete - setting status to Draft");
+                        }
+                        
                         appointment.UpdatedAt = DateTime.UtcNow;
-                        _logger.LogInformation("Updated appointment {AppointmentId} status from Draft to InProgress", parsedAppointmentIdForStatus);
+                        _logger.LogInformation("Updated appointment {AppointmentId} status from {OldStatus} to {NewStatus}", 
+                            parsedAppointmentIdForStatus, oldStatus, appointment.Status);
+                        
+                        // Store appointment for audit trail logging after save
+                        var appointmentForAudit = appointment;
+                        var oldStatusForAudit = oldStatus;
                     }
                     else
                     {
@@ -814,6 +885,31 @@ namespace Barangay.Pages.User
                         "[Sensitive adolescent health data - encrypted]",
                         "Patient completed HEEADSSS adolescent health screening"
                     );
+                    
+                    // Log appointment status change to audit trail
+                    if (!string.IsNullOrEmpty(appointmentId) && int.TryParse(appointmentId, out int apptIdForAudit) && apptIdForAudit > 0)
+                    {
+                        var apptForAudit = await _context.Appointments.FindAsync(apptIdForAudit);
+                        if (apptForAudit != null)
+                        {
+                            try
+                            {
+                                await _auditTrail.LogAsync(
+                                    "Appointment Assessment Completed",
+                                    "Complete Assessment Form",
+                                    "Appointment",
+                                    apptForAudit.Id.ToString(),
+                                    $"Status: Draft",
+                                    $"Status: {Barangay.Models.AppointmentStatus.InProgress}",
+                                    $"User completed HEEADSSS assessment for appointment on {apptForAudit.AppointmentDate:MMM dd, yyyy} at {apptForAudit.AppointmentTime:hh\\:mm tt}"
+                                );
+                            }
+                            catch (Exception auditEx)
+                            {
+                                _logger.LogWarning(auditEx, "Error logging appointment status change to audit trail");
+                            }
+                        }
+                    }
                     
                     // DEBUGGING: Verify the saved data by querying it back
                     _logger.LogInformation("=== VERIFYING SAVED DATA ===");

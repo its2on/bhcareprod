@@ -71,13 +71,6 @@ namespace Barangay.Pages.Nurse
 
                 _logger.LogInformation("Found {0} appointments in the database", appointments.Count);
                 
-                // Debug: Log all appointments with their status and type
-                foreach (var apt in appointments)
-                {
-                    _logger.LogInformation("Raw Appointment {0}: Status={1}, Type={2}, Date={3}, Patient={4}", 
-                        apt.Id, apt.Status, apt.Type ?? "null", apt.AppointmentDate.ToString("yyyy-MM-dd"), apt.PatientName ?? "null");
-                }
-                
                 // Decrypt patient data for display
                 foreach (var appointment in appointments)
                 {
@@ -116,45 +109,13 @@ namespace Barangay.Pages.Nurse
                     // Doctor data decryption removed - not needed for nurse view
                 }
 
-                // Convert to view models (include all active appointments)
-                // Include Draft appointments for specific consultation types (same logic as user page)
-                var noAssessmentTypes = new[] { 
-                    "immunization", 
-                    "prenatal & family planning", 
-                    "prenatal and family planning", 
-                    "dots consult", 
-                    "dots", 
-                    "dental",
-                    "general consult",
-                    "general consultation" 
-                };
-                
-                // Debug: Check each appointment against the filter criteria
-                var filteredCount = 0;
-                foreach (var apt in appointments)
-                {
-                    var typeLower = apt.Type?.ToLower() ?? "";
-                    var isNoAssessmentType = noAssessmentTypes.Contains(typeLower);
-                    var shouldInclude = apt.Status == AppointmentStatus.Pending || 
-                                       apt.Status == AppointmentStatus.InProgress || 
-                                       apt.Status == AppointmentStatus.Confirmed ||
-                                       apt.Status == AppointmentStatus.Completed ||
-                                       (apt.Status == AppointmentStatus.Draft && isNoAssessmentType);
-                                       
-                    _logger.LogInformation("Appointment {0}: Status={1}, Type='{2}' (lower='{3}'), IsNoAssessment={4}, ShouldInclude={5}", 
-                        apt.Id, apt.Status, apt.Type ?? "null", typeLower, isNoAssessmentType, shouldInclude);
-                        
-                    if (shouldInclude) filteredCount++;
-                }
-                _logger.LogInformation("Filter would include {0} out of {1} total appointments", filteredCount, appointments.Count);
-                
+                // Convert to view models - EXCLUDE Draft and Cancelled appointments from nurse view
+                // Nurses should only see: Pending, InProgress, Confirmed, and Completed
                 Appointments = appointments
                     .Where(a => a.Status == AppointmentStatus.Pending || 
                                 a.Status == AppointmentStatus.InProgress || 
                                 a.Status == AppointmentStatus.Confirmed ||
-                                a.Status == AppointmentStatus.Completed ||
-                                (a.Status == AppointmentStatus.Draft && 
-                                 noAssessmentTypes.Contains(a.Type?.ToLower() ?? "")))
+                                a.Status == AppointmentStatus.Completed)
                     .Select(a => new AppointmentViewModel
                     {
                         Id = a.Id,
@@ -167,13 +128,7 @@ namespace Barangay.Pages.Nurse
                         Description = a.Description
                     }).ToList();
                 
-                // Debug: Log filtered appointments
-                _logger.LogInformation("After filtering: {0} appointments passed the filter", Appointments.Count);
-                foreach (var apt in Appointments)
-                {
-                    _logger.LogInformation("Filtered Appointment {0}: Status={1}, Type={2}, Date={3}, Patient={4}", 
-                        apt.Id, apt.Status, apt.Type, apt.AppointmentDate.ToString("yyyy-MM-dd"), apt.PatientName);
-                }
+                _logger.LogInformation("After filtering: {0} appointments for nurse view (excluding Draft and Cancelled)", Appointments.Count);
                 
                 // Filter today's appointments (include Pending, InProgress, Confirmed)
                 TodayAppointments = Appointments

@@ -36,6 +36,7 @@ namespace Barangay.Pages.Doctor
         private readonly IDataEncryptionService _encryptionService;
         private readonly IAppointmentReminderService _appointmentReminderService;
         private readonly IAuditTrailService _auditTrail;
+        private readonly INotificationService _notificationService;
 
         public ConsultationModel(
             ApplicationDbContext context,
@@ -45,7 +46,8 @@ namespace Barangay.Pages.Doctor
             IConsultationPdfService consultationPdfService,
             IDataEncryptionService encryptionService,
             IAppointmentReminderService appointmentReminderService,
-            IAuditTrailService auditTrail)
+            IAuditTrailService auditTrail,
+            INotificationService notificationService)
         {
             _context = context;
             _userManager = userManager;
@@ -55,6 +57,7 @@ namespace Barangay.Pages.Doctor
             _consultationPdfService = consultationPdfService;
             _encryptionService = encryptionService;
             _appointmentReminderService = appointmentReminderService;
+            _notificationService = notificationService;
         }
 
         [BindProperty]
@@ -857,10 +860,31 @@ namespace Barangay.Pages.Doctor
                 }
 
                 // Finally, update the appointment status to Completed.
+                var oldStatus = appointment.Status;
                 appointment.Status = AppointmentStatus.Completed;
                 appointment.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrail.LogAsync(
+                        "Appointment Completed",
+                        "Complete Consultation",
+                        "Appointment",
+                        appointment.Id.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Completed}",
+                        $"Doctor completed consultation for appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Error logging to audit trail");
+                    // Don't fail the completion if audit logging fails
+                }
+                
                 await transaction.CommitAsync(); // Commit the transaction to make changes permanent
 
                 // Create follow-up appointment and send reminder email if follow-up reason is provided
@@ -913,6 +937,25 @@ namespace Barangay.Pages.Doctor
                             await _appointmentReminderService.SendFollowUpReminderEmailAsync(followUpAppointment.Id, patient.Email, emailContent);
                             _logger.LogInformation("Follow-up reminder email sent successfully to patient {PatientEmail} for follow-up appointment {FollowUpAppointmentId}", 
                                 patient.Email, followUpAppointment.Id);
+                            
+                            // Create in-app notification for follow-up appointment
+                            try
+                            {
+                                var notificationMessage = $"A follow-up appointment has been scheduled for you on {followUpDate:MMMM dd, yyyy} at {followUpTime:hh\\:mm tt}. Reason: {FollowUpReason}";
+                                var notificationLink = $"/User/Appointments?appointmentId={followUpAppointment.Id}";
+                                await _notificationService.CreateNotificationForUserAsync(
+                                    appointment.PatientId,
+                                    "Follow-up Appointment Scheduled",
+                                    notificationMessage,
+                                    "Appointment",
+                                    notificationLink
+                                );
+                                _logger.LogInformation("In-app notification created for follow-up appointment {FollowUpAppointmentId}", followUpAppointment.Id);
+                            }
+                            catch (Exception notifEx)
+                            {
+                                _logger.LogError(notifEx, "Failed to create in-app notification for follow-up appointment {FollowUpAppointmentId}", followUpAppointment.Id);
+                            }
                         }
                         else
                         {

@@ -76,14 +76,6 @@
                     <h5 class="mb-0">Permissions for @(Model.SelectedStaff?.Name ?? "")
                         @if (Model.SelectedStaff != null) {<span class="badge bg-secondary ms-2">@Model.SelectedStaff.Role</span>}
                     </h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-info btn-sm" id="togglePreview">
-                            <i class="fa-solid fa-eye me-1"></i> Preview Dashboard
-                        </button>
-                        <button class="btn btn-light btn-sm" id="toggleAllSections">
-                            <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body standard-padding">
                     @if (Model.SelectedStaff == null)

@@ -30,19 +30,25 @@ namespace Barangay.Controllers
         private readonly ILogger<UserApiController> _logger;
         private readonly IEncryptionService _encryptionService;
         private readonly IAppointmentService _appointmentService;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditTrailService _auditTrailService;
 
         public UserApiController(
             ApplicationDbContext context, 
             UserManager<ApplicationUser> userManager,
             ILogger<UserApiController> logger,
             IEncryptionService encryptionService,
-            IAppointmentService appointmentService)
+            IAppointmentService appointmentService,
+            INotificationService notificationService,
+            IAuditTrailService auditTrailService)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
             _encryptionService = encryptionService;
             _appointmentService = appointmentService;
+            _notificationService = notificationService;
+            _auditTrailService = auditTrailService;
         }
 
         [HttpGet("availableTimeSlots")]
@@ -467,10 +473,52 @@ namespace Barangay.Controllers
             try
             {
                 _logger.LogInformation("Updating appointment status to Cancelled via User API");
+                var oldStatus = appointment.Status;
                 appointment.Status = AppointmentStatus.Cancelled;
                 appointment.UpdatedAt = DateTime.UtcNow;
                 
                 await _context.SaveChangesAsync();
+                
+                // Delete appointment booking notifications for this user
+                try
+                {
+                    var notifications = await _context.Notifications
+                        .Where(n => n.UserId == user.Id && 
+                                    n.Title == "Appointment Booked" && 
+                                    n.Message.Contains(appointment.AppointmentDate.ToString("MMM dd, yyyy")))
+                        .ToListAsync();
+                    
+                    foreach (var notification in notifications)
+                    {
+                        await _notificationService.DeleteNotificationAsync(notification.Id);
+                    }
+                    
+                    _logger.LogInformation("Deleted {Count} appointment booking notifications for user {UserId}", notifications.Count, user.Id);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogWarning(notifEx, "Error deleting appointment booking notifications");
+                    // Don't fail the cancellation if notification deletion fails
+                }
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrailService.LogAsync(
+                        "Appointment Cancelled",
+                        "Cancel Appointment",
+                        "Appointment",
+                        appointmentId.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Cancelled}",
+                        $"User cancelled appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Error logging to audit trail");
+                    // Don't fail the cancellation if audit logging fails
+                }
                 
                 _logger.LogInformation("Appointment cancelled successfully via User API: {AppointmentId}", appointmentId);
                 return Ok(new { success = true, message = "Appointment cancelled successfully." });

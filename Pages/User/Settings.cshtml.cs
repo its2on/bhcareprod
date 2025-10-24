@@ -26,6 +26,7 @@ namespace Barangay.Pages.User
         private readonly ILogger<SettingsModel> _logger;
         private readonly ApplicationDbContext _context;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public SettingsModel(
             UserManager<ApplicationUser> userManager,
@@ -33,7 +34,8 @@ namespace Barangay.Pages.User
             IWebHostEnvironment environment,
             ILogger<SettingsModel> logger,
             ApplicationDbContext context,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrail)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -41,6 +43,7 @@ namespace Barangay.Pages.User
             _logger = logger;
             _context = context;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty]
@@ -147,6 +150,18 @@ namespace Barangay.Pages.User
                 }
             }
 
+            // Track old values for audit trail
+            var oldValues = new
+            {
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                Address = user.Address,
+                BirthDate = user.BirthDate,
+                Gender = user.Gender
+            };
+
             // Update other profile fields
             user.FirstName = UserProfile.FirstName;
             user.LastName = UserProfile.LastName;
@@ -156,6 +171,18 @@ namespace Barangay.Pages.User
             user.Gender = UserProfile.Gender;
             user.FullName = $"{UserProfile.FirstName} {UserProfile.LastName}";
             user.UpdatedAt = DateTime.Now;
+            
+            // Track new values for audit trail
+            var newValues = new
+            {
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                Address = user.Address,
+                BirthDate = user.BirthDate,
+                Gender = user.Gender
+            };
 
             // Handle profile picture upload
             if (ProfilePicture != null && ProfilePicture.Length > 0)
@@ -212,6 +239,36 @@ namespace Barangay.Pages.User
 
                 await _signInManager.RefreshSignInAsync(user);
                 StatusMessage = "Your profile has been updated";
+                
+                // AUDIT: Log profile update with old/new values
+                try
+                {
+                    var changedFields = new System.Collections.Generic.List<string>();
+                    if (oldValues.FirstName != newValues.FirstName) changedFields.Add($"FirstName: '{oldValues.FirstName}' → '{newValues.FirstName}'");
+                    if (oldValues.LastName != newValues.LastName) changedFields.Add($"LastName: '{oldValues.LastName}' → '{newValues.LastName}'");
+                    if (oldValues.PhoneNumber != newValues.PhoneNumber) changedFields.Add($"PhoneNumber: '{oldValues.PhoneNumber}' → '{newValues.PhoneNumber}'");
+                    if (oldValues.Address != newValues.Address) changedFields.Add($"Address: '{oldValues.Address}' → '{newValues.Address}'");
+                    if (oldValues.Gender != newValues.Gender) changedFields.Add($"Gender: '{oldValues.Gender}' → '{newValues.Gender}'");
+                    if (oldValues.BirthDate != newValues.BirthDate) changedFields.Add($"BirthDate: '{oldValues.BirthDate}' → '{newValues.BirthDate}'");
+                    
+                    var description = changedFields.Count > 0 
+                        ? $"Updated profile fields: {string.Join(", ", changedFields)}"
+                        : "Updated user profile";
+                    
+                    await _auditTrail.LogAsync(
+                        "Update",
+                        "Updated user profile",
+                        "ApplicationUser",
+                        user.Id,
+                        Newtonsoft.Json.JsonConvert.SerializeObject(oldValues),
+                        Newtonsoft.Json.JsonConvert.SerializeObject(newValues),
+                        description
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log profile update audit trail");
+                }
             }
             else
             {
@@ -251,6 +308,25 @@ namespace Barangay.Pages.User
 
             await _signInManager.RefreshSignInAsync(user);
             StatusMessage = "Your password has been changed.";
+            
+            // AUDIT: Log password change (do NOT store password values)
+            try
+            {
+                await _auditTrail.LogAsync(
+                    "Update",
+                    "Changed password",
+                    "ApplicationUser",
+                    user.Id,
+                    null, // Do not store old password
+                    null, // Do not store new password
+                    $"User {user.Email} changed their password via Settings page"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log password change audit trail");
+            }
+            
             return RedirectToPage();
         }
 

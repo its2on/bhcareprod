@@ -215,6 +215,24 @@
                 display: block;
             }
         }
+        
+        /* Remove spinner controls from all number-like inputs */
+        input[type="text"][inputmode="decimal"],
+        input[type="text"][inputmode="numeric"],
+        input[type="number"] {
+            -moz-appearance: textfield !important;
+        }
+        
+        input[type="text"][inputmode="decimal"]::-webkit-outer-spin-button,
+        input[type="text"][inputmode="decimal"]::-webkit-inner-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-outer-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0 !important;
+            display: none !important;
+        }
     </style>
 
     @await RenderSectionAsync("Styles", required: false)

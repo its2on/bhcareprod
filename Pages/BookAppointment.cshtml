@@ -86,6 +86,17 @@
                                         <option value="Female">Female</option>
                                     </select>
                                 </div>
+                                <div class="col-md-8" id="familyNumberSection" style="display: none;">
+                                    <label class="form-label">Family Number</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="familyNumber" name="familyNumber" readonly placeholder="No family number assigned">
+                                        <button type="button" class="btn btn-primary" id="generateFamilyNumberBtn">
+                                            <i class="fas fa-plus-circle me-1"></i>Generate Family Number
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Family number will be auto-generated based on your last name (e.g., G-001 for Garcia)</div>
+                                    <input type="hidden" id="hasFamilyNumber" value="@(Model.UserProfile?.FamilyNo ?? "")">
+                                </div>
                             </div>
                             
                             <div class="mb-3" id="relationshipField" style="display: none;">
@@ -222,6 +233,35 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
+            console.log('[BookAppointment] Page ready - initializing family number section');
+            
+            // Check if consultation type is already selected and show family number section if needed
+            const checkFamilyNumberVisibility = function() {
+                const selectedType = $('#consultationType').val();
+                if (selectedType) {
+                    const nonAssessmentTypes = ['dental', 'prenatal & family planning', 'dots consult'];
+                    const needsFamilyNumber = nonAssessmentTypes.includes(selectedType.toLowerCase());
+                    const hasFamilyNumber = $('#hasFamilyNumber').val();
+                    
+                    console.log('[BookAppointment] Consultation type on load:', selectedType, 'Needs family number:', needsFamilyNumber);
+                    
+                    if (needsFamilyNumber) {
+                        $('#familyNumberSection').show();
+                        
+                        if (hasFamilyNumber) {
+                            $('#familyNumber').val(hasFamilyNumber);
+                            $('#generateFamilyNumberBtn').hide();
+                        } else {
+                            $('#familyNumber').val('');
+                            $('#generateFamilyNumberBtn').show();
+                        }
+                    }
+                }
+            };
+            
+            // Call on page load
+            checkFamilyNumberVisibility();
+            
             // Initialize the form state based on user details
             const userDetails = @Html.Raw(Json.Serialize(Model.UserDetails));
             
@@ -527,6 +567,91 @@
                 const selectedType = $(this).val();
                 console.log('[BookAppointment] Consultation type changed to:', selectedType);
                 updateTimeSlots();
+                
+                // Show/hide family number section for non-assessment appointments
+                const nonAssessmentTypes = ['dental', 'prenatal & family planning', 'dots consult'];
+                const needsFamilyNumber = nonAssessmentTypes.includes(selectedType.toLowerCase());
+                const hasFamilyNumber = $('#hasFamilyNumber').val();
+                
+                if (needsFamilyNumber) {
+                    $('#familyNumberSection').show();
+                    
+                    // If user already has a family number, show it and hide the generate button
+                    if (hasFamilyNumber) {
+                        $('#familyNumber').val(hasFamilyNumber);
+                        $('#generateFamilyNumberBtn').hide();
+                    } else {
+                        $('#familyNumber').val('');
+                        $('#generateFamilyNumberBtn').show();
+                    }
+                } else {
+                    $('#familyNumberSection').hide();
+                }
+            });
+            
+            // Handle family number generation
+            $('#generateFamilyNumberBtn').on('click', function() {
+                const lastName = $('#lastName').val();
+                
+                if (!lastName) {
+                    Swal.fire({
+                        title: 'Last Name Required',
+                        text: 'Please enter the last name before generating a family number.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#FF6600'
+                    });
+                    return;
+                }
+                
+                // Show loading state
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generating...');
+                
+                // Call API to generate family number
+                $.ajax({
+                    url: '?handler=GenerateFamilyNumber',
+                    type: 'POST',
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    contentType: 'application/json',
+                    data: JSON.stringify({ lastName: lastName }),
+                    success: function(response) {
+                        if (response.success) {
+                            $('#familyNumber').val(response.familyNumber);
+                            $('#hasFamilyNumber').val(response.familyNumber);
+                            $('#generateFamilyNumberBtn').hide();
+                            
+                            Swal.fire({
+                                title: 'Family Number Generated',
+                                text: 'Family number ' + response.familyNumber + ' has been assigned.',
+                                icon: 'success',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#FF6600'
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: response.error || 'Failed to generate family number.',
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#dc3545'
+                            });
+                            $('#generateFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error generating family number:', error);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'An error occurred while generating the family number.',
+                            icon: 'error',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#dc3545'
+                        });
+                        $('#generateFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                    }
+                });
             });
             
             // Initialize time slots if date and consultation type are already selected
@@ -871,9 +996,9 @@
                                             window.location.href = '/User/Appointments';
                                         }
                                     } else if (consultationType === 'immunization') {
-                                        // For immunization appointments, redirect to Nurse CreateImmunizationRecord page
-                                        console.log('[BookAppointment] Immunization - redirecting to nurse immunization record form');
-                                        window.location.href = `/Nurse/CreateImmunizationRecord?appointmentId=${appointmentId}`;
+                                        // For immunization appointments, redirect to UserDashboard
+                                        console.log('[BookAppointment] Immunization - redirecting to dashboard');
+                                        window.location.href = '/User/UserDashboard';
                                     } else {
                                         // For non-General Consult appointments, skip assessment and go directly to appointments
                                         console.log('[BookAppointment] Non-General Consult - skipping assessment form');

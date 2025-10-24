@@ -2,10 +2,13 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using Barangay.Data
+@using Barangay.Services
+@using Barangay.Extensions
 @inject IAntiforgery Antiforgery
 @inject SignInManager<Barangay.Models.ApplicationUser> SignInManager
 @inject UserManager<Barangay.Models.ApplicationUser> UserManager
 @inject ApplicationDbContext _context
+@inject IDataEncryptionService _encryptionService
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -584,6 +587,19 @@
                 <div class="sidebar-user-profile">
                     @{
                         var currentUser = await UserManager.GetUserAsync(User);
+                        
+                        // Decrypt user data
+                        if (currentUser != null)
+                        {
+                            currentUser = currentUser.DecryptSensitiveData(_encryptionService, User);
+                            
+                            // Manually decrypt Email if encrypted
+                            if (!string.IsNullOrEmpty(currentUser.Email) && _encryptionService.IsEncrypted(currentUser.Email))
+                            {
+                                currentUser.Email = _encryptionService.Decrypt(currentUser.Email);
+                            }
+                        }
+                        
                         var displayName = !string.IsNullOrWhiteSpace(currentUser?.FullName)
                             ? currentUser.FullName
                             : (!string.IsNullOrWhiteSpace(currentUser?.Name) ? currentUser.Name : User.Identity?.Name);
@@ -636,14 +652,6 @@
                                 }
                             }
                         </span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="records-link" href="/User/Records" title="Vital Signs">
-                        <div class="nav-icon">
-                            <i class="fa-solid fa-file-medical"></i>
-                        </div>
-                        <span>Vital Signs</span>
                     </a>
                 </li>
                 <li class="nav-item">

@@ -25,17 +25,23 @@ namespace Barangay.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEncryptionService _encryptionService;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditTrailService _auditTrailService;
 
         public AppointmentsController(
             ILogger<AppointmentsController> logger,
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IEncryptionService encryptionService)
+            IEncryptionService encryptionService,
+            INotificationService notificationService,
+            IAuditTrailService auditTrailService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _encryptionService = encryptionService ?? throw new ArgumentNullException(nameof(encryptionService));
+            _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _auditTrailService = auditTrailService ?? throw new ArgumentNullException(nameof(auditTrailService));
         }
 
         [HttpPost("book")]
@@ -442,10 +448,52 @@ namespace Barangay.Controllers
             try
             {
                 _logger.LogInformation("Updating appointment status to Cancelled via API");
+                var oldStatus = appointment.Status;
                 appointment.Status = AppointmentStatus.Cancelled;
                 appointment.UpdatedAt = DateTime.UtcNow;
                 
                 await _context.SaveChangesAsync();
+                
+                // Delete appointment booking notifications for this user
+                try
+                {
+                    var notifications = await _context.Notifications
+                        .Where(n => n.UserId == user.Id && 
+                                    n.Title == "Appointment Booked" && 
+                                    n.Message.Contains(appointment.AppointmentDate.ToString("MMM dd, yyyy")))
+                        .ToListAsync();
+                    
+                    foreach (var notification in notifications)
+                    {
+                        await _notificationService.DeleteNotificationAsync(notification.Id);
+                    }
+                    
+                    _logger.LogInformation("Deleted {Count} appointment booking notifications for user {UserId}", notifications.Count, user.Id);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogWarning(notifEx, "Error deleting appointment booking notifications");
+                    // Don't fail the cancellation if notification deletion fails
+                }
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrailService.LogAsync(
+                        "Appointment Cancelled",
+                        "Cancel Appointment",
+                        "Appointment",
+                        id.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Cancelled}",
+                        $"User cancelled appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Error logging to audit trail");
+                    // Don't fail the cancellation if audit logging fails
+                }
                 
                 _logger.LogInformation("Appointment cancelled successfully via API: {AppointmentId}", id);
                 return Ok(new { success = true, message = "Appointment cancelled successfully." });

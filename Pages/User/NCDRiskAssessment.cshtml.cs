@@ -28,6 +28,7 @@ namespace Barangay.Pages.User
         private readonly IDataEncryptionService _encryptionService;
         private readonly IFamilyNumberService _familyNumberService;
         private readonly IAuditTrailService _auditTrail;
+        private readonly INotificationService _notificationService;
         private static readonly Random _random = new Random();
 
         private static readonly string[] _healthFacilities = new[]
@@ -44,7 +45,8 @@ namespace Barangay.Pages.User
             UserManager<ApplicationUser> userManager,
             IDataEncryptionService encryptionService,
             IFamilyNumberService familyNumberService,
-            IAuditTrailService auditTrail)
+            IAuditTrailService auditTrail,
+            INotificationService notificationService)
         {
             _context = context;
             _logger = logger;
@@ -52,6 +54,7 @@ namespace Barangay.Pages.User
             _encryptionService = encryptionService;
             _familyNumberService = familyNumberService;
             _auditTrail = auditTrail;
+            _notificationService = notificationService;
             Assessment = new NCDRiskAssessmentViewModel();
         }
 
@@ -456,10 +459,52 @@ namespace Barangay.Pages.User
 
             try
             {
+                var oldStatus = appointment.Status;
                 appointment.Status = AppointmentStatus.Cancelled;
                 appointment.UpdatedAt = DateTime.Now;
                 
                 await _context.SaveChangesAsync();
+                
+                // Delete appointment booking notifications for this user
+                try
+                {
+                    var notifications = await _context.Notifications
+                        .Where(n => n.UserId == user.Id && 
+                                    n.Title == "Appointment Booked" && 
+                                    n.Message.Contains(appointment.AppointmentDate.ToString("MMM dd, yyyy")))
+                        .ToListAsync();
+                    
+                    foreach (var notification in notifications)
+                    {
+                        await _notificationService.DeleteNotificationAsync(notification.Id);
+                    }
+                    
+                    _logger.LogInformation("Deleted {Count} appointment booking notifications for user {UserId}", notifications.Count, user.Id);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogWarning(notifEx, "Error deleting appointment booking notifications");
+                    // Don't fail the cancellation if notification deletion fails
+                }
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrail.LogAsync(
+                        "Appointment Cancelled",
+                        "Cancel Appointment",
+                        "Appointment",
+                        appointmentId.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Cancelled}",
+                        $"User cancelled appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Error logging to audit trail");
+                    // Don't fail the cancellation if audit logging fails
+                }
                 
                 return new JsonResult(new { success = true, message = "Appointment cancelled successfully" });
             }
@@ -832,10 +877,30 @@ namespace Barangay.Pages.User
                         var appointment = await _context.Appointments.FindAsync(ncdEntity.AppointmentId.Value);
                         if (appointment != null)
                         {
+                            var oldStatus = appointment.Status;
                             appointment.Status = AppointmentStatus.InProgress; // 2 = InProgress (Ongoing)
                             appointment.UpdatedAt = DateTime.UtcNow;
                             await _context.SaveChangesAsync();
                             _logger.LogInformation("Appointment status updated to InProgress");
+                            
+                            // Log to audit trail
+                            try
+                            {
+                                await _auditTrail.LogAsync(
+                                    "Appointment Assessment Completed",
+                                    "Complete Assessment Form",
+                                    "Appointment",
+                                    appointment.Id.ToString(),
+                                    $"Status: {oldStatus}",
+                                    $"Status: {AppointmentStatus.InProgress}",
+                                    $"User completed NCD assessment for appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
+                                );
+                            }
+                            catch (Exception auditEx)
+                            {
+                                _logger.LogWarning(auditEx, "Error logging to audit trail");
+                                // Don't fail the submission if audit logging fails
+                            }
                         }
                         else
                         {

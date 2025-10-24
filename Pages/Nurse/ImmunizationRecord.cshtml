@@ -6,6 +6,27 @@
     Layout = "_NurseLayout";
 }
 
+@section Styles {
+    <style>
+        /* Remove spinner controls from all number-like inputs */
+        input[type="text"][inputmode="decimal"],
+        input[type="text"][inputmode="numeric"],
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        input[type="text"][inputmode="decimal"]::-webkit-outer-spin-button,
+        input[type="text"][inputmode="decimal"]::-webkit-inner-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-outer-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+}
+
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="m-0">
@@ -132,14 +153,16 @@
                     <div class="col-md-3">
                         <div class="form-group mb-3">
                             <label asp-for="BirthWeight" class="form-label">Birth Weight (kg)</label>
-                            <input asp-for="BirthWeight" type="text" class="form-control" placeholder="e.g., 3.2" />
+                            <input asp-for="BirthWeight" type="text" class="form-control" inputmode="decimal" maxlength="4" placeholder="e.g., 2.5, 3.2, 4.1" autocomplete="off" />
+                            <small class="form-text text-muted">Normal range: 2.5-4.5 kg</small>
                             <span asp-validation-for="BirthWeight" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group mb-3">
                             <label asp-for="BirthHeight" class="form-label">Birth Height (cm)</label>
-                            <input asp-for="BirthHeight" type="text" class="form-control" placeholder="e.g., 50" />
+                            <input asp-for="BirthHeight" type="text" class="form-control" inputmode="decimal" maxlength="5" placeholder="e.g., 48, 50, 52" autocomplete="off" />
+                            <small class="form-text text-muted">Normal range: 45-55 cm</small>
                             <span asp-validation-for="BirthHeight" class="text-danger"></span>
                         </div>
                     </div>
@@ -257,8 +280,18 @@
                     <div class="col-md-4">
                         <div class="form-group mb-3">
                             <label asp-for="FamilyNumber" class="form-label">Family Number</label>
-                            <input asp-for="FamilyNumber" class="form-control" readonly style="background-color: #f8f9fa;" />
+                            <input asp-for="FamilyNumber" id="familyNumberField" class="form-control" readonly style="background-color: #f8f9fa;" />
                             <small class="form-text text-muted">Auto-generated based on family last name</small>
+                            
+                            @if (string.IsNullOrWhiteSpace(Model.FamilyNumber))
+                            {
+                                <div class="mt-2" id="familyNumberGenerator">
+                                    <button type="button" class="btn btn-sm btn-primary" id="generateFamilyNumberBtn">
+                                        <i class="fas fa-plus-circle me-1"></i>Generate Family Number
+                                    </button>
+                                    <small class="form-text text-muted d-block mt-1">Generate family number based on mother's last name</small>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -748,6 +781,129 @@
                     form.submit();
                 });
             }
+        });
+        
+        // Prevent auto-fill and validate Birth Height/Weight fields
+        function setupNumericValidation() {
+            const birthHeightInput = document.querySelector('input[name="BirthHeight"]');
+            const birthWeightInput = document.querySelector('input[name="BirthWeight"]');
+            
+            // Function to validate and format decimal input
+            function validateDecimalInput(input, maxDecimals) {
+                if (!input) return;
+                
+                // Prevent auto-fill on focus
+                input.addEventListener('focus', function(e) {
+                    // Clear any auto-filled value
+                    if (this.value && this.value.length > 0) {
+                        const currentValue = this.value;
+                        this.value = '';
+                        setTimeout(() => {
+                            this.value = currentValue;
+                        }, 0);
+                    }
+                });
+                
+                // Validate on input
+                input.addEventListener('input', function(e) {
+                    let value = this.value;
+                    
+                    // Remove any non-numeric characters except decimal point
+                    value = value.replace(/[^0-9.]/g, '');
+                    
+                    // Ensure only one decimal point
+                    const parts = value.split('.');
+                    if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                    }
+                    
+                    // Limit decimal places
+                    if (parts.length === 2 && parts[1].length > maxDecimals) {
+                        value = parts[0] + '.' + parts[1].substring(0, maxDecimals);
+                    }
+                    
+                    this.value = value;
+                });
+                
+                // Prevent paste of invalid data
+                input.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                    const cleanedText = pastedText.replace(/[^0-9.]/g, '');
+                    
+                    // Insert cleaned text at cursor position
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    const currentValue = this.value;
+                    this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
+                    
+                    // Trigger input event to apply validation
+                    this.dispatchEvent(new Event('input'));
+                });
+            }
+            
+            // Apply validation to Birth Height (max 1 decimal place)
+            validateDecimalInput(birthHeightInput, 1);
+            
+            // Apply validation to Birth Weight (max 2 decimal places)
+            validateDecimalInput(birthWeightInput, 2);
+        }
+        
+        // Initialize validation on page load
+        setupNumericValidation();
+        
+        // Handle family number generation
+        $('#generateFamilyNumberBtn').on('click', function() {
+            const mothersNameField = document.querySelector('input[name="MothersName"]');
+            const mothersName = mothersNameField ? mothersNameField.value : '';
+            
+            if (!mothersName) {
+                alert('Please enter the mother\'s name before generating a family number.');
+                if (mothersNameField) {
+                    mothersNameField.focus();
+                }
+                return;
+            }
+            
+            // Extract last name (assume last word is the last name)
+            const nameParts = mothersName.trim().split(' ');
+            const lastName = nameParts[nameParts.length - 1];
+            
+            if (!lastName) {
+                alert('Could not extract last name from mother\'s name.');
+                return;
+            }
+            
+            // Show loading state
+            $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generating...');
+            
+            // Call API to generate family number
+            $.ajax({
+                url: '?handler=GenerateFamilyNumber',
+                type: 'POST',
+                headers: {
+                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                },
+                contentType: 'application/json',
+                data: JSON.stringify({ lastName: lastName }),
+                success: function(response) {
+                    if (response.success) {
+                        $('#familyNumberField').val(response.familyNumber);
+                        $('#FamilyNumber').val(response.familyNumber);
+                        $('#familyNumberGenerator').hide();
+                        
+                        alert('Family number ' + response.familyNumber + ' has been generated and assigned.');
+                    } else {
+                        alert('Failed to generate family number: ' + (response.error || 'Unknown error'));
+                        $('#generateFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error generating family number:', error);
+                    alert('An error occurred while generating the family number.');
+                    $('#generateFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                }
+            });
         });
     </script>
 }

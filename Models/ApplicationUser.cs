@@ -105,6 +105,10 @@ namespace Barangay.Models
         public string? Occupation { get; set; }
         public string? CivilStatus { get; set; }
         public string? Religion { get; set; }
+        
+        // Family Number for patient grouping (format: X-001 where X is first letter of last name)
+        [StringLength(20)]
+        public string? FamilyNumber { get; set; }
 
         // For backward compatibility - removed NotMapped attribute to match database column
         public string FullName 

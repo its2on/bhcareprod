@@ -23,13 +23,15 @@ namespace Barangay.Pages.Records
         private readonly EncryptedDbContext _context;
         private readonly ILogger<IndexModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrail;
 
-        public IndexModel(UserManager<ApplicationUser> userManager, EncryptedDbContext context, ILogger<IndexModel> logger, IDataEncryptionService encryptionService)
+        public IndexModel(UserManager<ApplicationUser> userManager, EncryptedDbContext context, ILogger<IndexModel> logger, IDataEncryptionService encryptionService, IAuditTrailService auditTrail)
         {
             _userManager = userManager;
             _context = context;
             _logger = logger;
             _encryptionService = encryptionService;
+            _auditTrail = auditTrail;
         }
 
         public string BloodType { get; set; } = "O+";
@@ -296,10 +298,33 @@ namespace Barangay.Pages.Records
         {
             try
             {
+                var user = await _userManager.GetUserAsync(User);
                 var records = await _context.MedicalRecords
                     .Include(r => r.Patient)
                     .Include(r => r.Doctor)
                     .ToListAsync();
+
+                // AUDIT: Log medical records export
+                try
+                {
+                    await _auditTrail.LogAsync(
+                        "Export",
+                        "Exported medical records",
+                        "MedicalRecords",
+                        "bulk",
+                        null,
+                        Newtonsoft.Json.JsonConvert.SerializeObject(new { 
+                            RecordCount = records.Count,
+                            ExportFormat = "Excel",
+                            ExportedBy = user?.Email
+                        }),
+                        $"User {user?.Email} exported {records.Count} medical records"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogError(auditEx, "Failed to log medical records export audit trail");
+                }
 
                 // Export logic here
                 return RedirectToPage();

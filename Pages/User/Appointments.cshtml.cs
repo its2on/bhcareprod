@@ -22,17 +22,20 @@ namespace Barangay.Pages.User
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly INotificationService _notificationService;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IAuditTrailService _auditTrailService;
 
         public AppointmentsModel(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             INotificationService notificationService,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IAuditTrailService auditTrailService)
         {
             _context = context;
             _userManager = userManager;
             _notificationService = notificationService;
             _encryptionService = encryptionService;
+            _auditTrailService = auditTrailService;
         }
 
         public List<Appointment> UpcomingAppointments { get; set; } = new List<Appointment>();
@@ -139,9 +142,10 @@ namespace Barangay.Pages.User
                     .ToList();
 
                 PastAppointments = appointments
-                    .Where(a => a.AppointmentDate < today || 
+                    .Where(a => (a.AppointmentDate < today || 
                         (a.AppointmentDate >= today && a.AppointmentDate <= todayEnd && 
-                            a.AppointmentTime < now.TimeOfDay))
+                            a.AppointmentTime < now.TimeOfDay)) &&
+                        a.Status != AppointmentStatus.Draft) // Exclude Draft from history
                     .ToList();
 
                 // Separate appointments by status for upcoming appointments
@@ -325,6 +329,7 @@ namespace Barangay.Pages.User
 
             Console.WriteLine($"DEBUG: Proceeding with cancellation of appointment {appointmentId} - Current status: {appointment.Status}");
             
+            var oldStatus = appointment.Status;
             appointment.Status = AppointmentStatus.Cancelled;
             appointment.UpdatedAt = DateTimeHelper.Now;
             
@@ -347,23 +352,45 @@ namespace Barangay.Pages.User
                 Console.WriteLine($"DEBUG: Appointment {appointmentId} cancelled successfully and verified in database.");
                 TempData["Success"] = "Appointment cancelled successfully.";
                 
-                // Create notification for the user
+                // Delete appointment booking notifications for this user
                 try
                 {
-                    var notificationMessage = $"Your appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt} has been cancelled successfully.";
+                    var notifications = await _context.Notifications
+                        .Where(n => n.UserId == user.Id && 
+                                    n.Title == "Appointment Booked" && 
+                                    n.Message.Contains(appointment.AppointmentDate.ToString("MMM dd, yyyy")))
+                        .ToListAsync();
                     
-                    await _notificationService.CreateNotificationForUserAsync(
-                        user.Id,
+                    foreach (var notification in notifications)
+                    {
+                        await _notificationService.DeleteNotificationAsync(notification.Id);
+                    }
+                    
+                    Console.WriteLine($"DEBUG: Deleted {notifications.Count} appointment booking notifications for user {user.Id}");
+                }
+                catch (Exception notifEx)
+                {
+                    Console.WriteLine($"DEBUG: Error deleting appointment booking notifications: {notifEx.Message}");
+                    // Don't fail the cancellation if notification deletion fails
+                }
+                
+                // Log to audit trail
+                try
+                {
+                    await _auditTrailService.LogAsync(
                         "Appointment Cancelled",
-                        notificationMessage,
-                        "Appointment Cancelled",
-                        "/User/Appointments"
+                        "Cancel Appointment",
+                        "Appointment",
+                        appointmentId.ToString(),
+                        $"Status: {oldStatus}",
+                        $"Status: {AppointmentStatus.Cancelled}",
+                        $"User cancelled appointment on {appointment.AppointmentDate:MMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt}"
                     );
                 }
-                catch (Exception ex)
+                catch (Exception auditEx)
                 {
-                    Console.WriteLine($"DEBUG: Error creating cancellation notification: {ex.Message}");
-                    // Don't fail the cancellation if notification fails
+                    Console.WriteLine($"DEBUG: Error logging to audit trail: {auditEx.Message}");
+                    // Don't fail the cancellation if audit logging fails
                 }
             }
             else

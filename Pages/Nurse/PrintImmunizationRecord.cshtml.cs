@@ -14,15 +14,18 @@ namespace Barangay.Pages.Nurse
         private readonly EncryptedDbContext _context;
         private readonly IDataEncryptionService _encryptionService;
         private readonly ILogger<PrintImmunizationRecordModel> _logger;
+        private readonly IAuditTrailService _auditTrail;
 
         public PrintImmunizationRecordModel(
             EncryptedDbContext context,
             IDataEncryptionService encryptionService,
-            ILogger<PrintImmunizationRecordModel> logger)
+            ILogger<PrintImmunizationRecordModel> logger,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _encryptionService = encryptionService;
             _logger = logger;
+            _auditTrail = auditTrail;
         }
 
         public ImmunizationRecord? Record { get; set; }
@@ -216,6 +219,29 @@ namespace Barangay.Pages.Nurse
                     Record.Status = _encryptionService.Decrypt(Record.Status);
 
                 _logger.LogInformation($"Successfully loaded and decrypted immunization record {id}");
+
+                // AUDIT: Log immunization record PDF export
+                try
+                {
+                    await _auditTrail.LogAsync(
+                        "Export",
+                        "Exported immunization record as PDF",
+                        "ImmunizationRecord",
+                        id.ToString(),
+                        null,
+                        Newtonsoft.Json.JsonConvert.SerializeObject(new { 
+                            RecordId = id,
+                            ChildName = Record.ChildName,
+                            FileType = "PDF",
+                            Module = "Immunization"
+                        }),
+                        $"Nurse exported immunization record for {Record.ChildName} as PDF"
+                    );
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogError(auditEx, "Failed to log immunization PDF export audit trail");
+                }
 
                 return Page();
             }

@@ -24,17 +24,20 @@ namespace Barangay.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<AuditTrailService> _logger;
+        private readonly IDeviceInfoParser _deviceInfoParser;
 
         public AuditTrailService(
             ApplicationDbContext context, 
             IHttpContextAccessor httpContextAccessor,
             UserManager<ApplicationUser> userManager,
-            ILogger<AuditTrailService> logger)
+            ILogger<AuditTrailService> logger,
+            IDeviceInfoParser deviceInfoParser)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
             _userManager = userManager;
             _logger = logger;
+            _deviceInfoParser = deviceInfoParser;
         }
 
         public async Task LogAsync(string actionType, string action, string entityName, string entityId, 
@@ -68,8 +71,12 @@ namespace Barangay.Services
                 // Capture request details
                 var requestMethod = httpContext.Request.Method;
                 var requestUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.Path}{httpContext.Request.QueryString}";
-                var deviceInfo = httpContext.Request.Headers["User-Agent"].ToString();
+                var userAgent = httpContext.Request.Headers["User-Agent"].ToString();
                 var sessionId = httpContext.Session?.Id;
+                
+                // Parse device information for better display
+                var parsedDevice = _deviceInfoParser.Parse(userAgent);
+                var deviceInfo = $"{parsedDevice.Browser} {parsedDevice.BrowserVersion} on {parsedDevice.OS} {parsedDevice.OSVersion} ({parsedDevice.Device})".Trim();
 
                 // Determine outcome based on action type
                 var outcome = actionType.Contains("Failed") || actionType.Contains("LoginFailed") ? "Failed" : "Success";
