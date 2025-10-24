@@ -14,6 +14,9 @@ namespace Barangay.Services
         Task<GenerateFamilyNumberResponse> GenerateFamilyNumberAsync(string lastName, string? healthFacility = null, string? patientCategory = null);
         Task<string> GetNextFamilyNumberAsync(string prefix);
         Task<bool> ValidateFamilyNumberAsync(string familyNumber);
+        Task<string?> GetExistingFamilyNumberAsync(string userId);
+        Task<string?> GetFamilyNumberByLastNameAsync(string lastName);
+        Task<GenerateFamilyNumberResponse> GenerateOrReuseFamilyNumberAsync(string lastName, string userId, bool sameFamily);
     }
 
     public class FamilyNumberService : IFamilyNumberService
@@ -217,6 +220,111 @@ namespace Barangay.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Gets existing family number for a user from Patient table
+        /// </summary>
+        public async Task<string?> GetExistingFamilyNumberAsync(string userId)
+        {
+            var patient = await _context.Patients
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+            
+            return patient?.FamilyNumber;
+        }
+
+        /// <summary>
+        /// Gets an existing family number by last name (for same family reuse)
+        /// </summary>
+        public async Task<string?> GetFamilyNumberByLastNameAsync(string lastName)
+        {
+            if (string.IsNullOrWhiteSpace(lastName))
+                return null;
+
+            var prefix = lastName.Substring(0, 1).ToUpper();
+            
+            _logger.LogInformation("Searching for existing family number with LastName: {LastName}, Prefix: {Prefix}", lastName, prefix);
+            
+            // Find the most recent family number for patients with matching last name
+            // Extract last name from FullName field (format: "FirstName LastName")
+            var patient = await _context.Patients
+                .Where(p => p.FamilyNumber != null && 
+                           p.FamilyNumber.StartsWith(prefix) &&
+                           p.FullName.EndsWith(lastName))
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+            
+            if (patient != null)
+            {
+                _logger.LogInformation("Found existing family number: {FamilyNumber} for patient: {PatientName}", 
+                    patient.FamilyNumber, patient.FullName);
+            }
+            else
+            {
+                _logger.LogInformation("No existing family number found for last name: {LastName}", lastName);
+            }
+            
+            return patient?.FamilyNumber;
+        }
+
+        /// <summary>
+        /// Generates a new family number or reuses existing one based on sameFamily flag
+        /// </summary>
+        public async Task<GenerateFamilyNumberResponse> GenerateOrReuseFamilyNumberAsync(
+            string lastName, 
+            string userId, 
+            bool sameFamily)
+        {
+            try
+            {
+                _logger.LogInformation("GenerateOrReuseFamilyNumber - LastName: {LastName}, UserId: {UserId}, SameFamily: {SameFamily}", 
+                    lastName, userId, sameFamily);
+
+                // If booking for same family, try to reuse existing family number based on last name
+                if (sameFamily)
+                {
+                    // First check if user already has a family number
+                    var existingUserFamilyNumber = await GetExistingFamilyNumberAsync(userId);
+                    if (!string.IsNullOrEmpty(existingUserFamilyNumber))
+                    {
+                        _logger.LogInformation("Reusing logged-in user's family number: {FamilyNumber}", existingUserFamilyNumber);
+                        return new GenerateFamilyNumberResponse
+                        {
+                            Success = true,
+                            FamilyNumber = existingUserFamilyNumber,
+                            IsPreexisting = true,
+                            Message = "Using existing family number"
+                        };
+                    }
+                    
+                    // Otherwise, search for family number by last name
+                    var familyNumber = await GetFamilyNumberByLastNameAsync(lastName);
+                    if (!string.IsNullOrEmpty(familyNumber))
+                    {
+                        _logger.LogInformation("Reusing family number from last name search: {FamilyNumber}", familyNumber);
+                        return new GenerateFamilyNumberResponse
+                        {
+                            Success = true,
+                            FamilyNumber = familyNumber,
+                            IsPreexisting = true,
+                            Message = "Reusing family number for same family"
+                        };
+                    }
+                }
+
+                // Generate new family number (when sameFamily = false OR no existing family found)
+                _logger.LogInformation("Generating new family number for {LastName}", lastName);
+                return await GenerateFamilyNumberAsync(lastName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GenerateOrReuseFamilyNumberAsync");
+                return new GenerateFamilyNumberResponse
+                {
+                    Success = false,
+                    Error = "Error processing family number request"
+                };
+            }
         }
     }
 }

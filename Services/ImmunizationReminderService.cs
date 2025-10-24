@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
 using System.Net;
 using System.Net.Mail;
+using Barangay.Services;
 
 namespace Barangay.Services
 {
@@ -17,13 +18,16 @@ namespace Barangay.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<ImmunizationReminderService> _logger;
+        private readonly IDataEncryptionService _encryptionService;
 
         public ImmunizationReminderService(
             IConfiguration configuration,
-            ILogger<ImmunizationReminderService> logger)
+            ILogger<ImmunizationReminderService> logger,
+            IDataEncryptionService encryptionService)
         {
             _configuration = configuration;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         public async Task SendImmunizationReminderAsync(string email, string patientName, string customMessage)
@@ -37,7 +41,7 @@ namespace Barangay.Services
                 var smtpPort = int.TryParse(smtpSection["SmtpPort"], out int port) ? port : 587;
                 var smtpUser = smtpSection["SmtpUsername"];
                 var smtpPassword = smtpSection["SmtpPassword"];
-                var fromEmail = smtpSection["FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = smtpSection["FromEmail"] ?? "noreply@baesa.health.com";
 
                 _logger.LogInformation("SMTP Configuration - Host: {Host}, Port: {Port}, User: {User}, Password Set: {PasswordSet}", 
                     smtpHost, smtpPort, smtpUser, !string.IsNullOrEmpty(smtpPassword));
@@ -83,12 +87,15 @@ namespace Barangay.Services
         {
             try
             {
+                // NOTE: Record is already decrypted in the page model (ImmunizationRecords.cshtml.cs)
+                // before being passed here, so we use it directly without re-decrypting
+                
                 var smtpSection = _configuration.GetSection("EmailSettings");
                 var smtpHost = smtpSection["SmtpHost"] ?? "smtp.gmail.com";
                 var smtpPort = int.TryParse(smtpSection["SmtpPort"], out int port) ? port : 587;
                 var smtpUser = smtpSection["SmtpUsername"];
                 var smtpPassword = smtpSection["SmtpPassword"];
-                var fromEmail = smtpSection["FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = smtpSection["FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -576,6 +583,96 @@ namespace Barangay.Services
             }
 
             return string.Join("", vaccineRows);
+        }
+
+        private Models.ImmunizationRecord DecryptImmunizationRecord(Models.ImmunizationRecord record)
+        {
+            try
+            {
+                // Create a copy to avoid modifying the original
+                var decrypted = new Models.ImmunizationRecord
+                {
+                    Id = record.Id,
+                    // Decrypt ALL sensitive fields
+                    ChildName = DecryptIfNeeded(record.ChildName),
+                    DateOfBirth = DecryptIfNeeded(record.DateOfBirth),
+                    FamilyNumber = DecryptIfNeeded(record.FamilyNumber),
+                    MotherName = DecryptIfNeeded(record.MotherName),
+                    FatherName = DecryptIfNeeded(record.FatherName),
+                    Sex = record.Sex, // Not encrypted
+                    PlaceOfBirth = DecryptIfNeeded(record.PlaceOfBirth),
+                    BirthHeight = DecryptIfNeeded(record.BirthHeight),
+                    BirthWeight = DecryptIfNeeded(record.BirthWeight),
+                    Address = DecryptIfNeeded(record.Address),
+                    HealthCenter = DecryptIfNeeded(record.HealthCenter),
+                    Barangay = DecryptIfNeeded(record.Barangay),
+                    Email = DecryptIfNeeded(record.Email),
+                    ContactNumber = DecryptIfNeeded(record.ContactNumber),
+                    CreatedBy = DecryptIfNeeded(record.CreatedBy),
+                    UpdatedBy = DecryptIfNeeded(record.UpdatedBy),
+                    CreatedAt = record.CreatedAt,
+                    UpdatedAt = record.UpdatedAt,
+                    // Copy vaccine dates (might need decryption too)
+                    BCGVaccineDate = DecryptIfNeeded(record.BCGVaccineDate),
+                    BCGVaccineRemarks = DecryptIfNeeded(record.BCGVaccineRemarks),
+                    HepatitisBVaccineDate = DecryptIfNeeded(record.HepatitisBVaccineDate),
+                    HepatitisBVaccineRemarks = DecryptIfNeeded(record.HepatitisBVaccineRemarks),
+                    Pentavalent1Date = DecryptIfNeeded(record.Pentavalent1Date),
+                    Pentavalent1Remarks = DecryptIfNeeded(record.Pentavalent1Remarks),
+                    Pentavalent2Date = DecryptIfNeeded(record.Pentavalent2Date),
+                    Pentavalent2Remarks = DecryptIfNeeded(record.Pentavalent2Remarks),
+                    Pentavalent3Date = DecryptIfNeeded(record.Pentavalent3Date),
+                    Pentavalent3Remarks = DecryptIfNeeded(record.Pentavalent3Remarks),
+                    OPV1Date = DecryptIfNeeded(record.OPV1Date),
+                    OPV1Remarks = DecryptIfNeeded(record.OPV1Remarks),
+                    OPV2Date = DecryptIfNeeded(record.OPV2Date),
+                    OPV2Remarks = DecryptIfNeeded(record.OPV2Remarks),
+                    OPV3Date = DecryptIfNeeded(record.OPV3Date),
+                    OPV3Remarks = DecryptIfNeeded(record.OPV3Remarks),
+                    IPV1Date = DecryptIfNeeded(record.IPV1Date),
+                    IPV1Remarks = DecryptIfNeeded(record.IPV1Remarks),
+                    IPV2Date = DecryptIfNeeded(record.IPV2Date),
+                    IPV2Remarks = DecryptIfNeeded(record.IPV2Remarks),
+                    PCV1Date = DecryptIfNeeded(record.PCV1Date),
+                    PCV1Remarks = DecryptIfNeeded(record.PCV1Remarks),
+                    PCV2Date = DecryptIfNeeded(record.PCV2Date),
+                    PCV2Remarks = DecryptIfNeeded(record.PCV2Remarks),
+                    PCV3Date = DecryptIfNeeded(record.PCV3Date),
+                    PCV3Remarks = DecryptIfNeeded(record.PCV3Remarks),
+                    MMR1Date = DecryptIfNeeded(record.MMR1Date),
+                    MMR1Remarks = DecryptIfNeeded(record.MMR1Remarks),
+                    MMR2Date = DecryptIfNeeded(record.MMR2Date),
+                    MMR2Remarks = DecryptIfNeeded(record.MMR2Remarks)
+                };
+
+                return decrypted;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error decrypting immunization record");
+                return record; // Return original if decryption fails
+            }
+        }
+
+        private string? DecryptIfNeeded(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+
+            try
+            {
+                // Check if value is encrypted (has the encryption marker)
+                if (_encryptionService.IsEncrypted(value))
+                {
+                    return _encryptionService.Decrypt(value);
+                }
+                return value;
+            }
+            catch
+            {
+                // If decryption fails, return original value
+                return value;
+            }
         }
     }
 }

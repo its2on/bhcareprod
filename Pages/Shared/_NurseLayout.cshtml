@@ -34,8 +34,8 @@
             box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
             background-color: var(--color-primary);
             transition: all 0.3s ease;
-            width: 250px;
-            overflow-x: hidden;
+            width: 320px;
+            overflow: hidden;
         }
 
         .sidebar.collapsed {
@@ -48,7 +48,7 @@
             height: calc(100vh - 48px);
             padding-top: .5rem;
             overflow-x: hidden;
-            overflow-y: auto;
+            overflow-y: hidden;
         }
 
         .sidebar .nav-link {
@@ -79,6 +79,18 @@
             background-color: rgba(0, 0, 0, 0.18); /* darker overlay for visibility */
             color: #ffffff;
             border-left: 3px solid #ffffff;
+        }
+
+        /* Badge notification styling */
+        .sidebar .nav-link .badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        .sidebar.collapsed .nav-link .badge {
+            display: none;
         }
 
         /* Simplified color palette overrides for Nurse area */
@@ -135,8 +147,21 @@
             display: none;
         }
 
-        /* Hide expand/collapse button (not required) */
-        #sidebarToggle { display: none !important; }
+        /* Expand/collapse button */
+        #sidebarToggle { 
+            position: fixed;
+            left: 320px;
+            top: 10px;
+            z-index: 101;
+            background-color: var(--color-primary);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
 
         .sidebar.collapsed + #sidebarToggle { left: 60px; }
 
@@ -147,7 +172,7 @@
         .sidebar.collapsed + #sidebarToggle i { }
 
         .main-content {
-            margin-left: 250px;
+            margin-left: 320px;
             transition: all 0.3s;
             padding: 1rem 1.25rem 1.5rem;
             min-height: 100vh;
@@ -170,7 +195,7 @@
 
         @@media screen and (max-width: 768px) {
             .sidebar {
-                margin-left: -250px;
+                margin-left: -320px;
             }
 
             .sidebar.collapsed {
@@ -191,7 +216,7 @@
             }
 
             #sidebarToggle.show {
-                left: 250px;
+                left: 320px;
             }
 
             .sidebar.collapsed.show {

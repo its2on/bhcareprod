@@ -143,37 +143,73 @@ namespace Barangay.Pages.Doctor
                     patient.Age = user.Age;
                 }
 
-                // Retrieve and decrypt family number from NCDRiskAssessment or HEEADSSSAssessment
-                var ncdAssessment = await _context.NCDRiskAssessments
-                    .FirstOrDefaultAsync(n => n.UserId == patient.PatientId);
-                
-                var heeadsssAssessment = await _context.HEEADSSSAssessments
-                    .FirstOrDefaultAsync(h => h.UserId == patient.PatientId);
-                
+                // Retrieve family number from Patient record first, then fall back to assessments
                 string familyNumber = "N/A";
                 
-                // Check NCDRiskAssessment first
-                if (ncdAssessment != null && !string.IsNullOrEmpty(ncdAssessment.FamilyNo))
+                // Check Patient record first (primary source)
+                var patientRecord = await _context.Patients
+                    .FirstOrDefaultAsync(p => p.UserId == patient.PatientId);
+                
+                if (patientRecord != null && !string.IsNullOrEmpty(patientRecord.FamilyNumber))
                 {
-                    // Decrypt the family number
-                    ncdAssessment.DecryptSensitiveData(_encryptionService, User);
-                    familyNumber = ncdAssessment.FamilyNo ?? "N/A";
+                    familyNumber = patientRecord.FamilyNumber;
                 }
-                // If no NCD family number, check HEEADSSSAssessment
-                else if (heeadsssAssessment != null && !string.IsNullOrEmpty(heeadsssAssessment.FamilyNo))
+                else
                 {
-                    // Decrypt the family number
-                    heeadsssAssessment.DecryptSensitiveData(_encryptionService, User);
-                    familyNumber = heeadsssAssessment.FamilyNo ?? "N/A";
+                    // Fall back to NCDRiskAssessment
+                    var ncdAssessment = await _context.NCDRiskAssessments
+                        .FirstOrDefaultAsync(n => n.UserId == patient.PatientId);
+                    
+                    if (ncdAssessment != null && !string.IsNullOrEmpty(ncdAssessment.FamilyNo))
+                    {
+                        // Decrypt the family number
+                        ncdAssessment.DecryptSensitiveData(_encryptionService, User);
+                        familyNumber = ncdAssessment.FamilyNo ?? "N/A";
+                    }
+                    else
+                    {
+                        // Fall back to HEEADSSSAssessment
+                        var heeadsssAssessment = await _context.HEEADSSSAssessments
+                            .FirstOrDefaultAsync(h => h.UserId == patient.PatientId);
+                        
+                        if (heeadsssAssessment != null && !string.IsNullOrEmpty(heeadsssAssessment.FamilyNo))
+                        {
+                            // Decrypt the family number
+                            heeadsssAssessment.DecryptSensitiveData(_encryptionService, User);
+                            familyNumber = heeadsssAssessment.FamilyNo ?? "N/A";
+                        }
+                    }
                 }
                 
                 patient.FamilyNumber = familyNumber;
             }
 
-            Patients = patients;
+            // Also include patients from Appointments (where BookingForOther = true)
+            // These are guest patients who don't have their own Patient records
+            var guestPatients = await _context.Appointments
+                .Where(a => a.BookingForOther == true && 
+                           !string.IsNullOrEmpty(a.FamilyNumber) &&
+                           a.Status != AppointmentStatus.Cancelled)
+                .Select(a => new PatientViewModel
+                {
+                    PatientId = a.Id.ToString(), // Use appointment ID as identifier
+                    FullName = a.PatientName,
+                    Email = "Guest Patient",
+                    PhoneNumber = a.ContactNumber ?? "N/A",
+                    Barangay = "Guest",
+                    Status = "Guest Patient",
+                    Age = a.AgeValue.ToString(),
+                    FamilyNumber = a.FamilyNumber
+                })
+                .ToListAsync();
+
+            // Combine registered patients and guest patients
+            var allPatients = patients.Concat(guestPatients).ToList();
+
+            Patients = allPatients;
 
             // Group patients by family number
-            FamilyGroups = GroupPatientsByFamily(patients);
+            FamilyGroups = GroupPatientsByFamily(allPatients);
 
             return Page();
         }

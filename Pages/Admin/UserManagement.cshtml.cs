@@ -504,7 +504,7 @@ namespace Barangay.Pages.Admin
                     
                     if (!string.IsNullOrEmpty(userEmail) && userEmail.Contains("@"))
                     {
-                        var emailSubject = "Account Approved - Barangay Health Care";
+                        var emailSubject = "Account Approved - Baesa Health Care";
                         var emailBody = GenerateApprovalEmailBody(userName, userEmail);
                         
                         await _emailService.SendEmailAsync(userEmail, emailSubject, emailBody);
@@ -709,7 +709,7 @@ namespace Barangay.Pages.Admin
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>✅ Account Approved - Barangay Health Care</h2>
+                            <h2>✅ Account Approved - Baesa Health Care</h2>
                         </div>
                         
                         <div class='content'>
@@ -719,7 +719,7 @@ namespace Barangay.Pages.Admin
                                 <strong>🎉 Your account has been approved and verified!</strong>
                             </div>
                             
-                            <p>We are pleased to inform you that your Barangay Health Care account has been successfully approved. You can now access all the features and services available in our system.</p>
+                            <p>We are pleased to inform you that your Baesa Health Care account has been successfully approved. You can now access all the features and services available in our system.</p>
                             
                             <p><strong>What you can do now:</strong></p>
                             <ul>
@@ -738,11 +738,11 @@ namespace Barangay.Pages.Admin
                             
                             <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
                             
-                            <p>Thank you for choosing Barangay Health Care for your health needs!</p>
+                            <p>Thank you for choosing Baesa Health Care for your health needs!</p>
                         </div>
                         
                         <div class='footer'>
-                            <p>This is an automated message from Barangay Health Care System</p>
+                            <p>This is an automated message from Baesa Health Care System</p>
                             <p>Please do not reply to this email</p>
                         </div>
                     </div>
@@ -888,7 +888,7 @@ namespace Barangay.Pages.Admin
                         </div>
                         
                         <div class='footer'>
-                            <p>This is an automated message from Barangay Health Care System</p>
+                            <p>This is an automated message from Baesa Health Care System</p>
                             <p>Please do not reply to this email</p>
                         </div>
                     </div>
@@ -1082,7 +1082,7 @@ namespace Barangay.Pages.Admin
                         if (status.Equals("verified", StringComparison.OrdinalIgnoreCase))
                         {
                             // Send approval email
-                            var emailSubject = "Account Approved - Barangay Health Care";
+                            var emailSubject = "Account Approved - Baesa Health Care";
                             var emailBody = GenerateApprovalEmailBody(userName, userEmail);
                             
                             await _emailService.SendEmailAsync(userEmail, emailSubject, emailBody);
@@ -1091,7 +1091,7 @@ namespace Barangay.Pages.Admin
                         else if (status.Equals("rejected", StringComparison.OrdinalIgnoreCase))
                         {
                             // Send rejection email with suspension info
-                            var emailSubject = "Account Application Status - Barangay Health Care";
+                            var emailSubject = "Account Application Status - Baesa Health Care";
                             var emailBody = suspensionResult?.IsSuspended == true
                                 ? GenerateSuspensionEmailBody(userName, userEmail, suspensionResult.DenialCount, suspensionResult.SuspensionPeriod, suspensionResult.SuspensionEndDate)
                                 : GenerateRejectionEmailBody(userName, userEmail);

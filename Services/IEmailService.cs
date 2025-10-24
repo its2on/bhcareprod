@@ -33,7 +33,7 @@ namespace Barangay.Services
                 var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"] ?? "587");
                 var smtpUsername = _configuration["EmailSettings:SmtpUsername"];
                 var smtpPassword = _configuration["EmailSettings:SmtpPassword"];
-                var fromEmail = _configuration["EmailSettings:FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = _configuration["EmailSettings:FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUsername) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -47,7 +47,7 @@ namespace Barangay.Services
 
                 var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(fromEmail, "Barangay Health Care"),
+                    From = new MailAddress(fromEmail, "Baesa Health Care"),
                     Subject = subject,
                     Body = message,
                     IsBodyHtml = true
@@ -74,7 +74,7 @@ namespace Barangay.Services
                 var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"] ?? "587");
                 var smtpUsername = _configuration["EmailSettings:SmtpUsername"];
                 var smtpPassword = _configuration["EmailSettings:SmtpPassword"];
-                var fromEmail = _configuration["EmailSettings:FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = _configuration["EmailSettings:FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUsername) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -88,8 +88,8 @@ namespace Barangay.Services
 
                 var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(fromEmail, "Barangay Health Care"),
-                    Subject = "Your OTP Code - Barangay Health Care",
+                    From = new MailAddress(fromEmail, "Baesa Health Care"),
+                    Subject = "Your OTP Code - Baesa Health Care",
                     Body = GenerateOTPEmailBody(otp),
                     IsBodyHtml = true
                 };
@@ -128,13 +128,13 @@ namespace Barangay.Services
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>🔐 Barangay Health Care</h2>
+                            <h2>🔐 Baesa Health Care</h2>
                             <p>One-Time Password (OTP) Verification</p>
                         </div>
                         
                         <div class='content'>
                             <h3>Hello!</h3>
-                            <p>You have requested to log in to your Barangay Health Care account. Please use the following One-Time Password (OTP) to complete your login:</p>
+                            <p>You have requested to log in to your Baesa Health Care account. Please use the following One-Time Password (OTP) to complete your login:</p>
                             
                             <div class='otp-code'>{otp}</div>
                             
@@ -149,7 +149,7 @@ namespace Barangay.Services
                         </div>
                         
                         <div class='footer'>
-                            <p>This is an automated message from Barangay Health Care System</p>
+                            <p>This is an automated message from Baesa Health Care System</p>
                             <p>Please do not reply to this email</p>
                         </div>
                     </div>

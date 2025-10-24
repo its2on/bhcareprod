@@ -37,7 +37,7 @@ namespace Barangay.Services
                 document.Add(new Paragraph("CITY HEALTH DEPARTMENT")
                     .SetTextAlignment(TextAlignment.CENTER)
                     .SetFontSize(12));
-                document.Add(new Paragraph("BHCARE HEALTH CENTER")
+                document.Add(new Paragraph("BAESA HEALTH CENTER")
                     .SetTextAlignment(TextAlignment.CENTER)
                     .SetFontSize(14));
                 document.Add(new Paragraph("350 ROSO")

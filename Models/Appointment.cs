@@ -35,12 +35,14 @@ namespace Barangay.Models
         public string? RelationshipToDependent { get; set; }
         
         // Booking for someone else properties
-        [NotMapped]
         public bool BookingForOther { get; set; }
         
-        [NotMapped]
         [StringLength(50)]
         public string? Relationship { get; set; }
+        
+        // Family Number (for grouping related patients)
+        [StringLength(50)]
+        public string? FamilyNumber { get; set; }
         
         // Basic Info
         [StringLength(10)]

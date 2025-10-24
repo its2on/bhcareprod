@@ -6,6 +6,10 @@
         <a class="nav-link @(item.IsActive ? "active" : "")" href="@item.Url" data-title="@item.Text">
             <i class="fas fa-@item.Icon"></i>
             <span>@item.Text</span>
+            @if (item.BadgeCount > 0)
+            {
+                <span class="badge bg-danger rounded-pill ms-auto">@item.BadgeCount</span>
+            }
         </a>
     </li>
 }

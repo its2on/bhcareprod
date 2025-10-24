@@ -866,6 +866,33 @@ namespace Barangay.Pages.Doctor
 
                 await _context.SaveChangesAsync();
                 
+                // Create in-app notification for consultation completion
+                try
+                {
+                    var completionMessage = $"Your consultation on {appointment.AppointmentDate:MMMM dd, yyyy} at {appointment.AppointmentTime:hh\\:mm tt} has been completed.";
+                    if (!string.IsNullOrEmpty(Diagnosis))
+                    {
+                        completionMessage += $" Diagnosis: {Diagnosis}";
+                    }
+                    if (!string.IsNullOrEmpty(Prescribe))
+                    {
+                        completionMessage += " Please check your prescription details.";
+                    }
+                    
+                    await _notificationService.CreateNotificationForUserAsync(
+                        appointment.PatientId,
+                        "Consultation Completed",
+                        completionMessage,
+                        "Success",
+                        $"/User/Appointments?appointmentId={appointment.Id}"
+                    );
+                    _logger.LogInformation("In-app notification created for consultation completion, appointment {AppointmentId}", appointment.Id);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to create in-app notification for consultation completion, appointment {AppointmentId}", appointment.Id);
+                }
+                
                 // Log to audit trail
                 try
                 {

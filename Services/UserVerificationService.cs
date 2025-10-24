@@ -2,6 +2,7 @@ using Barangay.Data;
 using Barangay.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace Barangay.Services
 {
@@ -11,17 +12,20 @@ namespace Barangay.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<UserVerificationService> _logger;
+        private readonly IAuditTrailService _auditTrail;
         
         public UserVerificationService(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            ILogger<UserVerificationService> logger)
+            ILogger<UserVerificationService> logger,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
             _logger = logger;
+            _auditTrail = auditTrail;
         }
         
         public async Task<List<ApplicationUser>> GetPendingUsersAsync()
@@ -116,6 +120,18 @@ namespace Barangay.Services
                 await transaction.CommitAsync();
 
                 _logger.LogInformation($"Successfully approved user {user.Email} with ID {userId}");
+                
+                // Log audit trail
+                await _auditTrail.LogAsync(
+                    "Approve",
+                    $"User {user.Email} approved by admin",
+                    "UserVerification",
+                    userId,
+                    JsonConvert.SerializeObject(new { Status = "Pending", IsActive = false }),
+                    JsonConvert.SerializeObject(new { Status = "Verified", IsActive = true }),
+                    $"User approved and assigned role(s): {string.Join(", ", await _userManager.GetRolesAsync(user))}"
+                );
+                
                 return true;
             }
             catch (Exception ex)
@@ -167,6 +183,18 @@ namespace Barangay.Services
                 
                 // Commit transaction
                 await transaction.CommitAsync();
+                
+                // Log audit trail
+                await _auditTrail.LogAsync(
+                    "Reject",
+                    $"User {user.Email} rejected by admin",
+                    "UserVerification",
+                    userId,
+                    JsonConvert.SerializeObject(new { Status = "Pending" }),
+                    JsonConvert.SerializeObject(new { Status = "Rejected" }),
+                    string.IsNullOrEmpty(reason) ? "User registration rejected" : $"Rejection reason: {reason}"
+                );
+                
                 return true;
             }
             catch (Exception ex)

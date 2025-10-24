@@ -44,6 +44,8 @@ namespace Barangay.Models
         
         [StringLength(20)]
         public string? PatientCategory { get; set; }
+        
+        public bool SameFamily { get; set; } = false;
     }
 
     /// <summary>
@@ -55,6 +57,7 @@ namespace Barangay.Models
         public string FamilyNumber { get; set; } = string.Empty;
         public bool IsPreexisting { get; set; }
         public string? Error { get; set; }
+        public string? Message { get; set; }
         public string Prefix { get; set; } = string.Empty;
         public int SequenceNumber { get; set; }
     }

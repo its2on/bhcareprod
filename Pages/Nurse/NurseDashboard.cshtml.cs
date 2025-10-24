@@ -92,20 +92,54 @@ namespace Barangay.Pages.Nurse
             
             // Fetch recent notifications from the database
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            RecentNotifications = new List<NotificationItem>();
+            
             if (!string.IsNullOrEmpty(userId))
             {
+                // Get unread notifications from Notifications table
                 var notifications = await _context.Notifications
                                                   .Where(n => n.RecipientId == userId && !n.IsRead)
                                                   .OrderByDescending(n => n.CreatedAt)
                                                   .Take(5)
                                                   .ToListAsync();
 
-                RecentNotifications = notifications.Select(n => new NotificationItem
+                RecentNotifications.AddRange(notifications.Select(n => new NotificationItem
                 {
                     Title = n.Title,
                     Message = n.Message,
                     CreatedAt = n.CreatedAt
-                }).ToList();
+                }));
+            }
+            
+            // Add today's appointments as notifications if no notifications exist
+            if (!RecentNotifications.Any())
+            {
+                var todaysNewAppointments = await _context.Appointments
+                    .Include(a => a.Patient)
+                    .Where(a => a.AppointmentDate.Date == today && a.PatientId != adminId)
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Take(5)
+                    .ToListAsync();
+
+                foreach (var apt in todaysNewAppointments)
+                {
+                    var statusText = apt.Status switch
+                    {
+                        Models.AppointmentStatus.Pending => "Pending",
+                        Models.AppointmentStatus.Confirmed => "Confirmed",
+                        Models.AppointmentStatus.InProgress => "In Progress",
+                        Models.AppointmentStatus.Completed => "Completed",
+                        Models.AppointmentStatus.Cancelled => "Cancelled",
+                        _ => "Unknown"
+                    };
+
+                    RecentNotifications.Add(new NotificationItem
+                    {
+                        Title = $"Appointment - {apt.PatientName}",
+                        Message = $"{apt.ReasonForVisit} appointment at {apt.AppointmentDate:hh:mm tt} - Status: {statusText}",
+                        CreatedAt = apt.CreatedAt
+                    });
+                }
             }
         }
 

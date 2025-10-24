@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
 using Barangay.Models;
+using Barangay.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,14 +14,18 @@ using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,System Administrator")]
     public class AuditTrailModel : PageModel
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<AuditTrailModel> _logger;
+        private readonly IAuditTrailService _auditTrail;
 
-        public AuditTrailModel(ApplicationDbContext context)
+        public AuditTrailModel(ApplicationDbContext context, ILogger<AuditTrailModel> logger, IAuditTrailService auditTrail)
         {
             _context = context;
+            _logger = logger;
+            _auditTrail = auditTrail;
         }
 
         public List<AuditTrail> AuditLogs { get; set; } = new();
@@ -41,19 +46,29 @@ namespace Barangay.Pages.Admin
         public int ActiveUsers { get; set; }
         public string OutcomeFilter { get; set; }
 
+        [BindProperty(SupportsGet = true)]
+        public int Page { get; set; } = 1;
+
         public async Task OnGetAsync(string search, string role, string actionType, 
-                                     DateTime? fromDate, DateTime? toDate, string outcome = null, int page = 1)
+                                     DateTime? fromDate, DateTime? toDate, string outcome = null)
         {
+            string requestId = Guid.NewGuid().ToString().Substring(0, 8);
+            _logger.LogInformation($"[{requestId}] ========== AuditTrail OnGetAsync START ==========");
+            _logger.LogInformation($"[{requestId}] Page property from URL: {Page}");
+            _logger.LogInformation($"[{requestId}] Request URL: {HttpContext.Request.Path}{HttpContext.Request.QueryString}");
+            
             SearchTerm = search;
             RoleFilter = role;
             ActionTypeFilter = actionType;
             FromDate = fromDate;
             ToDate = toDate;
             OutcomeFilter = outcome;
-            CurrentPage = page;
+            CurrentPage = Page;
+            
+            _logger.LogInformation($"[{requestId}] CurrentPage assigned: {CurrentPage}, Skip={(CurrentPage - 1) * PageSize}, Take={PageSize}");
 
             // Calculate summary statistics
-            var today = DateTime.Today;
+            DateTime today = DateTime.Today;
             TotalActions = await _context.AuditTrails.CountAsync();
             ActionsToday = await _context.AuditTrails.CountAsync(a => a.Timestamp >= today);
             FailedActions = await _context.AuditTrails.CountAsync(a => a.Outcome == "Failed");
@@ -110,6 +125,16 @@ namespace Barangay.Pages.Admin
                 .Skip((CurrentPage - 1) * PageSize)
                 .Take(PageSize)
                 .ToListAsync();
+            
+            _logger.LogInformation($"[{requestId}] Query executed: Retrieved {AuditLogs.Count} records. TotalCount={TotalCount}, TotalPages={TotalPages}");
+            if (AuditLogs.Any())
+            {
+                _logger.LogInformation($"[{requestId}] First record timestamp: {AuditLogs.First().Timestamp}, Last record timestamp: {AuditLogs.Last().Timestamp}");
+                _logger.LogInformation($"[{requestId}] First record ID: {AuditLogs.First().Id}, Action: {AuditLogs.First().Action}");
+            }
+            
+            _logger.LogInformation($"[{requestId}] FINAL VALUES BEFORE RENDER: CurrentPage={CurrentPage}, Page={Page}, TotalPages={TotalPages}");
+            _logger.LogInformation($"[{requestId}] ========== AuditTrail OnGetAsync END ==========");
         }
 
         public async Task<IActionResult> OnGetDetailsAsync(int id)
@@ -152,6 +177,27 @@ namespace Barangay.Pages.Admin
             }
 
             var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+            
+            // Log audit trail for export
+            await _auditTrail.LogAsync(
+                "Export",
+                $"Exported audit trail to CSV ({logs.Count} records)",
+                "AuditTrail",
+                null,
+                null,
+                JsonConvert.SerializeObject(new {
+                    RecordCount = logs.Count,
+                    Filters = new {
+                        Search = search,
+                        Role = role,
+                        ActionType = actionType,
+                        FromDate = fromDate?.ToString("yyyy-MM-dd"),
+                        ToDate = toDate?.ToString("yyyy-MM-dd"),
+                        Outcome = outcome
+                    }
+                })
+            );
+            
             return File(bytes, "text/csv", $"AuditTrail_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
         }
     }

@@ -205,8 +205,7 @@
                         </div>
                         <button type="submit" class="btn btn-primary btn-block" id="loginButton">
                             <i class="fas fa-sign-in-alt me-2"></i>
-                            <span id="loginText">Log In</span>
-                            <span id="loginSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            Log In
                         </button>
                         
                         @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -354,26 +353,19 @@
             // Smart "How It Works" popup for new visitors
             showHowItWorksPopup();
             
-            // Reset login button state on page load (in case of validation errors or failed login)
-            $("#loginText").removeClass("d-none");
-            $("#loginSpinner").addClass("d-none");
-            $("#loginButton").attr("disabled", false);
-            
             // Prevent admin users from submitting home page login form
             $("#loginForm").on("submit", function(e) {
-                const email = $('input[name="Input.Email"]').val().toLowerCase();
+                const email = $('input[name="Input.Email"]').val();
                 
-                // Check for common admin email patterns
-                if (email.includes('admin') || email.includes('administrator')) {
+                // Only check admin pattern if email is provided
+                if (email && email.toLowerCase().includes('admin')) {
                     e.preventDefault();
                     alert('❌ ACCESS DENIED: Admin users must use the Admin Login page. Please go to the Login page and use the "Admin Login Only" button.');
                     return false;
                 }
                 
-                // Show loading spinner when form is submitted
-                $("#loginText").addClass("d-none");
-                $("#loginSpinner").removeClass("d-none");
-                $("#loginButton").attr("disabled", true);
+                // Let the form submit normally - validation will handle invalid inputs
+                // and the page will reload with error messages if login fails
             });
             
             // Contact admin button functionality

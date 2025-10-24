@@ -19,17 +19,20 @@ namespace Barangay.Pages.Nurse
         private readonly IImmunizationReminderService _immunizationReminderService;
         private readonly ILogger<ImmunizationRecordsModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly INotificationService _notificationService;
 
         public ImmunizationRecordsModel(
             EncryptedDbContext context,
             IImmunizationReminderService immunizationReminderService,
             ILogger<ImmunizationRecordsModel> logger,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            INotificationService notificationService)
         {
             _context = context;
             _immunizationReminderService = immunizationReminderService;
             _logger = logger;
             _encryptionService = encryptionService;
+            _notificationService = notificationService;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -76,74 +79,81 @@ namespace Barangay.Pages.Nurse
             {
                 try
                 {
-                    _logger.LogInformation($"Processing record ID: {record.Id}");
+                    _logger.LogInformation($"========== Processing record ID: {record.Id} ==========");
                     _logger.LogInformation($"  Before - FamilyNumber encrypted: {_encryptionService.IsEncrypted(record.FamilyNumber ?? "")}");
                     _logger.LogInformation($"  Before - ChildName encrypted: {_encryptionService.IsEncrypted(record.ChildName ?? "")}");
+                    _logger.LogInformation($"  Before - MotherName encrypted: {_encryptionService.IsEncrypted(record.MotherName ?? "")}");
+                    _logger.LogInformation($"  Before - FatherName encrypted: {_encryptionService.IsEncrypted(record.FatherName ?? "")}");
+                    _logger.LogInformation($"  Before - BirthHeight encrypted: {_encryptionService.IsEncrypted(record.BirthHeight ?? "")}");
+                    _logger.LogInformation($"  Before - BirthWeight encrypted: {_encryptionService.IsEncrypted(record.BirthWeight ?? "")}");
                     
                     // Force decryption by calling the method directly
                     var decryptedRecord = record.DecryptImmunizationData(_encryptionService, User);
                     
-                    // Double-check and manually decrypt if still encrypted
-                    if (_encryptionService.IsEncrypted(decryptedRecord.FamilyNumber ?? ""))
+                    _logger.LogInformation($"  After DecryptImmunizationData:");
+                    _logger.LogInformation($"    FamilyNumber encrypted: {_encryptionService.IsEncrypted(decryptedRecord.FamilyNumber ?? "")}");
+                    _logger.LogInformation($"    MotherName encrypted: {_encryptionService.IsEncrypted(decryptedRecord.MotherName ?? "")}");
+                    _logger.LogInformation($"    FatherName encrypted: {_encryptionService.IsEncrypted(decryptedRecord.FatherName ?? "")}");
+                    
+                    // Helper to recursively decrypt multi-layer encryption (caused by previous cascade bug)
+                    string RecursiveDecrypt(string? value, string fieldName, int maxAttempts = 5)
                     {
-                        _logger.LogWarning($"  FamilyNumber still encrypted after DecryptImmunizationData, manually decrypting...");
-                        decryptedRecord.FamilyNumber = _encryptionService.Decrypt(decryptedRecord.FamilyNumber);
+                        if (string.IsNullOrEmpty(value)) return value ?? "";
+                        
+                        string current = value;
+                        int attempts = 0;
+                        
+                        while (_encryptionService.IsEncrypted(current) && attempts < maxAttempts)
+                        {
+                            attempts++;
+                            _logger.LogWarning($"  {fieldName} encrypted (attempt {attempts}/{maxAttempts}), decrypting...");
+                            current = _encryptionService.Decrypt(current);
+                        }
+                        
+                        if (_encryptionService.IsEncrypted(current))
+                        {
+                            _logger.LogError($"  {fieldName} STILL encrypted after {maxAttempts} attempts!");
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"  {fieldName} fully decrypted after {attempts} attempt(s)");
+                        }
+                        
+                        return current;
                     }
                     
-                    if (_encryptionService.IsEncrypted(decryptedRecord.ChildName ?? ""))
-                    {
-                        _logger.LogWarning($"  ChildName still encrypted after DecryptImmunizationData, manually decrypting...");
-                        decryptedRecord.ChildName = _encryptionService.Decrypt(decryptedRecord.ChildName);
-                    }
+                    // Double-check and manually decrypt if still encrypted (with multi-layer support)
+                    decryptedRecord.FamilyNumber = RecursiveDecrypt(decryptedRecord.FamilyNumber, "FamilyNumber");
+                    decryptedRecord.ChildName = RecursiveDecrypt(decryptedRecord.ChildName, "ChildName");
+                    decryptedRecord.MotherName = RecursiveDecrypt(decryptedRecord.MotherName, "MotherName");
+                    decryptedRecord.FatherName = RecursiveDecrypt(decryptedRecord.FatherName, "FatherName");
                     
-                    if (_encryptionService.IsEncrypted(decryptedRecord.MotherName ?? ""))
-                    {
-                        decryptedRecord.MotherName = _encryptionService.Decrypt(decryptedRecord.MotherName);
-                    }
+                    // Apply recursive decrypt to all other fields
+                    decryptedRecord.DateOfBirth = RecursiveDecrypt(decryptedRecord.DateOfBirth, "DateOfBirth");
+                    decryptedRecord.PlaceOfBirth = RecursiveDecrypt(decryptedRecord.PlaceOfBirth, "PlaceOfBirth");
+                    decryptedRecord.Address = RecursiveDecrypt(decryptedRecord.Address, "Address");
+                    decryptedRecord.Barangay = RecursiveDecrypt(decryptedRecord.Barangay, "Barangay");
+                    decryptedRecord.HealthCenter = RecursiveDecrypt(decryptedRecord.HealthCenter, "HealthCenter");
+                    decryptedRecord.Email = RecursiveDecrypt(decryptedRecord.Email, "Email");
+                    decryptedRecord.ContactNumber = RecursiveDecrypt(decryptedRecord.ContactNumber, "ContactNumber");
                     
-                    if (_encryptionService.IsEncrypted(decryptedRecord.FatherName ?? ""))
-                    {
-                        decryptedRecord.FatherName = _encryptionService.Decrypt(decryptedRecord.FatherName);
-                    }
+                    // Decrypt birth measurements (with multi-layer support)
+                    decryptedRecord.BirthHeight = RecursiveDecrypt(decryptedRecord.BirthHeight, "BirthHeight");
+                    decryptedRecord.BirthWeight = RecursiveDecrypt(decryptedRecord.BirthWeight, "BirthWeight");
                     
-                    if (_encryptionService.IsEncrypted(decryptedRecord.DateOfBirth ?? ""))
-                    {
-                        decryptedRecord.DateOfBirth = _encryptionService.Decrypt(decryptedRecord.DateOfBirth);
-                    }
+                    // Decrypt audit fields (with multi-layer support)
+                    decryptedRecord.CreatedBy = RecursiveDecrypt(decryptedRecord.CreatedBy, "CreatedBy");
+                    decryptedRecord.UpdatedBy = RecursiveDecrypt(decryptedRecord.UpdatedBy, "UpdatedBy");
+                    decryptedRecord.CreatedAt = RecursiveDecrypt(decryptedRecord.CreatedAt, "CreatedAt");
+                    decryptedRecord.UpdatedAt = RecursiveDecrypt(decryptedRecord.UpdatedAt, "UpdatedAt");
                     
-                    if (_encryptionService.IsEncrypted(decryptedRecord.PlaceOfBirth ?? ""))
-                    {
-                        decryptedRecord.PlaceOfBirth = _encryptionService.Decrypt(decryptedRecord.PlaceOfBirth);
-                    }
-                    
-                    if (_encryptionService.IsEncrypted(decryptedRecord.Address ?? ""))
-                    {
-                        decryptedRecord.Address = _encryptionService.Decrypt(decryptedRecord.Address);
-                    }
-                    
-                    if (_encryptionService.IsEncrypted(decryptedRecord.Barangay ?? ""))
-                    {
-                        decryptedRecord.Barangay = _encryptionService.Decrypt(decryptedRecord.Barangay);
-                    }
-                    
-                    if (_encryptionService.IsEncrypted(decryptedRecord.HealthCenter ?? ""))
-                    {
-                        decryptedRecord.HealthCenter = _encryptionService.Decrypt(decryptedRecord.HealthCenter);
-                    }
-                    
-                    if (_encryptionService.IsEncrypted(decryptedRecord.Email ?? ""))
-                    {
-                        decryptedRecord.Email = _encryptionService.Decrypt(decryptedRecord.Email);
-                    }
-                    
-                    if (_encryptionService.IsEncrypted(decryptedRecord.ContactNumber ?? ""))
-                    {
-                        decryptedRecord.ContactNumber = _encryptionService.Decrypt(decryptedRecord.ContactNumber);
-                    }
-                    
-                    _logger.LogInformation($"  After - FamilyNumber: {decryptedRecord.FamilyNumber?.Substring(0, Math.Min(15, decryptedRecord.FamilyNumber?.Length ?? 0))}");
-                    _logger.LogInformation($"  After - ChildName: {decryptedRecord.ChildName?.Substring(0, Math.Min(15, decryptedRecord.ChildName?.Length ?? 0))}");
-                    _logger.LogInformation($"  After - FamilyNumber encrypted: {_encryptionService.IsEncrypted(decryptedRecord.FamilyNumber ?? "")}");
+                    _logger.LogInformation($"  ========== FINAL STATE ==========");
+                    _logger.LogInformation($"    FamilyNumber: {decryptedRecord.FamilyNumber?.Substring(0, Math.Min(15, decryptedRecord.FamilyNumber?.Length ?? 0))} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.FamilyNumber ?? "")}");
+                    _logger.LogInformation($"    ChildName: {decryptedRecord.ChildName?.Substring(0, Math.Min(15, decryptedRecord.ChildName?.Length ?? 0))} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.ChildName ?? "")}");
+                    _logger.LogInformation($"    MotherName: {decryptedRecord.MotherName?.Substring(0, Math.Min(15, decryptedRecord.MotherName?.Length ?? 0))} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.MotherName ?? "")}");
+                    _logger.LogInformation($"    FatherName: {decryptedRecord.FatherName?.Substring(0, Math.Min(15, decryptedRecord.FatherName?.Length ?? 0))} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.FatherName ?? "")}");
+                    _logger.LogInformation($"    BirthHeight: {decryptedRecord.BirthHeight} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.BirthHeight ?? "")}");
+                    _logger.LogInformation($"    BirthWeight: {decryptedRecord.BirthWeight} | Encrypted: {_encryptionService.IsEncrypted(decryptedRecord.BirthWeight ?? "")}");
                     
                     decryptedRecords.Add(decryptedRecord);
                 }
@@ -218,83 +228,208 @@ namespace Barangay.Pages.Nurse
             string mmr1Date, string mmr1Remarks,
             string mmr2Date, string mmr2Remarks)
         {
+            _logger.LogInformation($"========== OnPostUpdateAsync START for ID: {id} ==========");
+            _logger.LogInformation($"  Form values received:");
+            _logger.LogInformation($"    ChildName: {childName?.Substring(0, Math.Min(20, childName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(childName ?? "")}");
+            _logger.LogInformation($"    MotherName: {motherName?.Substring(0, Math.Min(20, motherName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(motherName ?? "")}");
+            _logger.LogInformation($"    FatherName: {fatherName?.Substring(0, Math.Min(20, fatherName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(fatherName ?? "")}");
+            _logger.LogInformation($"    HepatitisBVaccineRemarks: {hepatitisBVaccineRemarks} | IsEncrypted: {_encryptionService.IsEncrypted(hepatitisBVaccineRemarks ?? "")}");
+            
             var record = await _context.ImmunizationRecords.FindAsync(id);
             if (record == null)
             {
                 return NotFound();
             }
 
-            // Update basic information
-            record.ChildName = childName;
-            record.DateOfBirth = dateOfBirth;
-            record.MotherName = motherName;
-            record.FatherName = fatherName ?? string.Empty;
-            record.Sex = sex;
-            record.Address = address ?? string.Empty;
-            record.Barangay = barangay;
-            record.HealthCenter = healthCenter ?? string.Empty;
-            record.Email = email ?? string.Empty;
-            record.ContactNumber = contactNumber ?? string.Empty;
+            _logger.LogInformation($"  Loaded record from DB:");
+            _logger.LogInformation($"    ChildName from DB: {record.ChildName?.Substring(0, Math.Min(20, record.ChildName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(record.ChildName ?? "")}");
+            _logger.LogInformation($"    MotherName from DB: {record.MotherName?.Substring(0, Math.Min(20, record.MotherName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(record.MotherName ?? "")}");
 
-            // Update vaccine information
-            record.BCGVaccineDate = bcgVaccineDate;
-            record.BCGVaccineRemarks = bcgVaccineRemarks ?? string.Empty;
-            record.HepatitisBVaccineDate = hepatitisBVaccineDate;
-            record.HepatitisBVaccineRemarks = hepatitisBVaccineRemarks ?? string.Empty;
+            // CRITICAL FIX: Decrypt incoming form values if they are encrypted
+            // This prevents encryption cascade when form accidentally sends encrypted data
+            string SafeDecrypt(string? value)
+            {
+                if (string.IsNullOrEmpty(value)) return value ?? "";
+                return _encryptionService.IsEncrypted(value) ? _encryptionService.Decrypt(value) : value;
+            }
+            
+            _logger.LogInformation($"  Decrypting form values before assignment...");
+
+            // Update basic information with DECRYPTED values
+            record.ChildName = SafeDecrypt(childName);
+            record.DateOfBirth = SafeDecrypt(dateOfBirth);
+            record.MotherName = SafeDecrypt(motherName);
+            record.FatherName = SafeDecrypt(fatherName) ?? string.Empty;
+            record.Sex = sex; // Not encrypted
+            record.Address = SafeDecrypt(address) ?? string.Empty;
+            record.Barangay = SafeDecrypt(barangay);
+            record.HealthCenter = SafeDecrypt(healthCenter) ?? string.Empty;
+            record.Email = SafeDecrypt(email) ?? string.Empty;
+            record.ContactNumber = SafeDecrypt(contactNumber) ?? string.Empty;
+
+            // Update vaccine information (decrypt dates and remarks if encrypted)
+            record.BCGVaccineDate = SafeDecrypt(bcgVaccineDate);
+            record.BCGVaccineRemarks = SafeDecrypt(bcgVaccineRemarks) ?? string.Empty;
+            record.HepatitisBVaccineDate = SafeDecrypt(hepatitisBVaccineDate);
+            record.HepatitisBVaccineRemarks = SafeDecrypt(hepatitisBVaccineRemarks) ?? string.Empty;
             
             // Pentavalent doses
-            record.Pentavalent1Date = pentavalent1Date;
-            record.Pentavalent1Remarks = pentavalent1Remarks ?? string.Empty;
-            record.Pentavalent2Date = pentavalent2Date;
-            record.Pentavalent2Remarks = pentavalent2Remarks ?? string.Empty;
-            record.Pentavalent3Date = pentavalent3Date;
-            record.Pentavalent3Remarks = pentavalent3Remarks ?? string.Empty;
+            record.Pentavalent1Date = SafeDecrypt(pentavalent1Date);
+            record.Pentavalent1Remarks = SafeDecrypt(pentavalent1Remarks) ?? string.Empty;
+            record.Pentavalent2Date = SafeDecrypt(pentavalent2Date);
+            record.Pentavalent2Remarks = SafeDecrypt(pentavalent2Remarks) ?? string.Empty;
+            record.Pentavalent3Date = SafeDecrypt(pentavalent3Date);
+            record.Pentavalent3Remarks = SafeDecrypt(pentavalent3Remarks) ?? string.Empty;
             
             // OPV doses
-            record.OPV1Date = opv1Date;
-            record.OPV1Remarks = opv1Remarks ?? string.Empty;
-            record.OPV2Date = opv2Date;
-            record.OPV2Remarks = opv2Remarks ?? string.Empty;
-            record.OPV3Date = opv3Date;
-            record.OPV3Remarks = opv3Remarks ?? string.Empty;
+            record.OPV1Date = SafeDecrypt(opv1Date);
+            record.OPV1Remarks = SafeDecrypt(opv1Remarks) ?? string.Empty;
+            record.OPV2Date = SafeDecrypt(opv2Date);
+            record.OPV2Remarks = SafeDecrypt(opv2Remarks) ?? string.Empty;
+            record.OPV3Date = SafeDecrypt(opv3Date);
+            record.OPV3Remarks = SafeDecrypt(opv3Remarks) ?? string.Empty;
             
             // IPV doses
-            record.IPV1Date = ipv1Date;
-            record.IPV1Remarks = ipv1Remarks ?? string.Empty;
-            record.IPV2Date = ipv2Date;
-            record.IPV2Remarks = ipv2Remarks ?? string.Empty;
+            record.IPV1Date = SafeDecrypt(ipv1Date);
+            record.IPV1Remarks = SafeDecrypt(ipv1Remarks) ?? string.Empty;
+            record.IPV2Date = SafeDecrypt(ipv2Date);
+            record.IPV2Remarks = SafeDecrypt(ipv2Remarks) ?? string.Empty;
             
             // PCV doses
-            record.PCV1Date = pcv1Date;
-            record.PCV1Remarks = pcv1Remarks ?? string.Empty;
-            record.PCV2Date = pcv2Date;
-            record.PCV2Remarks = pcv2Remarks ?? string.Empty;
-            record.PCV3Date = pcv3Date;
-            record.PCV3Remarks = pcv3Remarks ?? string.Empty;
+            record.PCV1Date = SafeDecrypt(pcv1Date);
+            record.PCV1Remarks = SafeDecrypt(pcv1Remarks) ?? string.Empty;
+            record.PCV2Date = SafeDecrypt(pcv2Date);
+            record.PCV2Remarks = SafeDecrypt(pcv2Remarks) ?? string.Empty;
+            record.PCV3Date = SafeDecrypt(pcv3Date);
+            record.PCV3Remarks = SafeDecrypt(pcv3Remarks) ?? string.Empty;
             
             // MMR doses
-            record.MMR1Date = mmr1Date;
-            record.MMR1Remarks = mmr1Remarks ?? string.Empty;
-            record.MMR2Date = mmr2Date;
-            record.MMR2Remarks = mmr2Remarks ?? string.Empty;
+            record.MMR1Date = SafeDecrypt(mmr1Date);
+            record.MMR1Remarks = SafeDecrypt(mmr1Remarks) ?? string.Empty;
+            record.MMR2Date = SafeDecrypt(mmr2Date);
+            record.MMR2Remarks = SafeDecrypt(mmr2Remarks) ?? string.Empty;
 
             record.UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
             record.UpdatedBy = User.Identity?.Name ?? "Unknown";
 
+            _logger.LogInformation($"  Before SaveChangesAsync - assigned values:");
+            _logger.LogInformation($"    record.ChildName: {record.ChildName?.Substring(0, Math.Min(20, record.ChildName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(record.ChildName ?? "")}");
+            _logger.LogInformation($"    record.MotherName: {record.MotherName?.Substring(0, Math.Min(20, record.MotherName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(record.MotherName ?? "")}");
+            _logger.LogInformation($"    record.FatherName: {record.FatherName?.Substring(0, Math.Min(20, record.FatherName?.Length ?? 0))} | IsEncrypted: {_encryptionService.IsEncrypted(record.FatherName ?? "")}");
+            _logger.LogInformation($"    record.HepatitisBVaccineRemarks: {record.HepatitisBVaccineRemarks} | IsEncrypted: {_encryptionService.IsEncrypted(record.HepatitisBVaccineRemarks ?? "")}");
+
             await _context.SaveChangesAsync();
+            
+            _logger.LogInformation($"  After SaveChangesAsync - EncryptedDbContext has encrypted the data");
+            _logger.LogInformation($"========== OnPostUpdateAsync END ==========");
 
             // Send email notification if email is provided
             if (!string.IsNullOrEmpty(email))
             {
                 try
                 {
-                    await _immunizationReminderService.SendVaccineUpdateNotificationAsync(email, childName, record);
-                    TempData["SuccessMessage"] = $"Immunization record for {childName} updated successfully. Email notification sent to {email}.";
+                    // Decrypt the record after save (SaveChangesAsync encrypts it)
+                    // Need to reload from DB with decryption
+                    var decryptedRecord = await _context.ImmunizationRecords
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(r => r.Id == id);
+                    
+                    if (decryptedRecord != null)
+                    {
+                        // Helper function to safely decrypt - only if encrypted
+                        string SafeDecryptForEmail(string? value)
+                        {
+                            if (string.IsNullOrEmpty(value)) return value ?? "";
+                            return _encryptionService.IsEncrypted(value) 
+                                ? _encryptionService.Decrypt(value) 
+                                : value;
+                        }
+                        
+                        // Manually decrypt all fields for email (only if encrypted)
+                        decryptedRecord.ChildName = SafeDecryptForEmail(decryptedRecord.ChildName);
+                        decryptedRecord.FamilyNumber = SafeDecryptForEmail(decryptedRecord.FamilyNumber);
+                        decryptedRecord.DateOfBirth = SafeDecryptForEmail(decryptedRecord.DateOfBirth);
+                        decryptedRecord.MotherName = SafeDecryptForEmail(decryptedRecord.MotherName);
+                        decryptedRecord.FatherName = SafeDecryptForEmail(decryptedRecord.FatherName);
+                        decryptedRecord.Address = SafeDecryptForEmail(decryptedRecord.Address);
+                        decryptedRecord.Barangay = SafeDecryptForEmail(decryptedRecord.Barangay);
+                        decryptedRecord.HealthCenter = SafeDecryptForEmail(decryptedRecord.HealthCenter);
+                        decryptedRecord.Email = SafeDecryptForEmail(decryptedRecord.Email);
+                        decryptedRecord.ContactNumber = SafeDecryptForEmail(decryptedRecord.ContactNumber);
+                        decryptedRecord.PlaceOfBirth = SafeDecryptForEmail(decryptedRecord.PlaceOfBirth);
+                        decryptedRecord.BirthHeight = SafeDecryptForEmail(decryptedRecord.BirthHeight);
+                        decryptedRecord.BirthWeight = SafeDecryptForEmail(decryptedRecord.BirthWeight);
+                        
+                        // Decrypt vaccine data (only if encrypted)
+                        decryptedRecord.BCGVaccineDate = SafeDecryptForEmail(decryptedRecord.BCGVaccineDate);
+                        decryptedRecord.BCGVaccineRemarks = SafeDecryptForEmail(decryptedRecord.BCGVaccineRemarks);
+                        decryptedRecord.HepatitisBVaccineDate = SafeDecryptForEmail(decryptedRecord.HepatitisBVaccineDate);
+                        decryptedRecord.HepatitisBVaccineRemarks = SafeDecryptForEmail(decryptedRecord.HepatitisBVaccineRemarks);
+                        decryptedRecord.Pentavalent1Date = SafeDecryptForEmail(decryptedRecord.Pentavalent1Date);
+                        decryptedRecord.Pentavalent1Remarks = SafeDecryptForEmail(decryptedRecord.Pentavalent1Remarks);
+                        decryptedRecord.Pentavalent2Date = SafeDecryptForEmail(decryptedRecord.Pentavalent2Date);
+                        decryptedRecord.Pentavalent2Remarks = SafeDecryptForEmail(decryptedRecord.Pentavalent2Remarks);
+                        decryptedRecord.Pentavalent3Date = SafeDecryptForEmail(decryptedRecord.Pentavalent3Date);
+                        decryptedRecord.Pentavalent3Remarks = SafeDecryptForEmail(decryptedRecord.Pentavalent3Remarks);
+                        decryptedRecord.OPV1Date = SafeDecryptForEmail(decryptedRecord.OPV1Date);
+                        decryptedRecord.OPV1Remarks = SafeDecryptForEmail(decryptedRecord.OPV1Remarks);
+                        decryptedRecord.OPV2Date = SafeDecryptForEmail(decryptedRecord.OPV2Date);
+                        decryptedRecord.OPV2Remarks = SafeDecryptForEmail(decryptedRecord.OPV2Remarks);
+                        decryptedRecord.OPV3Date = SafeDecryptForEmail(decryptedRecord.OPV3Date);
+                        decryptedRecord.OPV3Remarks = SafeDecryptForEmail(decryptedRecord.OPV3Remarks);
+                        decryptedRecord.IPV1Date = SafeDecryptForEmail(decryptedRecord.IPV1Date);
+                        decryptedRecord.IPV1Remarks = SafeDecryptForEmail(decryptedRecord.IPV1Remarks);
+                        decryptedRecord.IPV2Date = SafeDecryptForEmail(decryptedRecord.IPV2Date);
+                        decryptedRecord.IPV2Remarks = SafeDecryptForEmail(decryptedRecord.IPV2Remarks);
+                        decryptedRecord.PCV1Date = SafeDecryptForEmail(decryptedRecord.PCV1Date);
+                        decryptedRecord.PCV1Remarks = SafeDecryptForEmail(decryptedRecord.PCV1Remarks);
+                        decryptedRecord.PCV2Date = SafeDecryptForEmail(decryptedRecord.PCV2Date);
+                        decryptedRecord.PCV2Remarks = SafeDecryptForEmail(decryptedRecord.PCV2Remarks);
+                        decryptedRecord.PCV3Date = SafeDecryptForEmail(decryptedRecord.PCV3Date);
+                        decryptedRecord.PCV3Remarks = SafeDecryptForEmail(decryptedRecord.PCV3Remarks);
+                        decryptedRecord.MMR1Date = SafeDecryptForEmail(decryptedRecord.MMR1Date);
+                        decryptedRecord.MMR1Remarks = SafeDecryptForEmail(decryptedRecord.MMR1Remarks);
+                        decryptedRecord.MMR2Date = SafeDecryptForEmail(decryptedRecord.MMR2Date);
+                        decryptedRecord.MMR2Remarks = SafeDecryptForEmail(decryptedRecord.MMR2Remarks);
+                        
+                        await _immunizationReminderService.SendVaccineUpdateNotificationAsync(email, childName, decryptedRecord);
+                    }
+                    
+                    _logger.LogInformation("Email notification sent for immunization record update: {ChildName}", childName);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to send vaccine update notification email to {Email}", email);
-                    TempData["SuccessMessage"] = $"Immunization record for {childName} updated successfully. However, email notification could not be sent.";
+                }
+                
+                // Create in-app notification for the parent/guardian
+                try
+                {
+                    // Find the user by email to send in-app notification
+                    var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email || u.NormalizedEmail == email.ToUpper());
+                    if (user != null)
+                    {
+                        var notificationMessage = $"The immunization record for {childName} has been updated. Please review the latest vaccine information.";
+                        await _notificationService.CreateNotificationForUserAsync(
+                            user.Id,
+                            "Immunization Record Updated",
+                            notificationMessage,
+                            "Info",
+                            "/User/Appointments" // or a specific immunization records page if available
+                        );
+                        _logger.LogInformation("In-app notification created for immunization record update: {ChildName}", childName);
+                        TempData["SuccessMessage"] = $"Immunization record for {childName} updated successfully. Notification sent.";
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User not found for email {Email} when creating immunization update notification", email);
+                        TempData["SuccessMessage"] = $"Immunization record for {childName} updated successfully. Email notification sent.";
+                    }
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to create in-app notification for immunization record update");
+                    TempData["SuccessMessage"] = $"Immunization record for {childName} updated successfully. Email notification sent.";
                 }
             }
             else

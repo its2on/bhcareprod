@@ -59,7 +59,7 @@ namespace Barangay.Services
                 var smtpPort = int.TryParse(smtpSection["SmtpPort"], out int port) ? port : 587;
                 var smtpUser = smtpSection["SmtpUsername"];
                 var smtpPassword = smtpSection["SmtpPassword"];
-                var fromEmail = smtpSection["FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = smtpSection["FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -73,12 +73,12 @@ namespace Barangay.Services
                     EnableSsl = true
                 };
 
-                var subject = "Follow-up Appointment Reminder - BHCARE Health Center";
+                var subject = "Follow-up Appointment Reminder - Baesa Health Care";
                 var body = GenerateFollowUpReminderEmailBody(appointment, followUpReason);
 
                 var message = new MailMessage
                 {
-                    From = new MailAddress(fromEmail, "BHCARE Health Center"),
+                    From = new MailAddress(fromEmail, "Baesa Health Care"),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
@@ -138,7 +138,7 @@ namespace Barangay.Services
                 var smtpPort = int.TryParse(smtpSection["SmtpPort"], out int port) ? port : 587;
                 var smtpUser = smtpSection["SmtpUsername"];
                 var smtpPassword = smtpSection["SmtpPassword"];
-                var fromEmail = smtpSection["FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = smtpSection["FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -153,14 +153,14 @@ namespace Barangay.Services
                 };
 
                 var subject = reminderType == "24hr" 
-                    ? "Appointment Reminder - Tomorrow - BHCARE Health Center"
-                    : "Appointment Reminder - 1 Hour - BHCARE Health Center";
+                    ? "Appointment Reminder - Tomorrow - Baesa Health Care"
+                    : "Appointment Reminder - 1 Hour - Baesa Health Care";
                 
                 var body = GenerateAppointmentReminderEmailBody(appointment, reminderType);
 
                 var message = new MailMessage
                 {
-                    From = new MailAddress(fromEmail, "BHCARE Health Center"),
+                    From = new MailAddress(fromEmail, "Baesa Health Care"),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
@@ -185,7 +185,7 @@ namespace Barangay.Services
                 var smtpPort = int.TryParse(smtpSection["SmtpPort"], out int port) ? port : 587;
                 var smtpUser = smtpSection["SmtpUsername"];
                 var smtpPassword = smtpSection["SmtpPassword"];
-                var fromEmail = smtpSection["FromEmail"] ?? "noreply@bhcare.com";
+                var fromEmail = smtpSection["FromEmail"] ?? "noreply@baesa.health.com";
 
                 if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPassword))
                 {
@@ -199,12 +199,12 @@ namespace Barangay.Services
                     EnableSsl = true
                 };
 
-                var subject = "Thank You for Visiting BHCARE Health Center";
+                var subject = "Thank You for Visiting Baesa Health Care";
                 var body = GenerateThankYouEmailBody(patientName, appointment);
 
                 var message = new MailMessage
                 {
-                    From = new MailAddress(fromEmail, "BHCARE Health Center"),
+                    From = new MailAddress(fromEmail, "Baesa Health Care"),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
@@ -334,7 +334,7 @@ namespace Barangay.Services
                     <h4>💊 Prescription</h4>
                     <div class='prescription-box'>
                         <div class='prescription-header'>
-                            <div class='clinic-name'>BHCARE HEALTH CENTER</div>
+                            <div class='clinic-name'>BAESA HEALTH CENTER</div>
                             <div class='department'>City Health Department</div>
                         </div>
                         <div class='prescription-divider'></div>
@@ -436,14 +436,14 @@ namespace Barangay.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <h2>🏥 BHCARE Health Center</h2>
+            <h2>🏥 Baesa Health Care</h2>
             <p>Follow-up Appointment Reminder</p>
         </div>
         
         <div class='content'>
             <h3>Dear {patientName},</h3>
             
-            <p>Thank you for choosing BHCARE Health Center for your healthcare needs. We hope you are feeling better after your recent consultation.</p>
+            <p>Thank you for choosing Baesa Health Care for your healthcare needs. We hope you are feeling better after your recent consultation.</p>
             
             <div class='highlight'>
                 <h4>📅 Follow-up Appointment Scheduled</h4>
@@ -476,7 +476,7 @@ namespace Barangay.Services
             <p>We look forward to seeing you and continuing to support your health journey.</p>
             
             <p>Best regards,<br>
-            <strong>BHCARE Health Center Team</strong></p>
+            <strong>Baesa Health Care Team</strong></p>
         </div>
         
         <div class='footer'>
@@ -518,7 +518,7 @@ namespace Barangay.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <h2>🏥 BHCARE Health Center</h2>
+            <h2>🏥 Baesa Health Care</h2>
             <p>Appointment Reminder</p>
         </div>
         
@@ -549,7 +549,7 @@ namespace Barangay.Services
             <p>If you have any questions or need to make changes to your appointment, please don't hesitate to contact us.</p>
             
             <p>Best regards,<br>
-            <strong>BHCARE Health Center Team</strong></p>
+            <strong>Baesa Health Care Team</strong></p>
         </div>
         
         <div class='footer'>
@@ -578,7 +578,7 @@ namespace Barangay.Services
                     <h4>💊 Prescription</h4>
                     <div class='prescription-box'>
                         <div class='prescription-header'>
-                            <div class='clinic-name'>BHCARE HEALTH CENTER</div>
+                            <div class='clinic-name'>BAESA HEALTH CENTER</div>
                             <div class='department'>City Health Department</div>
                         </div>
                         <div class='prescription-divider'></div>
@@ -604,7 +604,7 @@ namespace Barangay.Services
 <html>
 <head>
     <meta charset='utf-8'>
-    <title>Thank You for Visiting BHCARE Health Center</title>
+    <title>Thank You for Visiting Baesa Health Care</title>
     <style>
         body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
         .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
@@ -678,7 +678,7 @@ namespace Barangay.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <h2>🏥 BHCARE Health Center</h2>
+            <h2>🏥 Baesa Health Care</h2>
             <p>Thank You for Your Visit</p>
         </div>
         
@@ -687,7 +687,7 @@ namespace Barangay.Services
             
             <div class='highlight'>
                 <h4>🙏 Thank You!</h4>
-                <p>Thank you for choosing BHCARE Health Center for your healthcare needs. We appreciate your trust in our medical services and hope you are feeling better after your consultation.</p>
+                <p>Thank you for choosing Baesa Health Care for your healthcare needs. We appreciate your trust in our medical services and hope you are feeling better after your consultation.</p>
             </div>
             
             <div class='consultation-info'>
@@ -714,7 +714,7 @@ namespace Barangay.Services
             <p>Take care and stay healthy!</p>
             
             <p>Best regards,<br>
-            <strong>BHCARE Health Center Team</strong></p>
+            <strong>Baesa Health Care Team</strong></p>
         </div>
         
         <div class='footer'>

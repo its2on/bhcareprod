@@ -64,6 +64,9 @@ namespace Barangay.Models
         public string Email { get; set; } = string.Empty;
         
         [StringLength(50)]
+        public string? FamilyNumber { get; set; }
+        
+        [StringLength(50)]
         public string? Status { get; set; }
         
         [StringLength(20)]

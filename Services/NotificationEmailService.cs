@@ -74,7 +74,7 @@ namespace Barangay.Services
                 );
 
                 // Send email notification
-                var emailSubject = "BHCARE - Appointment Reminder";
+                var emailSubject = "Baesa Health Center - Appointment Reminder";
                 var emailBody = $@"
                     <html>
                     <body style='font-family: Arial, sans-serif;'>
@@ -91,7 +91,7 @@ namespace Barangay.Services
                             </div>
                             <p><strong>Important:</strong> Please arrive 15 minutes early to complete any necessary paperwork.</p>
                             <p>If you need to cancel or reschedule, please contact us as soon as possible.</p>
-                            <p>Best regards,<br>BHCARE Team</p>
+                            <p>Best regards,<br>Baesa Health Center Team</p>
                         </div>
                     </body>
                     </html>
@@ -134,7 +134,7 @@ namespace Barangay.Services
                 }
 
                 // Send email notification
-                var emailSubject = $"BHCARE - Immunization Reminder: {vaccineName}";
+                var emailSubject = $"Baesa Health Center - Immunization Reminder: {vaccineName}";
                 var emailBody = $@"
                     <html>
                     <body style='font-family: Arial, sans-serif;'>
@@ -151,7 +151,7 @@ namespace Barangay.Services
                             </div>
                             <p>Please schedule an appointment at your earliest convenience to ensure your child stays up-to-date with their immunizations.</p>
                             <p>Keeping your child's immunizations current is important for their health and protection against preventable diseases.</p>
-                            <p>Best regards,<br>BHCARE Team</p>
+                            <p>Best regards,<br>Baesa Health Center Team</p>
                         </div>
                     </body>
                     </html>
@@ -192,7 +192,7 @@ namespace Barangay.Services
                 );
 
                 // Send email
-                var emailSubject = "BHCARE - Appointment Confirmation";
+                var emailSubject = "Baesa Health Center - Appointment Confirmation";
                 var emailBody = $@"
                     <html>
                     <body style='font-family: Arial, sans-serif;'>
@@ -208,7 +208,7 @@ namespace Barangay.Services
                                 <p><strong>Status:</strong> Confirmed</p>
                             </div>
                             <p>We look forward to seeing you!</p>
-                            <p>Best regards,<br>BHCARE Team</p>
+                            <p>Best regards,<br>Baesa Health Center Team</p>
                         </div>
                     </body>
                     </html>
@@ -245,7 +245,7 @@ namespace Barangay.Services
                 );
 
                 // Send email
-                var emailSubject = "BHCARE - Appointment Cancelled";
+                var emailSubject = "Baesa Health Center - Appointment Cancelled";
                 var emailBody = $@"
                     <html>
                     <body style='font-family: Arial, sans-serif;'>
@@ -256,7 +256,7 @@ namespace Barangay.Services
                             <p>Dear {patientName},</p>
                             <p>Your appointment has been cancelled.</p>
                             <p>If you would like to reschedule, please book a new appointment through our system.</p>
-                            <p>Best regards,<br>BHCARE Team</p>
+                            <p>Best regards,<br>Baesa Health Center Team</p>
                         </div>
                     </body>
                     </html>
@@ -296,7 +296,7 @@ namespace Barangay.Services
                 );
 
                 // Send email
-                var emailSubject = "BHCARE - Appointment Rescheduled";
+                var emailSubject = "Baesa Health Center - Appointment Rescheduled";
                 var emailBody = $@"
                     <html>
                     <body style='font-family: Arial, sans-serif;'>
@@ -311,7 +311,7 @@ namespace Barangay.Services
                                 <p><strong>New Time:</strong> {formattedTime}</p>
                             </div>
                             <p>We apologize for any inconvenience.</p>
-                            <p>Best regards,<br>BHCARE Team</p>
+                            <p>Best regards,<br>Baesa Health Center Team</p>
                         </div>
                     </body>
                     </html>

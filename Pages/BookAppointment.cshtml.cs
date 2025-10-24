@@ -461,6 +461,14 @@ namespace Barangay.Pages
                     bookingModel.DoctorId = doctorIdValue;
                 }
                 
+                // Extract family number from form
+                string familyNumber = null;
+                if (Request.Form.TryGetValue("familyNumber", out var familyNumberValue))
+                {
+                    familyNumber = familyNumberValue.ToString();
+                    _logger.LogInformation("Received family number from form: {FamilyNumber}", familyNumber);
+                }
+                
                 if (bookingForOther)
                 {
                     bookingModel.Relationship = relationship;
@@ -501,7 +509,7 @@ namespace Barangay.Pages
                 
                 try
                 {
-                    var appointmentId = await CreateTemporaryAppointmentAsync(user.Id, bookingModel, bookingForOther);
+                    var appointmentId = await CreateTemporaryAppointmentAsync(user.Id, bookingModel, bookingForOther, familyNumber);
                     
                     if (appointmentId > 0)
                     {
@@ -567,35 +575,48 @@ namespace Barangay.Pages
         
         private async Task EnsurePatientRecordExistsAsync(string userId)
         {
-            var patientExists = await _context.Patients.AnyAsync(p => p.UserId == userId);
-            if (!patientExists)
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return;
+            
+            var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
+            
+            if (patient == null)
             {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user != null)
+                patient = new Patient
                 {
-                    var newPatient = new Patient
-                    {
-                        UserId = user.Id,
-                        FullName = _encryptionService.Encrypt($"{user.FirstName} {user.LastName}".Trim()),
-                        BirthDate = user.BirthDate ?? DateTime.MinValue,
-                        Gender = user.Gender ?? "Unknown",
-                        Address = _encryptionService.Encrypt(user.Address ?? "Not provided"),
-                        ContactNumber = _encryptionService.Encrypt(user.PhoneNumber ?? "Not provided"),
-                        Email = _encryptionService.Encrypt(user.Email ?? "no-email@bhcare.com"),
-                        EmergencyContact = _encryptionService.Encrypt("Not provided"),
-                        EmergencyContactNumber = _encryptionService.Encrypt("Not provided"),
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Patients.Add(newPatient);
+                    UserId = userId,
+                    FullName = user.FullName ?? "",
+                    Gender = user.Gender ?? "Not specified",
+                    BirthDate = user.BirthDate ?? DateTime.Now.AddYears(-30),
+                    Address = user.Address ?? "",
+                    ContactNumber = user.PhoneNumber ?? "",
+                    EmergencyContact = "To be updated",
+                    EmergencyContactNumber = "To be updated",
+                    Email = user.Email ?? "",
+                    FamilyNumber = user.FamilyNumber,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Patients.Add(patient);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Created new patient record for user ID: {userId} with FamilyNumber: {user.FamilyNumber}");
+            }
+            else if (!string.IsNullOrWhiteSpace(user.FamilyNumber) && 
+                     string.IsNullOrWhiteSpace(patient.FamilyNumber))
+            {
+                // Sync family number from user to patient if missing
+                if (!string.IsNullOrWhiteSpace(user.FamilyNumber))
+                {
+                    patient.FamilyNumber = user.FamilyNumber;
+                    patient.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation($"Created new patient record for user ID: {userId}");
+                    _logger.LogInformation($"Updated existing patient record for user ID: {userId} with FamilyNumber: {user.FamilyNumber}");
                 }
             }
         }
 
         // Helper method to create a temporary appointment record and return its ID
-        private async Task<int> CreateTemporaryAppointmentAsync(string userId, AppointmentBookingViewModel bookingModel, bool bookingForOther)
+        private async Task<int> CreateTemporaryAppointmentAsync(string userId, AppointmentBookingViewModel bookingModel, bool bookingForOther, string familyNumber = null)
         {
             try
             {
@@ -615,9 +636,38 @@ namespace Barangay.Pages
                     user.PhoneNumber = user.PhoneNumber.DecryptForUser(_encryptionService, User);
                 }
 
-                // Always ensure a patient record exists for the logged-in user (booker)
-                // This satisfies the FK constraint since PatientId will be set to the booker's userId
-                await EnsurePatientRecordExistsAsync(userId);
+                // Save family number to patient record if provided
+                // Note: For "booking for other", we save the family number to the BOOKER's record
+                // The guest patient details are stored in the Appointment record
+                if (!string.IsNullOrEmpty(familyNumber))
+                {
+                    // Always ensure patient record exists first
+                    await EnsurePatientRecordExistsAsync(userId);
+                    
+                    var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
+                    if (patient != null)
+                    {
+                        // Save or update family number
+                        if (string.IsNullOrWhiteSpace(patient.FamilyNumber))
+                        {
+                            patient.FamilyNumber = familyNumber;
+                            patient.UpdatedAt = DateTime.UtcNow;
+                            _context.Patients.Update(patient);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation("Updated patient record with family number: {FamilyNumber} for user: {UserId}", 
+                                familyNumber, userId);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Patient {UserId} already has family number: {ExistingFamilyNumber}", 
+                                userId, patient.FamilyNumber);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Patient record not found for user: {UserId}, family number not saved", userId);
+                    }
+                }
 
                 DateTime appointmentDate = DateTime.Parse(bookingModel.AppointmentDate);
                 // Convert from 12-hour format (e.g. "8:00 AM") to TimeSpan
@@ -679,7 +729,8 @@ namespace Barangay.Pages
                     Status = initialStatus, // Set to Pending for non-assessment types, Draft for others
                     DoctorId = doctor?.Id, // Assign a doctor if found
                     BookingForOther = bookingForOther,
-                    Relationship = bookingForOther ? bookingModel.Relationship : null
+                    Relationship = bookingForOther ? bookingModel.Relationship : null,
+                    FamilyNumber = familyNumber // Store family number with appointment
                 };
 
                 _context.Appointments.Add(newAppointment);
@@ -774,7 +825,7 @@ namespace Barangay.Pages
             try
             {
                 _logger.LogInformation("=== GENERATE FAMILY NUMBER REQUEST ===");
-                _logger.LogInformation("LastName: {LastName}", request.LastName);
+                _logger.LogInformation("LastName: {LastName}, SameFamily: {SameFamily}", request.LastName, request.SameFamily);
                 
                 if (string.IsNullOrWhiteSpace(request.LastName))
                 {
@@ -787,34 +838,71 @@ namespace Barangay.Pages
                     return new JsonResult(new { success = false, error = "User not found" });
                 }
                 
-                // Check if user already has a family number
-                if (!string.IsNullOrWhiteSpace(user.FamilyNumber))
-                {
-                    _logger.LogInformation("User already has family number: {FamilyNumber}", user.FamilyNumber);
-                    return new JsonResult(new { success = true, familyNumber = user.FamilyNumber, alreadyExists = true });
-                }
-                
-                // Generate family number using the service
-                var response = await _familyNumberService.GenerateFamilyNumberAsync(request.LastName);
+                // Use the new service method that handles both generation and reuse
+                var response = await _familyNumberService.GenerateOrReuseFamilyNumberAsync(
+                    request.LastName, 
+                    user.Id, 
+                    request.SameFamily);
                 
                 if (!response.Success)
                 {
-                    _logger.LogError("Failed to generate family number: {Error}", response.Error);
+                    _logger.LogError("Failed to process family number: {Error}", response.Error);
                     return new JsonResult(new { success = false, error = response.Error });
                 }
                 
-                // Save family number to user profile
-                user.FamilyNumber = response.FamilyNumber;
+                // Save family number to user profile if not already set
+                if (string.IsNullOrWhiteSpace(user.FamilyNumber))
+                {
+                    user.FamilyNumber = response.FamilyNumber;
+                    _logger.LogInformation("Updated user FamilyNumber: {FamilyNumber}", response.FamilyNumber);
+                }
+                
+                // Also update the Patient record if it exists
+                var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == user.Id);
+                if (patient != null)
+                {
+                    if (string.IsNullOrWhiteSpace(patient.FamilyNumber))
+                    {
+                        patient.FamilyNumber = response.FamilyNumber;
+                        patient.UpdatedAt = DateTime.UtcNow;
+                        _logger.LogInformation("Updated Patient record with FamilyNumber: {FamilyNumber}", response.FamilyNumber);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Patient record not found for user {UserId}, will be created when booking appointment", user.Id);
+                }
+                
                 await _context.SaveChangesAsync();
+                
+                // Log audit trail
+                await _auditTrail.LogAsync(
+                    response.IsPreexisting ? "Reused" : "Generated",
+                    $"Family number {response.FamilyNumber} for {request.LastName}",
+                    "FamilyNumber",
+                    response.FamilyNumber,
+                    null,
+                    JsonConvert.SerializeObject(new {
+                        LastName = request.LastName,
+                        FamilyNumber = response.FamilyNumber,
+                        SameFamily = request.SameFamily,
+                        IsPreexisting = response.IsPreexisting
+                    })
+                );
                 
                 _logger.LogInformation("Family number {FamilyNumber} assigned to user {UserId}", response.FamilyNumber, user.Id);
                 
-                return new JsonResult(new { success = true, familyNumber = response.FamilyNumber });
+                return new JsonResult(new { 
+                    success = true, 
+                    familyNumber = response.FamilyNumber,
+                    isPreexisting = response.IsPreexisting,
+                    message = response.Message
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating family number");
-                return new JsonResult(new { success = false, error = "An error occurred while generating the family number" });
+                _logger.LogError(ex, "Error processing family number");
+                return new JsonResult(new { success = false, error = "An error occurred while processing the family number" });
             }
         }
 

@@ -54,6 +54,14 @@
                                 </label>
                             </div>
                             
+                            <div class="form-check mb-3" id="sameFamilySection" style="display: none;">
+                                <input class="form-check-input" type="checkbox" id="sameFamily" name="sameFamily">
+                                <label class="form-check-label" for="sameFamily">
+                                    <i class="fas fa-users me-1"></i>Same Family?
+                                </label>
+                                <div class="form-text">Check this if booking for a family member who should share the same family number</div>
+                            </div>
+                            
                             <div class="row mb-3">
                                 <div class="col-md-3">
                                     <label for="lastName" class="form-label">Last Name</label>
@@ -355,6 +363,9 @@
                 $('#bookingForOtherHidden').val(isChecked ? 'true' : 'false');
                 
                 if (isChecked) {
+                    // Show "Same Family?" checkbox
+                    $('#sameFamilySection').slideDown();
+                    
                     // Clear fields for new patient details
                     $('#firstName').val('').prop('readonly', false);
                     $('#lastName').val('').prop('readonly', false);
@@ -365,6 +376,9 @@
                     $('#gender').val('').prop('readonly', false);
                     $('#relationshipField').show();
                 } else {
+                    // Hide "Same Family?" checkbox and uncheck it
+                    $('#sameFamilySection').slideUp();
+                    $('#sameFamily').prop('checked', false);
                     // Restore original user details
                     if (userDetails) {
                         const nameParts = (userDetails.fullName || '').split(' ');
@@ -589,9 +603,31 @@
                 }
             });
             
+            // Handle "Same Family?" checkbox change
+            $('#sameFamily').change(function() {
+                const isChecked = $(this).is(':checked');
+                
+                if (!isChecked) {
+                    // When unchecked, clear family number and show generate button
+                    // This allows generating a NEW family number
+                    $('#familyNumber').val('');
+                    $('#hasFamilyNumber').val('');
+                    $('#generateFamilyNumberBtn').show().prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                    
+                    console.log('[Same Family] Unchecked - cleared family number field, showing generate button');
+                } else {
+                    // When checked, ensure button is visible to retrieve family number
+                    if (!$('#familyNumber').val()) {
+                        $('#generateFamilyNumberBtn').show().prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
+                        console.log('[Same Family] Checked - showing generate button to retrieve family number');
+                    }
+                }
+            });
+            
             // Handle family number generation
             $('#generateFamilyNumberBtn').on('click', function() {
                 const lastName = $('#lastName').val();
+                const sameFamily = $('#sameFamily').is(':checked');
                 
                 if (!lastName) {
                     Swal.fire({
@@ -605,9 +641,10 @@
                 }
                 
                 // Show loading state
-                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generating...');
+                const buttonText = sameFamily ? 'Retrieving...' : 'Generating...';
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>' + buttonText);
                 
-                // Call API to generate family number
+                // Call API to generate or reuse family number
                 $.ajax({
                     url: '?handler=GenerateFamilyNumber',
                     type: 'POST',
@@ -615,16 +652,19 @@
                         'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
                     },
                     contentType: 'application/json',
-                    data: JSON.stringify({ lastName: lastName }),
+                    data: JSON.stringify({ lastName: lastName, sameFamily: sameFamily }),
                     success: function(response) {
                         if (response.success) {
                             $('#familyNumber').val(response.familyNumber);
                             $('#hasFamilyNumber').val(response.familyNumber);
                             $('#generateFamilyNumberBtn').hide();
                             
+                            const title = response.isPreexisting ? 'Family Number Retrieved' : 'Family Number Generated';
+                            const message = response.message || ('Family number ' + response.familyNumber + ' has been assigned.');
+                            
                             Swal.fire({
-                                title: 'Family Number Generated',
-                                text: 'Family number ' + response.familyNumber + ' has been assigned.',
+                                title: title,
+                                text: message,
                                 icon: 'success',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#FF6600'

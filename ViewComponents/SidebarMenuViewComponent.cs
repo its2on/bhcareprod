@@ -90,17 +90,29 @@ namespace Barangay.ViewComponents
                         });
                     }
                     
-                    // Only show Manual Forms if user has simplified permission
-                    var canSeeManualForms = HasPermission("PatientList");
-                    _logger.LogInformation($"Nurse {userId}: Manual Forms visible = {canSeeManualForms}");
-                    if (canSeeManualForms)
+                    // Add Immunization - Direct page
+                    var canSeeImmunization = HasPermission("PatientList");
+                    _logger.LogInformation($"Nurse {userId}: Immunization access = {canSeeImmunization}");
+                    if (canSeeImmunization)
                     {
                         navItems.Add(new SidebarMenuItem { 
-                            Text = "Manual Forms", 
-                            Icon = "file-medical", 
-                            Url = "/Nurse/ManualForms", 
+                            Text = "Add Immunization", 
+                            Icon = "baby", 
+                            Url = "/Nurse/AddImmunizationRecord", 
                             RequiredPermissions = new List<string> { "PatientList" },
-                            IsActive = currentPath.Contains("/nurse/manualforms")
+                            IsActive = currentPath.Contains("/nurse/addimmunizationrecord")
+                        });
+                    }
+                    
+                    // View Immunization Records
+                    if (canSeeImmunization)
+                    {
+                        navItems.Add(new SidebarMenuItem { 
+                            Text = "Immunization Records", 
+                            Icon = "database", 
+                            Url = "/Nurse/ImmunizationRecords", 
+                            RequiredPermissions = new List<string> { "PatientList" },
+                            IsActive = currentPath.Contains("/nurse/immunizationrecords")
                         });
                     }
                     
@@ -108,12 +120,20 @@ namespace Barangay.ViewComponents
                     _logger.LogInformation($"Nurse {userId}: Appointments visible = {canSeeAppointments}");
                     if (canSeeAppointments)
                     {
+                        // Get today's pending/confirmed appointments count
+                        var today = DateTime.Today;
+                        var todaysAppointmentsCount = await _context.Appointments
+                            .CountAsync(a => a.AppointmentDate.Date == today && 
+                                           (a.Status == Models.AppointmentStatus.Pending || 
+                                            a.Status == Models.AppointmentStatus.Confirmed));
+                        
                         navItems.Add(new SidebarMenuItem { 
                             Text = "Appointments", 
                             Icon = "calendar-check", 
                             Url = "/Nurse/Appointments", 
                             RequiredPermissions = new List<string> { "Appointments" },
-                            IsActive = currentPath.Contains("/nurse/appointments")
+                            IsActive = currentPath.Contains("/nurse/appointments"),
+                            BadgeCount = todaysAppointmentsCount
                         });
                     }
                     
@@ -292,5 +312,6 @@ break;
         public string Url { get; set; }
         public List<string> RequiredPermissions { get; set; } = new List<string>();
         public bool IsActive { get; set; }
+        public int BadgeCount { get; set; } = 0;
     }
 } 

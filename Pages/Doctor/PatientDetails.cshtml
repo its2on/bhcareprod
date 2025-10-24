@@ -424,7 +424,7 @@
                                                         <td>@(string.IsNullOrEmpty(vs.Temperature) ? "N/A" : $"{vs.Temperature} °C")</td>
                                                         <td>@(string.IsNullOrEmpty(vs.Weight) ? "N/A" : $"{vs.Weight} kg")</td>
                                                         <td>@(string.IsNullOrEmpty(vs.Height) ? "N/A" : $"{vs.Height} cm")</td>
-                                                        <td>@(Model.Patient.BMI.HasValue ? $"{Model.Patient.BMI:F1}" : "N/A")</td>
+                                                        <td>@(Model.Patient?.BMI.HasValue == true ? $"{Model.Patient.BMI.Value:F1}" : "N/A")</td>
                                                     </tr>
                                                 }
                                             </tbody>

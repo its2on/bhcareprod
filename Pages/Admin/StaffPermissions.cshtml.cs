@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using Barangay.Services;
+using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
@@ -22,17 +23,20 @@ namespace Barangay.Pages.Admin
         private readonly ILogger<StaffPermissionsModel> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IPermissionService _permissionService;
+        private readonly IAuditTrailService _auditTrail;
 
         public StaffPermissionsModel(
             ApplicationDbContext context,
             ILogger<StaffPermissionsModel> logger,
             UserManager<ApplicationUser> userManager,
-            IPermissionService permissionService)
+            IPermissionService permissionService,
+            IAuditTrailService auditTrail)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _permissionService = permissionService;
+            _auditTrail = auditTrail;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -271,14 +275,23 @@ namespace Barangay.Pages.Admin
                 // Load all current permissions
                 var currentPermissions = await _context.StaffPermissions
                     .Where(sp => sp.StaffMemberId == StaffId)
+                    .Include(sp => sp.Permission)
                     .ToListAsync();
+                
+                // Get old permission names for audit log
+                var oldPermissionNames = currentPermissions.Select(cp => cp.Permission.Name).ToList();
 
                 // Remove all current permissions
                 _context.StaffPermissions.RemoveRange(currentPermissions);
 
-                // Add new permissions
+                // Add new permissions and get names
+                var newPermissionNames = new List<string>();
                 if (SelectedPermissions != null && SelectedPermissions.Any())
                 {
+                    var permissionsList = await _context.Permissions
+                        .Where(p => SelectedPermissions.Contains(p.Id))
+                        .ToListAsync();
+                    
                     foreach (var permissionId in SelectedPermissions)
                     {
                         _context.StaffPermissions.Add(new StaffPermission
@@ -286,10 +299,34 @@ namespace Barangay.Pages.Admin
                             StaffMemberId = StaffId.Value,
                             PermissionId = permissionId
                         });
+                        
+                        var permName = permissionsList.FirstOrDefault(p => p.Id == permissionId)?.Name;
+                        if (!string.IsNullOrEmpty(permName))
+                            newPermissionNames.Add(permName);
                     }
                 }
 
                 await _context.SaveChangesAsync();
+                
+                // Log audit trail
+                var changedPermissions = new List<string>();
+                var removedPerms = oldPermissionNames.Except(newPermissionNames).ToList();
+                var addedPerms = newPermissionNames.Except(oldPermissionNames).ToList();
+                
+                if (removedPerms.Any())
+                    changedPermissions.Add($"Removed: {string.Join(", ", removedPerms)}");
+                if (addedPerms.Any())
+                    changedPermissions.Add($"Added: {string.Join(", ", addedPerms)}");
+                
+                await _auditTrail.LogAsync(
+                    "Update",
+                    $"Updated permissions for staff member {staffMember.Name} ({staffMember.User?.Email})",
+                    "StaffPermissions",
+                    StaffId.Value.ToString(),
+                    JsonConvert.SerializeObject(oldPermissionNames),
+                    JsonConvert.SerializeObject(newPermissionNames),
+                    changedPermissions.Any() ? string.Join(" | ", changedPermissions) : "No changes"
+                );
 
                 // Clear cached permissions for this user
                 if (staffMember.User != null)
