@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Barangay.Models;
 using Barangay.Services;
 using Barangay.Data;
+using Barangay.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -209,12 +210,6 @@ namespace Barangay.Pages.Account
             [Display(Name = "Complete Address")]
             [StringLength(200, MinimumLength = 10, ErrorMessage = "Address must be between 10 and 200 characters.")]
             public string Address { get; set; }
-            
-            [Required(ErrorMessage = "Age is required")]
-            [Display(Name = "Age")]
-            [StringLength(3, MinimumLength = 1, ErrorMessage = "Age must be between 1 and 3 digits.")]
-            [RegularExpression(@"^[0-9]+$", ErrorMessage = "Age must contain only numbers.")]
-            public string Age { get; set; }
             
             [Required(ErrorMessage = "Birth date is required")]
             [Display(Name = "Birth Date")]
@@ -572,14 +567,14 @@ namespace Barangay.Pages.Account
                     Suffix = _encryptionService.Encrypt(Input.Suffix ?? ""),
                     PhoneNumber = _encryptionService.Encrypt(Input.ContactNumber),
                     BirthDate = DateTime.TryParse(Input.BirthDate, out var parsedBirthDateValue) ? parsedBirthDateValue : DateTime.Now.AddYears(-25),
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTimeHelper.ToUtc(DateTimeHelper.Now),
                     HasAgreedToTerms = Input.AgreeToTerms,
-                    AgreedAt = DateTime.UtcNow,
+                    AgreedAt = DateTimeHelper.ToUtc(DateTimeHelper.Now),
                     Gender = _encryptionService.Encrypt(Input.Gender), // Encrypt gender
                     Name = _encryptionService.Encrypt($"{Input.FirstName} {Input.LastName}"),
                     Barangay = _encryptionService.Encrypt(!string.IsNullOrWhiteSpace(Input.Barangay) ? $"Barangay {Input.Barangay}" : string.Empty), // Encrypt barangay
                     Address = _encryptionService.Encrypt(Input.Address ?? ""),
-                    Age = _encryptionService.Encrypt(Input.Age ?? "") // Encrypt age
+                    Age = _encryptionService.Encrypt(age.ToString()) // Automatically calculate and encrypt age from birth date
                 };
                 
                 var result = await _userManager.CreateAsync(user, Input.Password);

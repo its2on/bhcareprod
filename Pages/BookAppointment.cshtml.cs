@@ -636,12 +636,11 @@ namespace Barangay.Pages
                     user.PhoneNumber = user.PhoneNumber.DecryptForUser(_encryptionService, User);
                 }
 
-                // Save family number to patient record if provided
-                // Note: For "booking for other", we save the family number to the BOOKER's record
-                // The guest patient details are stored in the Appointment record
-                if (!string.IsNullOrEmpty(familyNumber))
+                // Save family number to patient record if provided (for regular bookings only)
+                // For "booking for someone else", family number is saved to Appointment.FamilyNumber below
+                if (!string.IsNullOrEmpty(familyNumber) && !bookingForOther)
                 {
-                    // Always ensure patient record exists first
+                    // For regular bookings, save to the logged-in user's record
                     await EnsurePatientRecordExistsAsync(userId);
                     
                     var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
@@ -735,6 +734,12 @@ namespace Barangay.Pages
 
                 _context.Appointments.Add(newAppointment);
                 await _context.SaveChangesAsync();
+                
+                if (!string.IsNullOrEmpty(familyNumber))
+                {
+                    _logger.LogInformation("Appointment created with FamilyNumber: {FamilyNumber} for {PatientName} (BookingForOther: {BookingForOther})", 
+                        familyNumber, patientName, bookingForOther);
+                }
 
                 // AUDIT: Log appointment booking
                 await _auditTrail.LogAsync(

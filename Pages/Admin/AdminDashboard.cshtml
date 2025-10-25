@@ -22,12 +22,34 @@
                         <span>Add Staff Member</span>
                     </a>
                     <div class="secondary-actions">
+                        <!-- Testing Mode Toggle -->
+                        <div class="form-check form-switch me-3" style="display: flex; align-items: center; margin-top: 0.25rem;">
+                            <input class="form-check-input" type="checkbox" id="testingModeSwitch" @(Model.TestingMode ? "checked" : "")
+                                   onchange="toggleTestingMode(this.checked)" style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
+                            <label class="form-check-label ms-2" for="testingModeSwitch" style="cursor: pointer; font-weight: 600; color: #202938; white-space: nowrap;">
+                                <i class="fa-solid fa-flask me-1" style="color: #e86a17;"></i>
+                                Dev Mode
+                                @if (Model.TestingMode)
+                                {
+                                    <span class="badge bg-warning text-dark ms-2">ON</span>
+                                }
+                            </label>
+                        </div>
                         <button class="action-btn refresh-btn" id="refreshDashboard" data-tooltip="Refresh Dashboard">
                             <i class="fa-solid fa-rotate-right"></i>
                         </button>
                     </div>
                 </div>
             </div>
+            
+            @if (Model.TestingMode)
+            {
+                <div class="alert alert-warning alert-dismissible fade show" role="alert" style="border-left: 4px solid #e86a17;">
+                    <i class="fa-solid fa-flask me-2"></i>
+                    <strong>Developer Mode Enabled:</strong> This mode is for testing and development purposes only. Some restrictions and validations may be bypassed.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
 
             <!-- Stats Overview -->
             <div class="stats-overview section-spacing">
@@ -157,6 +179,13 @@
 
 @section Scripts {
     <script>
+        // Toggle Testing Mode function
+        function toggleTestingMode(enabled) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('testingMode', enabled);
+            window.location.href = url.toString();
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Refresh dashboard data
             document.getElementById('refreshDashboard')?.addEventListener('click', function() {

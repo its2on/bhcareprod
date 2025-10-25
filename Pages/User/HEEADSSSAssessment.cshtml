@@ -126,7 +126,12 @@
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Client No.:</label>
-                        <input type="text" class="form-control" asp-for="Assessment.FamilyNo" id="family-no" />
+                        <div class="d-flex">
+                            <input type="text" class="form-control" asp-for="Assessment.FamilyNo" id="client-no" />
+                            <button type="button" id="generate-client-no" class="btn btn-secondary ms-2">Generate</button>
+                        </div>
+                        <small class="form-text text-muted">If you have a family number, enter it or click Generate to create a new one.</small>
+                        <small class="form-text text-info" id="client-generator-info" style="display: none;"></small>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -206,6 +211,7 @@
                             <button type="button" id="generate-family-no" class="btn btn-secondary ms-2">Generate</button>
                         </div>
                         <small class="form-text text-muted">If you have a family number, enter it or click Generate to create a new one.</small>
+                        <small class="form-text text-info" id="family-generator-info" style="display: none;"></small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label required">Contact Number</label>
@@ -1041,36 +1047,72 @@
                 });
             }
             // Generate Family Number functionality
-            document.getElementById('generate-family-no').addEventListener('click', async function() {
-                console.log("Generate button clicked"); // Debug logging
+            $(document).ready(function() {
+                // Family Number Generate Button
+                $('#generate-family-no').on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    generateFamilyNumber();
+                });
                 
-                const lastName = '@ViewData["PatientName"]'.split(' ').pop(); // Get last name from patient name
-                if (!lastName || lastName.length === 0) {
-                    alert('Please enter your last name first to generate a family number.');
-                    return;
-                }
-                
+                // Client Number Generate Button
+                $('#generate-client-no').on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    generateFamilyNumber();
+                });
+            });
+            
+            // Function to generate family number and sync both fields
+            async function generateFamilyNumber() {
                 try {
-                    console.log("Sending request to generate family number for:", lastName);
+                    // Get patient name from ViewData
+                    const patientName = '@ViewData["PatientName"]';
+                    
+                    if (!patientName || patientName === '' || patientName === 'null' || patientName === 'undefined') {
+                        alert('Patient name not found. Please refresh the page and try again.');
+                        return;
+                    }
+                    
+                    const lastName = patientName.split(' ').pop();
+                    
+                    if (!lastName || lastName.length === 0) {
+                        alert('Please enter your last name first to generate a family number.');
+                        return;
+                    }
+                    
+                    // Get CSRF token
+                    const csrfToken = $('input[name="__RequestVerificationToken"]').val();
+                    
                     const response = await fetch('/User/HEEADSSSAssessment?handler=GenerateFamilyNumber', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                            'RequestVerificationToken': csrfToken
                         },
                         body: JSON.stringify({ lastName: lastName })
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const result = await response.json();
-                    console.log("Generate family number response:", result);
                     
                     if (result.success) {
-                        console.log("Generated family number:", result.familyNo);
-                        document.getElementById('family-no').value = result.familyNo;
+                        // Update both fields with the same value
+                        $('#family-no').val(result.familyNo);
+                        $('#client-no').val(result.familyNo);
+                        
+                        // Show generator information
+                        const generatorText = 'Generated by: ' + (result.generatedBy || 'Unknown');
+                        $('#family-generator-info').text(generatorText).show();
+                        $('#client-generator-info').text(generatorText).show();
+                        
                         if (result.isPreexisting) {
-                            alert('Using existing family number: ' + result.familyNo);
+                            alert('Using existing family number: ' + result.familyNo + '\nGenerated by: ' + (result.generatedBy || 'Unknown'));
                         } else {
-                            alert('New family number generated: ' + result.familyNo);
+                            alert('New family number generated: ' + result.familyNo + '\nGenerated by: ' + (result.generatedBy || 'Unknown'));
                         }
                     } else {
                         alert('Error generating family number: ' + (result.error || 'Unknown error'));

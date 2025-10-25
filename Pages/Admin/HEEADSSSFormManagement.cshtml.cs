@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
 using Barangay.Models;
 using Barangay.Services;
+using System.Text.Json;
 using Barangay.Extensions;
 using System.Security.Claims;
 
@@ -15,13 +16,15 @@ namespace Barangay.Pages.Admin
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IFormDataExtractionService _formDataExtractionService;
 
-        public HEEADSSSFormManagementModel(ILogger<HEEADSSSFormManagementModel> logger, ApplicationDbContext context, IWebHostEnvironment environment, IDataEncryptionService encryptionService)
+        public HEEADSSSFormManagementModel(ILogger<HEEADSSSFormManagementModel> logger, ApplicationDbContext context, IWebHostEnvironment environment, IDataEncryptionService encryptionService, IFormDataExtractionService formDataExtractionService)
         {
             _logger = logger;
             _context = context;
             _environment = environment;
             _encryptionService = encryptionService;
+            _formDataExtractionService = formDataExtractionService;
         }
 
         public List<UploadedImage> UploadedImages { get; set; } = new List<UploadedImage>();
@@ -161,7 +164,7 @@ namespace Barangay.Pages.Admin
                 }
 
                 // Process image with OCR simulation
-                var (isReadable, extractedData) = ProcessImageWithOCR(filePath, pageNumber);
+                var (isReadable, extractedData) = await ProcessImageWithOCR(filePath, pageNumber);
 
                 return new JsonResult(new
                 {
@@ -177,88 +180,54 @@ namespace Barangay.Pages.Admin
             }
         }
 
-        private (bool, object) ProcessImageWithOCR(string filePath, string pageNumber)
+        private async Task<(bool IsReadable, object Data)> ProcessImageWithOCR(string filePath, string pageNumber)
         {
-            // Simulate OCR processing with a 2-second delay
-            System.Threading.Thread.Sleep(2000);
-
-            // Simulate a 70% chance of the image being readable
-            bool isReadable = new Random().Next(100) < 70;
-
-            if (isReadable)
+            try
             {
-                // Simulate extracted data based on page number
-                if (pageNumber == "1")
+                _logger.LogInformation($"Processing HEEADSSS form image with OCR: {filePath} for page {pageNumber}");
+                
+                // First, try to load stored OCR data if it exists
+                var dataPath = Path.Combine(_environment.WebRootPath, "images", "forms", $"heeadsss-form-page{pageNumber}-data.json");
+                if (System.IO.File.Exists(dataPath))
                 {
-                    return (true, new
+                    try
                     {
-                        healthFacility = "Barangay Health Center",
-                        familyNo = "FAM001",
-                        fullName = "MARIA SANTOS",
-                        age = 16,
-                        gender = "F",
-                        address = "123 Main Street",
-                        contactNumber = "09123456789",
-                        homeEnvironment = "Stable",
-                        familyRelationship = "Good",
-                        homeFamilyProblems = "None",
-                        homeParentalListening = "Always",
-                        homeParentalBlame = "Never",
-                        homeFamilyChanges = "None recently"
-                    });
+                        var storedData = await System.IO.File.ReadAllTextAsync(dataPath);
+                        var extractedData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(storedData);
+                        
+                        if (extractedData != null && extractedData.Count > 0)
+                        {
+                            _logger.LogInformation($"Loaded stored OCR data for page {pageNumber} with {extractedData.Count} fields");
+                            return (true, extractedData);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, $"Failed to load stored OCR data for page {pageNumber}: {ex.Message}");
+                    }
                 }
-                else if (pageNumber == "2")
+                
+                // If no stored data, process with OCR
+                var result = await _formDataExtractionService.ExtractFormDataAsync(filePath, "HEEADSSS", pageNumber);
+                
+                if (result.IsReadable && result.ExtractedData.Count > 0)
                 {
-                    return (true, new
-                    {
-                        hobbies = "Reading, Sports",
-                        physicalActivity = "Regular",
-                        screenTime = "Moderate",
-                        activitiesParticipation = "Active",
-                        activitiesRegularExercise = "Yes",
-                        activitiesScreenTime = "2-3 hours daily",
-                        substanceUse = false,
-                        substanceType = "None",
-                        drugsTobaccoUse = "No",
-                        drugsAlcoholUse = "No",
-                        drugsIllicitDrugUse = "No",
-                        datingRelationships = "Single",
-                        sexualActivity = false,
-                        sexualOrientation = "Heterosexual",
-                        sexualityBodyConcerns = "None",
-                        sexualityIntimateRelationships = "None",
-                        sexualityPartners = "None",
-                        sexualitySexualOrientation = "Heterosexual",
-                        sexualityPregnancy = "No",
-                        sexualitySTI = "No",
-                        sexualityProtection = "N/A",
-                        moodChanges = "None",
-                        suicidalThoughts = false,
-                        selfHarmBehavior = false,
-                        feelsSafeAtHome = true,
-                        feelsSafeAtSchool = true,
-                        experiencedBullying = false,
-                        personalStrengths = "Good communication",
-                        supportSystems = "Family, Friends",
-                        copingMechanisms = "Talking, Exercise",
-                        safetyPhysicalAbuse = false,
-                        safetyRelationshipViolence = false,
-                        safetyProtectiveGear = "Yes",
-                        safetyGunsAtHome = false,
-                        suicideDepressionFeelings = false,
-                        suicideSelfHarmThoughts = false,
-                        suicideFamilyHistory = false,
-                        assessmentNotes = "No significant concerns",
-                        recommendedActions = "Continue monitoring",
-                        followUpPlan = "Regular check-ups",
-                        notes = "Patient appears healthy",
-                        assessedBy = "Dr. Smith"
-                    });
+                    // Store the extracted data for future use
+                    await StoreExtractedFormData(pageNumber, result.ExtractedData);
+                    _logger.LogInformation($"OCR processing successful for page {pageNumber}. Extracted {result.ExtractedData.Count} fields.");
+                    return (true, result.ExtractedData);
+                }
+                else
+                {
+                    _logger.LogWarning($"OCR processing failed for page {pageNumber}");
+                    return (false, new Dictionary<string, object>());
                 }
             }
-
-            // Return empty data for unreadable images
-            return (false, new { });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing HEEADSSS form image with OCR: {ex.Message}");
+                return (false, new Dictionary<string, object>());
+            }
         }
 
         public async Task<IActionResult> OnPostSaveFormDataAsync(string fileName, string pageNumber, IFormCollection formData)
@@ -541,16 +510,71 @@ namespace Barangay.Pages.Admin
         {
             try
             {
-                _logger.LogInformation($"Admin {User.Identity?.Name} set active HEEADSSS image: {fileName}");
+                if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(page))
+                {
+                    return new JsonResult(new { success = false, message = "File name or page not specified" });
+                }
 
-                // Here you would implement logic to set an image as active
-                // For now, just return success
-                return new JsonResult(new { success = true, message = "Image set as active" });
+                // Copy the selected image to be the active image for the page
+                var sourcePath = Path.Combine(_environment.WebRootPath, "images", "forms", "admin", fileName);
+                var targetPath = Path.Combine(_environment.WebRootPath, "images", "forms", $"heeadsss-form-page{page}.jpg");
+
+                if (System.IO.File.Exists(sourcePath))
+                {
+                    System.IO.File.Copy(sourcePath, targetPath, true);
+                    
+                    // Process the image with OCR to extract form data
+                    _logger.LogInformation($"Processing OCR for active HEEADSSS form image: {fileName}");
+                    var ocrResult = await _formDataExtractionService.ExtractFormDataAsync(targetPath, "HEEADSSS", page);
+                    
+                    if (ocrResult.IsReadable && ocrResult.ExtractedData.Count > 0)
+                    {
+                        _logger.LogInformation($"OCR processing successful for {fileName}. Extracted {ocrResult.ExtractedData.Count} fields.");
+                        
+                        // Store the extracted data for this page
+                        await StoreExtractedFormData(page, ocrResult.ExtractedData);
+                        
+                        _logger.LogInformation($"Admin {User.Identity.Name} set active HEEADSSS form image for page {page}: {fileName} and processed OCR data");
+                        return new JsonResult(new { 
+                            success = true, 
+                            message = $"Page {page} image updated successfully and form data extracted ({ocrResult.ExtractedData.Count} fields)" 
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"OCR processing failed or no data extracted for {fileName}");
+                        return new JsonResult(new { 
+                            success = true, 
+                            message = $"Page {page} image updated successfully, but OCR processing failed. You can manually edit the form data." 
+                        });
+                    }
+                }
+                else
+                {
+                    return new JsonResult(new { success = false, message = "Source file not found" });
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error setting active HEEADSSS image: {fileName}");
-                return new JsonResult(new { success = false, message = "Error setting active image" });
+                _logger.LogError(ex, $"Error setting active HEEADSSS form image: {ex.Message}");
+                return new JsonResult(new { success = false, message = "An error occurred while updating the active image" });
+            }
+        }
+
+        private async Task StoreExtractedFormData(string pageNumber, Dictionary<string, object> extractedData)
+        {
+            try
+            {
+                // Store the extracted data in a JSON file for this page
+                var dataPath = Path.Combine(_environment.WebRootPath, "images", "forms", $"heeadsss-form-page{pageNumber}-data.json");
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(extractedData, new JsonSerializerOptions { WriteIndented = true });
+                await System.IO.File.WriteAllTextAsync(dataPath, jsonData);
+                
+                _logger.LogInformation($"Stored extracted form data for page {pageNumber} with {extractedData.Count} fields");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error storing extracted form data for page {pageNumber}: {ex.Message}");
             }
         }
 

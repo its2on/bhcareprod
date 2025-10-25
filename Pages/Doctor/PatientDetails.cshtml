@@ -148,33 +148,33 @@
                             <div class="avatar-circle mx-auto mb-3">
                                 <span class="avatar-initials">@(string.IsNullOrEmpty(Model.Patient.FullName) ? "?" : Model.Patient.FullName.Substring(0, 1).ToUpper())</span>
                             </div>
-                            <h4>@Model.Patient.FullName</h4>
+                            <h4>@(Model.Patient.FullName ?? "Unknown Patient")</h4>
                             <p class="text-muted">
-                                @Model.Patient.Gender, @Model.Patient.Age years old
+                                @(Model.Patient.Gender ?? "N/A"), @Model.Patient.Age years old
                             </p>
-                            <span class="badge bg-@(Model.Patient.Status == "Active" ? "success" : "secondary")">@Model.Patient.Status</span>
+                            <span class="badge bg-@((Model.Patient.Status ?? "Inactive") == "Active" ? "success" : "secondary")">@(Model.Patient.Status ?? "Inactive")</span>
                         </div>
                         
                         <hr />
                         
                         <dl class="row">
                             <dt class="col-sm-5">Contact Number:</dt>
-                            <dd class="col-sm-7">@Model.Patient.ContactNumber</dd>
+                            <dd class="col-sm-7">@(Model.Patient.ContactNumber ?? "N/A")</dd>
                             
                             <dt class="col-sm-5">Email:</dt>
-                            <dd class="col-sm-7">@Model.Patient.Email</dd>
+                            <dd class="col-sm-7">@(Model.Patient.Email ?? "N/A")</dd>
                             
                             <dt class="col-sm-5">Barangay:</dt>
                             <dd class="col-sm-7">@(string.IsNullOrEmpty(Model.Patient.User?.Barangay) ? "Not specified" : Model.Patient.User.Barangay)</dd>
                             
                             <dt class="col-sm-5">Address:</dt>
-                            <dd class="col-sm-7">@Model.Patient.Address</dd>
+                            <dd class="col-sm-7">@(Model.Patient.Address ?? "N/A")</dd>
                             
                             <dt class="col-sm-5">Blood Type:</dt>
                             <dd class="col-sm-7">@(string.IsNullOrEmpty(Model.Patient.BloodType) ? "Not specified" : Model.Patient.BloodType)</dd>
                             
                             <dt class="col-sm-5">Emergency Contact:</dt>
-                            <dd class="col-sm-7">@Model.Patient.EmergencyContact (@Model.Patient.EmergencyContactNumber)</dd>
+                            <dd class="col-sm-7">@(Model.Patient.EmergencyContact ?? "N/A") (@(Model.Patient.EmergencyContactNumber ?? "N/A"))</dd>
                         </dl>
                     </div>
                 </div>
@@ -332,7 +332,7 @@
                                                     <tr>
                                                         <td>@appointment.AppointmentDate.ToString("MMM dd, yyyy")</td>
                                                         <td>@appointment.AppointmentTime.ToString(@"hh\:mm")</td>
-                                                        <td>@appointment.Description</td>
+                                                        <td>@(appointment.Description ?? "N/A")</td>
                                                         <td>
                                                             <span class="badge bg-@(appointment.Status.ToString() == "Completed" ? "success" : appointment.Status.ToString() == "Cancelled" ? "danger" : "primary")">
                                                                 @appointment.Status

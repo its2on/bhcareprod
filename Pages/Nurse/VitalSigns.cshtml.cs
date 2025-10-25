@@ -74,6 +74,7 @@ namespace Barangay.Pages.Nurse
             public int Id { get; set; }
             public string PatientId { get; set; } = string.Empty;
             public string PatientName { get; set; } = string.Empty;
+            public DateTime AppointmentDate { get; set; }
             public TimeSpan AppointmentTime { get; set; }
             public string DoctorName { get; set; } = string.Empty;
             public string Type { get; set; } = string.Empty;
@@ -100,6 +101,9 @@ namespace Barangay.Pages.Nurse
         public DateTime Today { get; set; } = DateTimeHelper.Today;
         public bool HasTodayAppointments => TodayAppointments.Any();
         public int? SelectedAppointmentId { get; set; }
+        
+        // Testing Mode - allows recording vital signs without date restrictions
+        public bool TestingMode { get; set; }
 
         // Additional info for Patient Information panel
         public string? SelectedPatientBarangay { get; set; }
@@ -107,9 +111,21 @@ namespace Barangay.Pages.Nurse
         public string FilledFormType { get; set; } = string.Empty; // "NCD Risk Assessment" or "HEEADSSS Assessment"
         public bool IsFormFilled { get; set; }
 
-        public async Task<IActionResult> OnGetAsync(string patientId)
+        public async Task<IActionResult> OnGetAsync(string patientId, bool? testingMode)
         {
             Today = DateTimeHelper.Today;
+            
+            // Get testing mode from TempData or query parameter
+            if (testingMode.HasValue)
+            {
+                TestingMode = testingMode.Value;
+                TempData["TestingMode"] = TestingMode;
+            }
+            else if (TempData.ContainsKey("TestingMode"))
+            {
+                TestingMode = (bool)TempData["TestingMode"];
+                TempData.Keep("TestingMode");
+            }
             
             // Load doctors for the dropdown
             var doctorRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Doctor");
@@ -207,13 +223,22 @@ namespace Barangay.Pages.Nurse
         // New method to load today's appointments (excluding those with vital signs already recorded)
         private async Task LoadTodayAppointmentsAsync()
         {
-            // Get Pending, Confirmed, and In Progress appointments for today
-            var todayAppointments = await _context.Appointments
-                .Where(a => a.AppointmentDate.Date == Today && 
-                           (a.Status == AppointmentStatus.Pending || 
-                            a.Status == AppointmentStatus.Confirmed ||
-                            a.Status == AppointmentStatus.InProgress))
-                .OrderBy(a => a.AppointmentTime)
+            // Get Pending, Confirmed, and In Progress appointments
+            // In testing mode, show ALL appointments regardless of date
+            var query = _context.Appointments.AsQueryable();
+            
+            if (!TestingMode)
+            {
+                // Normal mode: only today's appointments
+                query = query.Where(a => a.AppointmentDate.Date == Today);
+            }
+            
+            var todayAppointments = await query
+                .Where(a => a.Status == AppointmentStatus.Pending || 
+                           a.Status == AppointmentStatus.Confirmed ||
+                           a.Status == AppointmentStatus.InProgress)
+                .OrderBy(a => a.AppointmentDate)
+                .ThenBy(a => a.AppointmentTime)
                 .Include(a => a.Doctor)
                 .ToListAsync();
 
@@ -234,6 +259,7 @@ namespace Barangay.Pages.Nurse
                     Id = appointment.Id,
                     PatientId = appointment.PatientId,
                     PatientName = appointment.PatientName,
+                    AppointmentDate = appointment.AppointmentDate,
                     AppointmentTime = appointment.AppointmentTime,
                     DoctorName = doctorName,
                     Type = appointment.Type ?? "General",
@@ -241,30 +267,51 @@ namespace Barangay.Pages.Nurse
                 });
             }
 
-            // Get patient IDs that already have vital signs recorded today
-            var patientsWithVitalSignsToday = await _context.VitalSigns
-                .Where(v => v.RecordedAt.Date == Today)
-                .Select(v => v.PatientId)
-                .Distinct()
-                .ToListAsync();
+            // Get patient IDs that already have vital signs recorded today (skip filter in testing mode)
+            List<string> patientsWithVitalSignsToday;
+            List<TodayAppointmentViewModel> filteredAppointments;
+            
+            if (TestingMode)
+            {
+                // Testing mode: show all appointments, don't filter
+                patientsWithVitalSignsToday = new List<string>();
+                filteredAppointments = appointmentViewModels;
+            }
+            else
+            {
+                // Normal mode: filter out appointments where vital signs were already recorded
+                patientsWithVitalSignsToday = await _context.VitalSigns
+                    .Where(v => v.RecordedAt.Date == Today)
+                    .Select(v => v.PatientId)
+                    .Distinct()
+                    .ToListAsync();
 
-            // Filter out appointments for patients who already have vital signs recorded today
-            var filteredAppointments = appointmentViewModels
-                .Where(a => !patientsWithVitalSignsToday.Contains(a.PatientId))
-                .ToList();
+                filteredAppointments = appointmentViewModels
+                    .Where(a => !patientsWithVitalSignsToday.Contains(a.PatientId))
+                    .ToList();
+            }
 
             TodayAppointments = filteredAppointments;
             
-            _logger.LogInformation($"Loaded {todayAppointments.Count} total In Progress appointments for today ({Today:yyyy-MM-dd}), filtered to {filteredAppointments.Count} appointments (excluding {patientsWithVitalSignsToday.Count} patients with vital signs already recorded)");
+            var excludedCount = appointmentViewModels.Count - filteredAppointments.Count;
+            var dateInfo = TestingMode ? "all dates" : $"today ({Today:yyyy-MM-dd})";
+            _logger.LogInformation($"Loaded {todayAppointments.Count} total In Progress appointments for {dateInfo}, filtered to {filteredAppointments.Count} appointments (TestingMode: {TestingMode}, excluded: {excludedCount})");
         }
         
         // New method to load patients with today's appointments for the dropdown (excluding those with vital signs already recorded)
         private async Task LoadPatientsWithTodayAppointmentsAsync()
         {
-            // Get patients with today's Pending, Confirmed, and In Progress appointments
-            var patientsWithTodayAppointments = await _context.Appointments
-                .Where(a => a.AppointmentDate.Date == Today &&
-                       a.PatientName != "System Administrator" && 
+            // Get patients with appointments (all dates in testing mode, today only in normal mode)
+            var query = _context.Appointments.AsQueryable();
+            
+            if (!TestingMode)
+            {
+                // Normal mode: only today's appointments
+                query = query.Where(a => a.AppointmentDate.Date == Today);
+            }
+            
+            var patientsWithTodayAppointments = await query
+                .Where(a => a.PatientName != "System Administrator" && 
                        a.PatientId != "0e03f06e-ba88-46ed-b047-4974d8b8252a" &&
                        (a.Status == AppointmentStatus.Pending ||
                         a.Status == AppointmentStatus.Confirmed ||
@@ -273,17 +320,22 @@ namespace Barangay.Pages.Nurse
                 .Distinct()
                 .ToListAsync();
 
-            // Get patient IDs that already have vital signs recorded today
-            var patientsWithVitalSignsToday = await _context.VitalSigns
-                .Where(v => v.RecordedAt.Date == Today)
-                .Select(v => v.PatientId)
-                .Distinct()
-                .ToListAsync();
+            // Get patient IDs that already have vital signs recorded today (skip filter in testing mode)
+            var filteredPatientsWithTodayAppointments = patientsWithTodayAppointments;
+            
+            if (!TestingMode)
+            {
+                // Normal mode: filter out patients with vital signs already recorded today
+                var patientsWithVitalSignsToday = await _context.VitalSigns
+                    .Where(v => v.RecordedAt.Date == Today)
+                    .Select(v => v.PatientId)
+                    .Distinct()
+                    .ToListAsync();
 
-            // Filter out patients who already have vital signs recorded today
-            var filteredPatientsWithTodayAppointments = patientsWithTodayAppointments
-                .Where(p => !patientsWithVitalSignsToday.Contains(p.PatientId))
-                .ToList();
+                filteredPatientsWithTodayAppointments = patientsWithTodayAppointments
+                    .Where(p => !patientsWithVitalSignsToday.Contains(p.PatientId))
+                    .ToList();
+            }
                 
             // If there are no appointments today (after filtering), load patients as usual
             if (!filteredPatientsWithTodayAppointments.Any())
@@ -301,7 +353,8 @@ namespace Barangay.Pages.Nurse
                 })
                 .ToList();
                 
-            _logger.LogInformation($"Loaded {filteredPatientsWithTodayAppointments.Count} patients with today's In Progress appointments (excluding {patientsWithVitalSignsToday.Count} with vital signs already recorded)");
+            var excludedCount = patientsWithTodayAppointments.Count - filteredPatientsWithTodayAppointments.Count;
+            _logger.LogInformation($"Loaded {filteredPatientsWithTodayAppointments.Count} patients with today's In Progress appointments (TestingMode: {TestingMode}, excluded: {excludedCount})");
         }
 
         // New method to load patient appointments
@@ -522,7 +575,14 @@ namespace Barangay.Pages.Nurse
         {
             try
             {
-                _logger.LogInformation("OnPostAddVitalSignAsync called with PatientId: {PatientId}", NewVitalSign.PatientId);
+                // Restore testing mode from TempData
+                if (TempData.ContainsKey("TestingMode"))
+                {
+                    TestingMode = (bool)TempData["TestingMode"];
+                    TempData.Keep("TestingMode");
+                }
+                
+                _logger.LogInformation("OnPostAddVitalSignAsync called with PatientId: {PatientId}, TestingMode: {TestingMode}", NewVitalSign.PatientId, TestingMode);
                 
                 if (string.IsNullOrEmpty(NewVitalSign.PatientId))
                 {
@@ -581,11 +641,19 @@ namespace Barangay.Pages.Nurse
                 _context.VitalSigns.Add(vitalSign);
                 
                 // Update the appointment status to Completed
-                var appointment = await _context.Appointments
+                var appointmentQuery = _context.Appointments
                     .Where(a => a.PatientId == NewVitalSign.PatientId && 
-                               a.AppointmentDate.Date == Today && 
-                               a.Status == AppointmentStatus.InProgress)
-                    .OrderByDescending(a => a.AppointmentTime)
+                               a.Status == AppointmentStatus.InProgress);
+                
+                // In normal mode, only update today's appointments
+                if (!TestingMode)
+                {
+                    appointmentQuery = appointmentQuery.Where(a => a.AppointmentDate.Date == Today);
+                }
+                
+                var appointment = await appointmentQuery
+                    .OrderByDescending(a => a.AppointmentDate)
+                    .ThenByDescending(a => a.AppointmentTime)
                     .FirstOrDefaultAsync();
                 
                 if (appointment != null)

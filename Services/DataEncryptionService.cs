@@ -167,7 +167,124 @@ namespace Barangay.Services
             {
                 // Log the error but don't expose sensitive information
                 Console.WriteLine($"Decryption error: {ex.Message}");
-                return cipherText; // Return original text if decryption fails
+                
+                // Additional fallback: Try with alternative key formats
+                try
+                {
+                    Console.WriteLine("Decrypt: Trying alternative key formats...");
+                    return TryAlternativeDecryption(cipherText);
+                }
+                catch (Exception fallbackEx)
+                {
+                    Console.WriteLine($"Alternative decryption also failed: {fallbackEx.Message}");
+                    return cipherText; // Return original text if all decryption attempts fail
+                }
+            }
+        }
+        
+        private string TryAlternativeDecryption(string cipherText)
+        {
+            var encryptedBytes = Convert.FromBase64String(cipherText);
+            
+            // Try with different key variations and methods
+            var alternativeKeys = new[]
+            {
+                "BHCARE_DataEncryption_Key_2024_Secure_32Chars".PadRight(32, '0'),
+                "YourStrongEncryptionKeyHere1234567890123456".PadRight(32, '0'),
+                "BHCARE_DataEncryption_Key_2024_Secure_32Chars".Substring(0, Math.Min(32, "BHCARE_DataEncryption_Key_2024_Secure_32Chars".Length)).PadRight(32, '0'),
+                "YourStrongEncryptionKeyHere1234567890123456".Substring(0, Math.Min(32, "YourStrongEncryptionKeyHere1234567890123456".Length)).PadRight(32, '0')
+            };
+            
+            // Try standard AES-CBC decryption with different keys
+            foreach (var key in alternativeKeys)
+            {
+                try
+                {
+                    using (var aes = Aes.Create())
+                    {
+                        aes.Key = Encoding.UTF8.GetBytes(key);
+                        
+                        var iv = new byte[16];
+                        Buffer.BlockCopy(encryptedBytes, 0, iv, 0, iv.Length);
+                        aes.IV = iv;
+                        
+                        var encryptedData = new byte[encryptedBytes.Length - iv.Length];
+                        Buffer.BlockCopy(encryptedBytes, iv.Length, encryptedData, 0, encryptedData.Length);
+                        
+                        using (var decryptor = aes.CreateDecryptor())
+                        {
+                            var decryptedBytes = decryptor.TransformFinalBlock(encryptedData, 0, encryptedData.Length);
+                            var result = Encoding.UTF8.GetString(decryptedBytes);
+                            Console.WriteLine($"Alternative key decrypt successful: {result?.Substring(0, Math.Min(20, result?.Length ?? 0))}...");
+                            return result;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Alternative key failed: {ex.Message}");
+                    continue;
+                }
+            }
+            
+            // Try the older EncryptionService method (different key handling)
+            try
+            {
+                Console.WriteLine("Trying older EncryptionService method...");
+                return TryLegacyEncryptionServiceMethod(cipherText);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Legacy EncryptionService method failed: {ex.Message}");
+            }
+            
+            throw new Exception("All alternative decryption methods failed");
+        }
+        
+        private string TryLegacyEncryptionServiceMethod(string cipherText)
+        {
+            var encryptedBytes = Convert.FromBase64String(cipherText);
+            
+            if (encryptedBytes.Length < 16)
+            {
+                throw new Exception("Cipher too short");
+            }
+            
+            // Try with the legacy EncryptionKey from appsettings
+            var legacyKey = Environment.GetEnvironmentVariable("LEGACY_ENCRYPTION_KEY") ?? 
+                           "YourStrongEncryptionKeyHere1234567890123456";
+            
+            // Use the same key handling as the old EncryptionService
+            byte[] keyBytes = new byte[32]; // Using 256 bits (32 bytes)
+            byte[] existingKeyBytes = Encoding.UTF8.GetBytes(legacyKey);
+            
+            // Copy the existing key bytes, padding or truncating as needed
+            Array.Copy(existingKeyBytes, keyBytes, Math.Min(existingKeyBytes.Length, keyBytes.Length));
+            
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = keyBytes;
+                
+                // Extract IV and encrypted data
+                byte[] iv = new byte[16];
+                Array.Copy(encryptedBytes, 0, iv, 0, iv.Length);
+                aes.IV = iv;
+                
+                byte[] cipherBytes = new byte[encryptedBytes.Length - iv.Length];
+                Array.Copy(encryptedBytes, iv.Length, cipherBytes, 0, cipherBytes.Length);
+                
+                using (MemoryStream memoryStream = new MemoryStream())
+                {
+                    using (ICryptoTransform decryptor = aes.CreateDecryptor())
+                    using (CryptoStream cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Write))
+                    {
+                        cryptoStream.Write(cipherBytes, 0, cipherBytes.Length);
+                        cryptoStream.FlushFinalBlock();
+                        var result = Encoding.UTF8.GetString(memoryStream.ToArray());
+                        Console.WriteLine($"Legacy method decrypt successful: {result?.Substring(0, Math.Min(20, result?.Length ?? 0))}...");
+                        return result;
+                    }
+                }
             }
         }
 

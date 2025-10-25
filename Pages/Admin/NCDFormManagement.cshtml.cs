@@ -13,6 +13,7 @@ using Barangay.Data;
 using Barangay.Models;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Services;
+using System.Text.Json;
 using Barangay.Extensions;
 
 namespace Barangay.Pages.Admin
@@ -24,17 +25,20 @@ namespace Barangay.Pages.Admin
         private readonly ILogger<NCDFormManagementModel> _logger;
         private readonly ApplicationDbContext _context;
         private readonly IDataEncryptionService _encryptionService;
+        private readonly IFormDataExtractionService _formDataExtractionService;
 
         public NCDFormManagementModel(
             IWebHostEnvironment environment,
             ILogger<NCDFormManagementModel> logger,
             ApplicationDbContext context,
-            IDataEncryptionService encryptionService)
+            IDataEncryptionService encryptionService,
+            IFormDataExtractionService formDataExtractionService)
         {
             _environment = environment;
             _logger = logger;
             _context = context;
             _encryptionService = encryptionService;
+            _formDataExtractionService = formDataExtractionService;
         }
 
         public List<FormImageInfo> UploadedImages { get; set; } = new List<FormImageInfo>();
@@ -180,117 +184,52 @@ namespace Barangay.Pages.Admin
 
         private async Task<(bool IsReadable, object Data)> ProcessImageWithOCR(string filePath, string pageNumber)
         {
-            // Simulate OCR processing delay
-            await Task.Delay(2000);
-
-            // In a real implementation, you would use OCR libraries like:
-            // - Tesseract.NET
-            // - Azure Computer Vision API
-            // - Google Cloud Vision API
-            // - AWS Textract
-
-            // For demonstration, we'll simulate different scenarios
-            var random = new Random();
-            var isReadable = random.NextDouble() > 0.3; // 70% chance of being readable
-
-            if (isReadable)
+            try
             {
-                // Simulate extracted data based on page number
-                if (pageNumber == "1")
+                _logger.LogInformation($"Processing NCD form image with OCR: {filePath} for page {pageNumber}");
+                
+                // First, try to load stored OCR data if it exists
+                var dataPath = Path.Combine(_environment.WebRootPath, "images", "forms", $"ncd-form-page{pageNumber}-data.json");
+                if (System.IO.File.Exists(dataPath))
                 {
-                    return (true, new
+                    try
                     {
-                        healthFacility = "Barangay Health Center",
-                        dateOfAssessment = DateTime.Now.ToString("yyyy-MM-dd"),
-                        familyNo = "FAM001",
-                        idNo = "ID123456",
-                        firstName = "NORMA",
-                        middleName = "MARCELINO",
-                        lastName = "MATEO",
-                        telepono = "09544114894",
-                        address = "224 I LANG ILANG",
-                        barangay = "ITT",
-                        birthday = "1948-11-04",
-                        edad = 74,
-                        kasarian = "F",
-                        relihiyon = "BA",
-                        civilStatus = "W",
-                        occupation = "Retired",
-                        hasDiabetes = true,
-                        hasHypertension = true,
-                        hasCancer = false,
-                        hasCOPD = false,
-                        hasLungDisease = false,
-                        hasEyeDisease = false,
-                        cancerSite = "",
-                        yearDiagnosed = "1950",
-                        medication = "DM, HPN",
-                        familyHasHypertension = true,
-                        familyHasHeartDisease = false,
-                        familyHasStroke = false,
-                        familyHasDiabetes = true,
-                        familyHasCancer = false,
-                        familyHasKidneyDisease = false,
-                        familyHasOtherDisease = false,
-                        familyOtherDiseaseDetails = "",
-                        eatsVegetables = true,
-                        eatsFruits = true,
-                        eatsFish = true,
-                        eatsMeat = false,
-                        eatsProcessedFood = false,
-                        eatsSaltyFood = true,
-                        eatsSweetFood = true,
-                        eatsFattyFood = false,
-                        drinksAlcohol = "No",
-                        alcoholFrequency = "Never"
-                    });
+                        var storedData = await System.IO.File.ReadAllTextAsync(dataPath);
+                        var extractedData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(storedData);
+                        
+                        if (extractedData != null && extractedData.Count > 0)
+                        {
+                            _logger.LogInformation($"Loaded stored OCR data for page {pageNumber} with {extractedData.Count} fields");
+                            return (true, extractedData);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, $"Failed to load stored OCR data for page {pageNumber}: {ex.Message}");
+                    }
                 }
-                else if (pageNumber == "2")
+                
+                // If no stored data, process with OCR
+                var result = await _formDataExtractionService.ExtractFormDataAsync(filePath, "NCD", pageNumber);
+                
+                if (result.IsReadable && result.ExtractedData.Count > 0)
                 {
-                    return (true, new
-                    {
-                        exerciseType = "Walking",
-                        exerciseDuration = "30 minutes",
-                        exerciseFrequency = "Daily",
-                        isSmoker = "No",
-                        smokingDuration = "",
-                        smokingSticksPerDay = "",
-                        smokingQuitDuration = "MoreThan1Year",
-                        smoked100Sticks = false,
-                        exposedToSmoke = false,
-                        isStressed = true,
-                        stressCauses = "Work, Family",
-                        stressAffectsDailyLife = true,
-                        hasRegularExercise = "Yes",
-                        exerciseMinutes = 30,
-                        weight = 65.5,
-                        height = 165.0,
-                        bmi = 24.1,
-                        systolicBP = 140,
-                        diastolicBP = 80,
-                        fastingBloodSugar = 120,
-                        randomBloodSugar = 150,
-                        totalCholesterol = 200,
-                        hdlCholesterol = 50,
-                        ldlCholesterol = 120,
-                        triglycerides = 150,
-                        urineProtein = "Negative",
-                        urineKetones = "Negative",
-                        breastCancerScreened = false,
-                        cervicalCancerScreened = false,
-                        cancerScreeningStatus = "Not Screened",
-                        riskPercentage = 15.5,
-                        riskFactors = "Age, Family History",
-                        interviewedBy = "Dr. Smith",
-                        designation = "Nurse",
-                        patientSignature = "NORMA MATEO",
-                        assessmentDate = DateTime.Now.ToString("yyyy-MM-dd")
-                    });
+                    // Store the extracted data for future use
+                    await StoreExtractedFormData(pageNumber, result.ExtractedData);
+                    _logger.LogInformation($"OCR processing successful for page {pageNumber}. Extracted {result.ExtractedData.Count} fields.");
+                    return (true, result.ExtractedData);
+                }
+                else
+                {
+                    _logger.LogWarning($"OCR processing failed for page {pageNumber}");
+                    return (false, new Dictionary<string, object>());
                 }
             }
-
-            // Return empty data for unreadable images
-            return (false, new { });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing NCD form image with OCR: {ex.Message}");
+                return (false, new Dictionary<string, object>());
+            }
         }
 
         public async Task<IActionResult> OnPostSaveFormDataAsync(string fileName, string pageNumber, IFormCollection formData)
@@ -614,8 +553,32 @@ namespace Barangay.Pages.Admin
                 if (System.IO.File.Exists(sourcePath))
                 {
                     System.IO.File.Copy(sourcePath, targetPath, true);
-                    _logger.LogInformation($"Admin {User.Identity.Name} set active NCD form image for page {page}: {fileName}");
-                    return new JsonResult(new { success = true, message = $"Page {page} image updated successfully" });
+                    
+                    // Process the image with OCR to extract form data
+                    _logger.LogInformation($"Processing OCR for active NCD form image: {fileName}");
+                    var ocrResult = await _formDataExtractionService.ExtractFormDataAsync(targetPath, "NCD", page);
+                    
+                    if (ocrResult.IsReadable && ocrResult.ExtractedData.Count > 0)
+                    {
+                        _logger.LogInformation($"OCR processing successful for {fileName}. Extracted {ocrResult.ExtractedData.Count} fields.");
+                        
+                        // Store the extracted data for this page
+                        await StoreExtractedFormData(page, ocrResult.ExtractedData);
+                        
+                        _logger.LogInformation($"Admin {User.Identity.Name} set active NCD form image for page {page}: {fileName} and processed OCR data");
+                        return new JsonResult(new { 
+                            success = true, 
+                            message = $"Page {page} image updated successfully and form data extracted ({ocrResult.ExtractedData.Count} fields)" 
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"OCR processing failed or no data extracted for {fileName}");
+                        return new JsonResult(new { 
+                            success = true, 
+                            message = $"Page {page} image updated successfully, but OCR processing failed. You can manually edit the form data." 
+                        });
+                    }
                 }
                 else
                 {
@@ -626,6 +589,23 @@ namespace Barangay.Pages.Admin
             {
                 _logger.LogError(ex, $"Error setting active NCD form image: {ex.Message}");
                 return new JsonResult(new { success = false, message = "An error occurred while updating the active image" });
+            }
+        }
+
+        private async Task StoreExtractedFormData(string pageNumber, Dictionary<string, object> extractedData)
+        {
+            try
+            {
+                // Store the extracted data in a JSON file for this page
+                var dataPath = Path.Combine(_environment.WebRootPath, "images", "forms", $"ncd-form-page{pageNumber}-data.json");
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(extractedData, new JsonSerializerOptions { WriteIndented = true });
+                await System.IO.File.WriteAllTextAsync(dataPath, jsonData);
+                
+                _logger.LogInformation($"Stored extracted form data for page {pageNumber} with {extractedData.Count} fields");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error storing extracted form data for page {pageNumber}: {ex.Message}");
             }
         }
 

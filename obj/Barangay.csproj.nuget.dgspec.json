@@ -114,6 +114,10 @@
               "target": "Package",
               "version": "[8.6.0, )"
             },
+            "Tesseract": {
+              "target": "Package",
+              "version": "[5.2.0, )"
+            },
             "iText7.bouncy-castle-adapter": {
               "target": "Package",
               "version": "[9.3.0, )"

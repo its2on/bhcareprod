@@ -1,6 +1,7 @@
 @page
 @model Barangay.Pages.Admin.AuditTrailModel
 @using System.Collections.Generic
+@using Barangay.Helpers
 @{
     ViewData["Title"] = "Audit Trail Logs";
 }
@@ -285,8 +286,8 @@
                         {
                             <tr>
                                 <td>
-                                    <div class="small text-muted">@log.Timestamp.ToString("MMM dd, yyyy")</div>
-                                    <strong>@log.Timestamp.ToString("HH:mm:ss")</strong>
+                                    <div class="small text-muted">@DateTimeHelper.GetFormattedDatePhilippine(log.Timestamp)</div>
+                                    <strong>@DateTimeHelper.GetFormattedTimePhilippine(log.Timestamp)</strong>
                                 </td>
                                 <td>
                                     <div class="fw-semibold">@log.PerformedBy</div>

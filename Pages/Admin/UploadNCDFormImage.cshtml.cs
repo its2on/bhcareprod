@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Barangay.Services;
 
 namespace Barangay.Pages.Admin
 {
@@ -15,13 +16,16 @@ namespace Barangay.Pages.Admin
     {
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<UploadNCDFormImageModel> _logger;
+        private readonly IFormDataExtractionService _formDataExtractionService;
 
         public UploadNCDFormImageModel(
             IWebHostEnvironment environment,
-            ILogger<UploadNCDFormImageModel> logger)
+            ILogger<UploadNCDFormImageModel> logger,
+            IFormDataExtractionService formDataExtractionService)
         {
             _environment = environment;
             _logger = logger;
+            _formDataExtractionService = formDataExtractionService;
         }
 
         public void OnGet()

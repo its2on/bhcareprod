@@ -337,7 +337,24 @@ namespace Barangay.Pages.User
                 
                 _logger.LogInformation("Using lastName: {LastName}", lastName);
 
-                // Check if patient already has a family number in either assessment type
+                // PRIORITY 1: Check Patient table first (permanent record)
+                var existingPatient = await _context.Patients
+                    .Where(p => p.UserId == user.Id && !string.IsNullOrEmpty(p.FamilyNumber))
+                    .FirstOrDefaultAsync();
+
+                if (existingPatient != null)
+                {
+                    _logger.LogInformation("Found existing Patient record with FamilyNumber: {FamilyNumber}", existingPatient.FamilyNumber);
+                    return new JsonResult(new { 
+                        success = true, 
+                        familyNumber = existingPatient.FamilyNumber,
+                        familyNo = existingPatient.FamilyNumber, // Support both property names
+                        isPreexisting = true,
+                        message = "You already have a family number"
+                    });
+                }
+
+                // PRIORITY 2: Check if patient already has a family number in either assessment type
                 var existingNCDAssessment = await _context.NCDRiskAssessments
                     .Where(a => a.UserId == user.Id && !string.IsNullOrEmpty(a.FamilyNo))
                     .OrderByDescending(a => a.CreatedAt)
@@ -348,11 +365,14 @@ namespace Barangay.Pages.User
                     _logger.LogInformation("Found existing NCD assessment with FamilyNo: {FamilyNo}", existingNCDAssessment.FamilyNo);
                     return new JsonResult(new { 
                         success = true, 
-                        familyNo = existingNCDAssessment.FamilyNo, 
-                        isPreexisting = true 
+                        familyNumber = existingNCDAssessment.FamilyNo,
+                        familyNo = existingNCDAssessment.FamilyNo, // Support both property names
+                        isPreexisting = true,
+                        message = "You already have a family number from NCD assessment"
                     });
                 }
 
+                // PRIORITY 3: Check HEEADSSS assessments
                 var existingHEEADSSSAssessment = await _context.HEEADSSSAssessments
                     .Where(a => a.UserId == user.Id && !string.IsNullOrEmpty(a.FamilyNo))
                     .OrderByDescending(a => a.CreatedAt)
@@ -377,8 +397,10 @@ namespace Barangay.Pages.User
                     }
                     return new JsonResult(new { 
                         success = true, 
-                        familyNo = decryptedFamilyNo, 
-                        isPreexisting = true 
+                        familyNumber = decryptedFamilyNo,
+                        familyNo = decryptedFamilyNo, // Support both property names
+                        isPreexisting = true,
+                        message = "You already have a family number from HEEADSSS assessment"
                     });
                 }
 
@@ -396,10 +418,12 @@ namespace Barangay.Pages.User
                     
                     return new JsonResult(new { 
                         success = true, 
-                        familyNo = result.FamilyNumber, 
+                        familyNumber = result.FamilyNumber, // Primary property
+                        familyNo = result.FamilyNumber, // Support legacy code
                         isPreexisting = false,
                         prefix = result.Prefix,
-                        sequenceNumber = result.SequenceNumber
+                        sequenceNumber = result.SequenceNumber,
+                        message = $"New family number generated: {result.FamilyNumber}"
                     });
                 }
                 else
@@ -560,10 +584,13 @@ namespace Barangay.Pages.User
                         _logger.LogError("Field causing error: {FieldName}", fieldName);
                         
                         // Log the JSON around the error position
-                        var startPos = Math.Max(0, (int)jsonEx.BytePositionInLine - 50);
-                        var endPos = Math.Min(jsonData.Length, (int)jsonEx.BytePositionInLine + 50);
-                        var context = jsonData.Substring(startPos, endPos - startPos);
-                        _logger.LogError("JSON context around error: {Context}", context);
+                        if (jsonEx.BytePositionInLine.HasValue)
+                        {
+                            var startPos = Math.Max(0, (int)jsonEx.BytePositionInLine.Value - 50);
+                            var endPos = Math.Min(jsonData.Length, (int)jsonEx.BytePositionInLine.Value + 50);
+                            var context = jsonData.Substring(startPos, endPos - startPos);
+                            _logger.LogError("JSON context around error: {Context}", context);
+                        }
                     }
                     
                     return new JsonResult(new { 
@@ -869,6 +896,88 @@ namespace Barangay.Pages.User
                     _logger.LogInformation("CancerSite saved: '{CancerSite}'", ncdEntity.CancerSite);
                     _logger.LogInformation("HasCOPD saved: '{HasCOPD}'", ncdEntity.HasCOPD);
                     _logger.LogInformation("=== END RISK STATUS SAVE DEBUGGING ===");
+                    
+                    // Update or create Patient table record with family number if provided
+                    if (!string.IsNullOrEmpty(assessment.FamilyNo))
+                    {
+                        try
+                        {
+                            // Determine the actual patient UserId (could be different for "book for someone else")
+                            string targetUserId = assessment.UserId;
+                            
+                            // If appointment exists, use the appointment's PatientId (handles "book for someone else")
+                            if (ncdEntity.AppointmentId.HasValue)
+                            {
+                                var appointment = await _context.Appointments
+                                    .Include(a => a.Patient)
+                                    .FirstOrDefaultAsync(a => a.Id == ncdEntity.AppointmentId.Value);
+                                
+                                if (appointment?.Patient != null)
+                                {
+                                    targetUserId = appointment.Patient.UserId;
+                                    _logger.LogInformation("Using PatientId from appointment for family number update: {PatientId}", targetUserId);
+                                }
+                            }
+                            
+                            var user = await _context.Users.FindAsync(targetUserId);
+                            var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == targetUserId);
+                            
+                            // Also update the Appointment.FamilyNumber if appointment exists
+                            if (ncdEntity.AppointmentId.HasValue)
+                            {
+                                var appointment = await _context.Appointments.FindAsync(ncdEntity.AppointmentId.Value);
+                                if (appointment != null && appointment.FamilyNumber != assessment.FamilyNo)
+                                {
+                                    appointment.FamilyNumber = assessment.FamilyNo;
+                                    appointment.UpdatedAt = DateTime.UtcNow;
+                                    await _context.SaveChangesAsync();
+                                    _logger.LogInformation("Updated Appointment FamilyNumber to: {FamilyNumber}", assessment.FamilyNo);
+                                }
+                            }
+                            
+                            if (patient != null)
+                            {
+                                // Always update patient record with latest family number from assessment
+                                if (patient.FamilyNumber != assessment.FamilyNo)
+                                {
+                                    _logger.LogInformation("Updating Patient FamilyNumber from '{OldNumber}' to '{NewNumber}'", 
+                                        patient.FamilyNumber ?? "NULL", assessment.FamilyNo);
+                                    patient.FamilyNumber = assessment.FamilyNo;
+                                    patient.UpdatedAt = DateTime.UtcNow;
+                                    await _context.SaveChangesAsync();
+                                    _logger.LogInformation("Updated Patient table with FamilyNumber: {FamilyNumber}", assessment.FamilyNo);
+                                }
+                                else
+                                {
+                                    _logger.LogInformation("Patient FamilyNumber already matches assessment: {FamilyNumber}", patient.FamilyNumber);
+                                }
+                            }
+                            else if (user != null)
+                            {
+                                // Create new patient record
+                                patient = new Patient
+                                {
+                                    UserId = targetUserId,
+                                    FullName = user.FullName ?? $"{assessment.FirstName} {assessment.LastName}",
+                                    FamilyNumber = assessment.FamilyNo,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                _context.Patients.Add(patient);
+                                await _context.SaveChangesAsync();
+                                _logger.LogInformation("Created new Patient record with FamilyNumber: {FamilyNumber} for UserId: {UserId}", assessment.FamilyNo, targetUserId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("User not found for UserId: {UserId}, cannot create Patient record", targetUserId);
+                            }
+                        }
+                        catch (Exception patientEx)
+                        {
+                            _logger.LogWarning(patientEx, "Error updating/creating Patient table with family number, continuing...");
+                            // Don't fail the assessment submission if patient update fails
+                        }
+                    }
                     
                     // Update appointment status to InProgress after successful form submission (not Completed)
                     if (ncdEntity.AppointmentId.HasValue)

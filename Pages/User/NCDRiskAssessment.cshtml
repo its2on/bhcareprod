@@ -960,40 +960,57 @@
                         }
                         
                         if (result.success) {
-                            document.getElementById('family-no').value = result.familyNumber;
+                            // Handle both camelCase and PascalCase from API
+                            const generatedNumber = result.familyNumber || result.FamilyNumber;
+                            console.log("Generated family number from API:", generatedNumber);
+                            
+                            const familyNoField = document.getElementById('family-no');
+                            if (familyNoField) {
+                                familyNoField.value = generatedNumber;
+                                console.log("Family number field updated to:", familyNoField.value);
+                                
+                                // Make the field more visible by adding a highlight
+                                familyNoField.style.backgroundColor = '#ffffcc';
+                                setTimeout(() => {
+                                    familyNoField.style.backgroundColor = '';
+                                }, 2000);
+                            } else {
+                                console.error("Family-no field not found!");
+                            }
+                            
                             // Update ID No. to match Family No.
                             const idNoInput = document.getElementById('id-no');
                             if (idNoInput) {
-                                idNoInput.value = result.familyNumber;
+                                idNoInput.value = generatedNumber;
                             }
-                            console.log("Generated family number:", result.familyNumber);
+                            console.log("Generated family number:", generatedNumber);
                             
                             if (result.isPreexisting) {
                                 // Use SweetAlert2 for success message
                                 if (typeof Swal !== 'undefined') {
                                     Swal.fire({
                                         title: 'Family Number Found',
-                                        text: 'You already have a family number: ' + result.familyNumber,
+                                        text: 'You already have a family number: ' + generatedNumber,
                                         icon: 'info',
                                         confirmButtonText: 'OK',
                                         confirmButtonColor: '#17a2b8'
                                     });
                                 } else {
-                                    alert('You already have a family number: ' + result.familyNumber);
+                                    alert('You already have a family number: ' + generatedNumber);
                                 }
                             } else {
                                 // Use SweetAlert2 for success message
                                 console.log("About to show success SweetAlert2");
                                 console.log("Swal available:", typeof Swal !== 'undefined');
-                                console.log("Generated family number:", result.familyNumber);
-                                console.log("Prefix:", result.prefix);
-                                console.log("Sequence number:", result.sequenceNumber);
+                                console.log("Generated family number:", generatedNumber);
+                                console.log("Prefix:", result.prefix || result.Prefix);
+                                console.log("Sequence number:", result.sequenceNumber || result.SequenceNumber);
                                 
                                 if (typeof Swal !== 'undefined') {
                                     console.log("Showing SweetAlert2 success dialog");
                                     Swal.fire({
                                         title: 'Success!',
-                                        text: `Family number generated successfully: ${result.familyNumber}`,
+                                        text: `Family number generated successfully: ${generatedNumber}`,
                                         icon: 'success',
                                         confirmButtonText: 'OK',
                                         confirmButtonColor: '#28a745',
@@ -1004,7 +1021,7 @@
                                     });
                                 } else {
                                     console.log("SweetAlert2 not available, using alert");
-                                    alert(`Family number generated successfully: ${result.familyNumber}`);
+                                    alert(`Family number generated successfully: ${generatedNumber}`);
                                 }
                             }
                         } else {

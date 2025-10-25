@@ -41,6 +41,9 @@ namespace Barangay.Pages.Admin
         public int ActiveStaffCount { get; set; }
         public List<StaffOverviewModel> RecentStaff { get; set; }
         public DateTime CurrentPhilippineTime { get; set; }
+        
+        // Testing Mode - allows unrestricted access for testing purposes
+        public bool TestingMode { get; set; }
 
         private DateTime GetPhilippineTime()
         {
@@ -91,10 +94,22 @@ namespace Barangay.Pages.Admin
             }
         }
 
-        public async Task<IActionResult> OnGetAsync()
+        public async Task<IActionResult> OnGetAsync(bool? testingMode)
         {
             try
             {
+                // Get testing mode from TempData or query parameter
+                if (testingMode.HasValue)
+                {
+                    TestingMode = testingMode.Value;
+                    TempData["TestingMode"] = TestingMode;
+                }
+                else if (TempData.ContainsKey("TestingMode"))
+                {
+                    TestingMode = (bool)TempData["TestingMode"];
+                    TempData.Keep("TestingMode");
+                }
+                
                 // Set current time - this will update on each page load
                 CurrentPhilippineTime = GetPhilippineTime();
 

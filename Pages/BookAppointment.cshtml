@@ -54,14 +54,6 @@
                                 </label>
                             </div>
                             
-                            <div class="form-check mb-3" id="sameFamilySection" style="display: none;">
-                                <input class="form-check-input" type="checkbox" id="sameFamily" name="sameFamily">
-                                <label class="form-check-label" for="sameFamily">
-                                    <i class="fas fa-users me-1"></i>Same Family?
-                                </label>
-                                <div class="form-text">Check this if booking for a family member who should share the same family number</div>
-                            </div>
-                            
                             <div class="row mb-3">
                                 <div class="col-md-3">
                                     <label for="lastName" class="form-label">Last Name</label>
@@ -94,15 +86,15 @@
                                         <option value="Female">Female</option>
                                     </select>
                                 </div>
-                                <div class="col-md-8" id="familyNumberSection" style="display: none;">
+                                <div class="col-md-4" id="familyNumberSection" style="display: none;">
                                     <label class="form-label">Family Number</label>
                                     <div class="input-group">
-                                        <input type="text" class="form-control" id="familyNumber" name="familyNumber" readonly placeholder="No family number assigned">
-                                        <button type="button" class="btn btn-primary" id="generateFamilyNumberBtn">
-                                            <i class="fas fa-plus-circle me-1"></i>Generate Family Number
+                                        <input type="text" class="form-control" id="familyNumber" name="familyNumber" placeholder="Type or Generate">
+                                        <button type="button" class="btn btn-primary" id="generateFamilyNumberBtn" style="white-space: nowrap;">
+                                            <i class="fas fa-plus-circle me-1"></i>Generate
                                         </button>
                                     </div>
-                                    <div class="form-text">Family number will be auto-generated based on your last name (e.g., G-001 for Garcia)</div>
+                                    <div class="form-text">Type existing number (e.g., P-002) or click Generate</div>
                                     <input type="hidden" id="hasFamilyNumber" value="@(Model.UserProfile?.FamilyNo ?? "")">
                                 </div>
                             </div>
@@ -256,13 +248,28 @@
                     if (needsFamilyNumber) {
                         $('#familyNumberSection').show();
                         
-                        if (hasFamilyNumber) {
-                            $('#familyNumber').val(hasFamilyNumber);
-                            $('#generateFamilyNumberBtn').hide();
-                        } else {
+                        // Check if booking for someone else
+                        const isBookingForOther = $('#bookingForOther').is(':checked');
+                        
+                        if (isBookingForOther) {
+                            // If booking for someone else, always clear field and show generate button
                             $('#familyNumber').val('');
                             $('#generateFamilyNumberBtn').show();
+                            console.log('[Page Load] Booking for other - showing generate button');
+                        } else {
+                            // If booking for self, show user's family number if exists
+                            if (hasFamilyNumber && hasFamilyNumber.trim() !== '') {
+                                $('#familyNumber').val(hasFamilyNumber);
+                                $('#generateFamilyNumberBtn').hide();
+                                console.log('[Page Load] User has existing family number:', hasFamilyNumber);
+                            } else {
+                                $('#familyNumber').val('');
+                                $('#generateFamilyNumberBtn').show();
+                                console.log('[Page Load] No family number - showing generate button');
+                            }
                         }
+                    } else {
+                        $('#familyNumberSection').hide();
                     }
                 }
             };
@@ -363,9 +370,6 @@
                 $('#bookingForOtherHidden').val(isChecked ? 'true' : 'false');
                 
                 if (isChecked) {
-                    // Show "Same Family?" checkbox
-                    $('#sameFamilySection').slideDown();
-                    
                     // Clear fields for new patient details
                     $('#firstName').val('').prop('readonly', false);
                     $('#lastName').val('').prop('readonly', false);
@@ -375,10 +379,12 @@
                     $('#phoneNumber').val('').prop('readonly', false);
                     $('#gender').val('').prop('readonly', false);
                     $('#relationshipField').show();
+                    
+                    // Clear family number for dependent (they get their own family number)
+                    $('#familyNumber').val('');
+                    $('#generateFamilyNumberBtn').show();
+                    console.log('[Booking For Other] Cleared family number field - showing generate button');
                 } else {
-                    // Hide "Same Family?" checkbox and uncheck it
-                    $('#sameFamilySection').slideUp();
-                    $('#sameFamily').prop('checked', false);
                     // Restore original user details
                     if (userDetails) {
                         const nameParts = (userDetails.fullName || '').split(' ');
@@ -403,6 +409,19 @@
                     if (userGender && userGender !== '') {
                         $('#gender').val(userGender);
                     }
+                    
+                    // Restore user's family number
+                    const hasFamilyNumber = $('#hasFamilyNumber').val();
+                    if (hasFamilyNumber && hasFamilyNumber.trim() !== '') {
+                        $('#familyNumber').val(hasFamilyNumber);
+                        $('#generateFamilyNumberBtn').hide();
+                        console.log('[Booking For Other] Restored user family number:', hasFamilyNumber);
+                    } else {
+                        $('#familyNumber').val('');
+                        $('#generateFamilyNumberBtn').show();
+                        console.log('[Booking For Other] User has no family number - showing generate button');
+                    }
+                    
                     $('#relationshipField').hide();
                     // Clear relationship selection when unchecking
                     $('#relationship').val('');
@@ -590,44 +609,38 @@
                 if (needsFamilyNumber) {
                     $('#familyNumberSection').show();
                     
-                    // If user already has a family number, show it and hide the generate button
-                    if (hasFamilyNumber) {
-                        $('#familyNumber').val(hasFamilyNumber);
-                        $('#generateFamilyNumberBtn').hide();
-                    } else {
+                    // Check if booking for someone else
+                    const isBookingForOther = $('#bookingForOther').is(':checked');
+                    
+                    if (isBookingForOther) {
+                        // If booking for someone else, always clear field and show generate button
                         $('#familyNumber').val('');
                         $('#generateFamilyNumberBtn').show();
+                        console.log('[Consultation Change] Booking for other - cleared field, showing generate button');
+                    } else {
+                        // If booking for self, show user's family number if exists
+                        if (hasFamilyNumber && hasFamilyNumber.trim() !== '') {
+                            $('#familyNumber').val(hasFamilyNumber);
+                            $('#generateFamilyNumberBtn').hide();
+                            console.log('[Consultation Change] User has existing family number:', hasFamilyNumber);
+                        } else {
+                            $('#familyNumber').val('');
+                            $('#generateFamilyNumberBtn').show();
+                            console.log('[Consultation Change] No family number - showing generate button');
+                        }
                     }
                 } else {
                     $('#familyNumberSection').hide();
+                    console.log('[Consultation Change] Hiding family number section');
                 }
             });
             
-            // Handle "Same Family?" checkbox change
-            $('#sameFamily').change(function() {
-                const isChecked = $(this).is(':checked');
-                
-                if (!isChecked) {
-                    // When unchecked, clear family number and show generate button
-                    // This allows generating a NEW family number
-                    $('#familyNumber').val('');
-                    $('#hasFamilyNumber').val('');
-                    $('#generateFamilyNumberBtn').show().prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
-                    
-                    console.log('[Same Family] Unchecked - cleared family number field, showing generate button');
-                } else {
-                    // When checked, ensure button is visible to retrieve family number
-                    if (!$('#familyNumber').val()) {
-                        $('#generateFamilyNumberBtn').show().prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
-                        console.log('[Same Family] Checked - showing generate button to retrieve family number');
-                    }
-                }
-            });
+            // Removed "Same Family?" checkbox - users now type family number directly
             
             // Handle family number generation
             $('#generateFamilyNumberBtn').on('click', function() {
                 const lastName = $('#lastName').val();
-                const sameFamily = $('#sameFamily').is(':checked');
+                const sameFamily = false; // Always false - user types family number manually or clicks generate
                 
                 if (!lastName) {
                     Swal.fire({
@@ -692,6 +705,19 @@
                         $('#generateFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate Family Number');
                     }
                 });
+            });
+            
+            // Show generate button if user clears the family number field
+            $('#familyNumber').on('input', function() {
+                const value = $(this).val().trim();
+                if (value === '') {
+                    $('#generateFamilyNumberBtn').show();
+                    console.log('[Family Number Input] Field cleared - showing generate button');
+                } else {
+                    // Optional: hide button if user types a family number manually
+                    // Uncomment below if you want button to hide when typing
+                    // $('#generateFamilyNumberBtn').hide();
+                }
             });
             
             // Initialize time slots if date and consultation type are already selected

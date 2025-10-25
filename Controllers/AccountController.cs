@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Barangay.Models;
 using Barangay.Services;
 using Barangay.ViewModels;
+using Barangay.Helpers;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -144,7 +145,7 @@ namespace Barangay.Controllers
                     Gender = model.Gender,
                     PhoneNumber = _encryptionService.Encrypt(model.PhoneNumber), // Encrypt phone number
                     Address = _encryptionService.Encrypt(model.Address), // Encrypt address
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTimeHelper.ToUtc(DateTimeHelper.Now)
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);

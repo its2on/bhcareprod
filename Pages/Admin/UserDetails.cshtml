@@ -185,7 +185,7 @@
                                 <h5 class="border-bottom pb-2 text-orange">Account Information</h5>
                                 <dl class="row">
                                     <dt class="col-sm-4 detail-label">Registration</dt>
-                                    <dd class="col-sm-8 detail-value">@Model.UserDetails.CreatedAt.ToString("MM/dd/yyyy")</dd>
+                                    <dd class="col-sm-8 detail-value">@Model.FormatDateOnly(Model.UserDetails.CreatedAt)</dd>
                                     
                                     <dt class="col-sm-4 detail-label">Last Active</dt>
                                     <dd class="col-sm-8 detail-value">
@@ -254,7 +254,7 @@
                                                     }
                                                     
                                                     <dt class="col-sm-3">Created At</dt>
-                                                    <dd class="col-sm-9">@(Model.Guardian.CreatedAt.ToString("MM/dd/yyyy hh:mm tt"))</dd>
+                                                    <dd class="col-sm-9">@Model.FormatDateOnly(Model.Guardian.CreatedAt)</dd>
                                                 </dl>
                                             }
                                             else
@@ -288,7 +288,7 @@
                                     <div class="card-body p-3">
                                         <h6 class="card-title text-dark">@doc.FileName</h6>
                                         <p class="card-text small text-muted">
-                                            Uploaded on @doc.UploadDate.ToString("MM/dd/yyyy")
+                                            Uploaded on @Model.FormatDateOnly(doc.UploadDate)
                                             <br>
                                             Status: <span class="badge @(doc.Status == "Verified" ? "bg-success" : doc.Status == "Pending" ? "bg-warning text-dark" : "bg-secondary")">@doc.Status</span>
                                         </p>

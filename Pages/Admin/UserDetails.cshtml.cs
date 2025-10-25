@@ -6,6 +6,7 @@ using Barangay.Data;
 using Barangay.Models;
 using Barangay.Services;
 using Barangay.Extensions;
+using Barangay.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -137,6 +138,50 @@ namespace Barangay.Pages.Admin
             }
             
             return Page();
+        }
+        
+        /// <summary>
+        /// Formats a DateTime to local timezone with proper formatting
+        /// </summary>
+        public string FormatDateTime(DateTime? dateTime)
+        {
+            if (!dateTime.HasValue)
+                return "Not specified";
+                
+            try
+            {
+                // Convert UTC to Philippine timezone
+                var philippineTime = DateTimeHelper.ToPhilippineTime(dateTime.Value);
+                return philippineTime.ToString("MM/dd/yyyy h:mm tt");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error converting timezone for date: {DateTime}", dateTime);
+                // Fallback to original formatting
+                return dateTime.Value.ToString("MM/dd/yyyy h:mm tt");
+            }
+        }
+        
+        /// <summary>
+        /// Formats a DateTime to local timezone with date-only formatting
+        /// </summary>
+        public string FormatDateOnly(DateTime? dateTime)
+        {
+            if (!dateTime.HasValue)
+                return "Not specified";
+                
+            try
+            {
+                // Convert UTC to Philippine timezone
+                var philippineTime = DateTimeHelper.ToPhilippineTime(dateTime.Value);
+                return philippineTime.ToString("MM/dd/yyyy");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error converting timezone for date: {DateTime}", dateTime);
+                // Fallback to original formatting
+                return dateTime.Value.ToString("MM/dd/yyyy");
+            }
         }
         
         public async Task<JsonResult> OnPostApproveAsync(string id)

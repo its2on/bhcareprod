@@ -90,21 +90,9 @@ namespace Barangay.ViewComponents
                         });
                     }
                     
-                    // Add Immunization - Direct page
+                    // View Immunization Records
                     var canSeeImmunization = HasPermission("PatientList");
                     _logger.LogInformation($"Nurse {userId}: Immunization access = {canSeeImmunization}");
-                    if (canSeeImmunization)
-                    {
-                        navItems.Add(new SidebarMenuItem { 
-                            Text = "Add Immunization", 
-                            Icon = "baby", 
-                            Url = "/Nurse/AddImmunizationRecord", 
-                            RequiredPermissions = new List<string> { "PatientList" },
-                            IsActive = currentPath.Contains("/nurse/addimmunizationrecord")
-                        });
-                    }
-                    
-                    // View Immunization Records
                     if (canSeeImmunization)
                     {
                         navItems.Add(new SidebarMenuItem { 
@@ -153,20 +141,8 @@ namespace Barangay.ViewComponents
                     // Removed separate 'Record Vitals' menu item; recording is handled within Vitals page
 
                     // Removed 'Patient History' from nurse sidebar per requirement
-
-                    // Patient Queue (show if user has simplified permission)
-                    var canSeeQueue = HasPermission("PatientQueue");
-                    _logger.LogInformation($"Nurse {userId}: Patient Queue visible = {canSeeQueue}");
-                    if (canSeeQueue)
-                    {
-                        navItems.Add(new SidebarMenuItem {
-                            Text = "Patient Queue",
-                            Icon = "list",
-                            Url = "/Nurse/PatientQueue",
-                            RequiredPermissions = new List<string> { "PatientQueue" },
-                            IsActive = currentPath.Contains("/nurse/patientqueue")
-                        });
-                    }
+                    
+                    // Removed 'Patient Queue' from nurse sidebar per requirement
 
                     // Only show Reports if user has View Reports permission
                     if (HasPermission("View Reports", "Generate Reports"))

@@ -142,28 +142,12 @@
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label asp-for="Input.Age" class="form-label">Age <span class="required">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar-alt"></i>
-                                </span>
-                                <input asp-for="Input.Age" class="form-control" type="number" min="1" max="120" placeholder="e.g., 25" aria-label="Age input" pattern="[0-9]*" inputmode="numeric" />
-                            </div>
-                            <div class="invalid-feedback" id="ageError">Age is required</div>
-                            <small class="form-text text-muted">Enter your age in years</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
                             <label asp-for="Input.BirthDate" class="form-label">Birth Date <span class="required">*</span></label>
                             <input asp-for="Input.BirthDate" class="form-control" type="date" aria-label="Birth date input" id="Input_BirthDate" />
                             <div class="invalid-feedback" id="birthDateError">Birth date is required</div>
                             <small class="form-text text-muted">For users under 18, parent/guardian consent is required</small>
                         </div>
                     </div>
-                </div>
-                
-                <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.Barangay" class="form-label">Barangay <span class="required">*</span></label>
@@ -572,45 +556,6 @@
                             });
                         }
 
-                        // Age validation
-                        const ageInput = document.getElementById('Input_Age');
-                        if (ageInput) {
-                            // Prevent non-numeric input in real-time
-                            ageInput.addEventListener('keypress', (e) => {
-                                // Allow only digits (0-9)
-                                const charCode = e.which ? e.which : e.keyCode;
-                                if (charCode < 48 || charCode > 57) {
-                                    e.preventDefault();
-                                    return false;
-                                }
-                            });
-                            
-                            // Prevent paste of non-numeric content
-                            ageInput.addEventListener('paste', (e) => {
-                                e.preventDefault();
-                                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-                                const numericOnly = pastedText.replace(/\D/g, '');
-                                if (numericOnly) {
-                                    // Only paste if there are digits and within max length
-                                    const maxLength = 3;
-                                    const currentLength = ageInput.value.length;
-                                    const availableSpace = maxLength - currentLength;
-                                    if (availableSpace > 0) {
-                                        ageInput.value += numericOnly.substring(0, availableSpace);
-                                    }
-                                }
-                            });
-                            
-                            ageInput.addEventListener('blur', () => {
-                                this.validateAge();
-                                this.updateStep1NextButtonState();
-                            });
-                            ageInput.addEventListener('input', () => {
-                                this.clearError('age');
-                                this.updateStep1NextButtonState();
-                            });
-                        }
-
                         // Birth date validation
                         const birthDateInput = document.getElementById('Input_BirthDate');
                         if (birthDateInput) {
@@ -731,13 +676,12 @@
                         const lastName = document.getElementById('Input_LastName')?.value?.trim();
                         const contactNumber = document.getElementById('Input_ContactNumber')?.value?.trim();
                         const address = document.getElementById('Input_Address')?.value?.trim();
-                        const age = document.getElementById('Input_Age')?.value?.trim();
                         const birthDate = document.getElementById('Input_BirthDate')?.value;
                         const genderSelected = document.querySelector('input[name="Input.Gender"]:checked');
                         const barangay = document.getElementById('Input_Barangay')?.value;
                         
                         const allFieldsFilled = username && email && firstName && lastName && 
-                                               contactNumber && address && age && birthDate && 
+                                               contactNumber && address && birthDate && 
                                                genderSelected && barangay;
                         
                         // Check if any field has is-invalid class
@@ -758,7 +702,6 @@
                             lastName: !!lastName,
                             contactNumber: !!contactNumber,
                             address: !!address,
-                            age: !!age,
                             birthDate: !!birthDate,
                             genderSelected: !!genderSelected,
                             barangay: !!barangay,
@@ -986,32 +929,6 @@
                         }
                         
                         this.clearError('address');
-                        return true;
-                    }
-
-                    validateAge() {
-                        const input = document.getElementById('Input_Age');
-                        const value = input?.value?.trim();
-                        
-                        if (!value) {
-                            this.showError('age', 'Age is required');
-                            return false;
-                        }
-                        
-                        // Only allow digits
-                        const digitPattern = /^\d+$/;
-                        if (!digitPattern.test(value)) {
-                            this.showError('age', 'Age must contain only numbers');
-                            return false;
-                        }
-                        
-                        const age = parseInt(value);
-                        if (isNaN(age) || age < 1 || age > 120) {
-                            this.showError('age', 'Please enter a valid age (1-120)');
-                            return false;
-                        }
-                        
-                        this.clearError('age');
                         return true;
                     }
 
@@ -1284,7 +1201,6 @@
                             this.validateName('LastName') &&
                             contactNumberValid &&
                             this.validateAddress() &&
-                            this.validateAge() &&
                             this.validateBirthDate() &&
                             this.validateGender();
                         

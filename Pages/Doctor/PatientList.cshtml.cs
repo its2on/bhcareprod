@@ -156,15 +156,25 @@ namespace Barangay.Pages.Doctor
                 }
                 else
                 {
-                    // Fall back to NCDRiskAssessment
+                    // Fall back to NCDRiskAssessment (get most recent)
                     var ncdAssessment = await _context.NCDRiskAssessments
-                        .FirstOrDefaultAsync(n => n.UserId == patient.PatientId);
+                        .Where(n => n.UserId == patient.PatientId && !string.IsNullOrEmpty(n.FamilyNo))
+                        .OrderByDescending(n => n.CreatedAt)
+                        .FirstOrDefaultAsync();
                     
-                    if (ncdAssessment != null && !string.IsNullOrEmpty(ncdAssessment.FamilyNo))
+                    if (ncdAssessment != null)
                     {
-                        // Decrypt the family number
-                        ncdAssessment.DecryptSensitiveData(_encryptionService, User);
-                        familyNumber = ncdAssessment.FamilyNo ?? "N/A";
+                        try
+                        {
+                            // Decrypt the family number
+                            ncdAssessment.DecryptSensitiveData(_encryptionService, User);
+                            familyNumber = ncdAssessment.FamilyNo ?? "N/A";
+                        }
+                        catch (Exception ex)
+                        {
+                            // If decryption fails, log and keep as N/A
+                            Console.WriteLine($"Failed to decrypt FamilyNo for user {patient.PatientId}: {ex.Message}");
+                        }
                     }
                     else
                     {

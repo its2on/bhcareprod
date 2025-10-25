@@ -484,6 +484,7 @@ builder.Services.AddSingleton<IDeviceInfoParser, DeviceInfoParser>();
 
 // Register Audit Trail Service
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+builder.Services.AddScoped<IFormDataExtractionService, FormDataExtractionService>();
 
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();

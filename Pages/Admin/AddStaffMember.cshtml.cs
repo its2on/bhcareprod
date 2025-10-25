@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Barangay.Data;
 using Barangay.Models;
 using Barangay.Services;
+using Barangay.Helpers;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -78,8 +79,8 @@ namespace Barangay.Pages.Admin
                 StaffMember = new StaffMember
                 {
                     IsActive = true,
-                    JoinDate = DateTime.Now,
-                    CreatedAt = DateTime.Now
+                    JoinDate = DateTimeHelper.Now,
+                    CreatedAt = DateTimeHelper.Now
                 };
                 
                 // Generate time slots for working hours
@@ -515,7 +516,7 @@ namespace Barangay.Pages.Admin
                         PhoneNumber = !string.IsNullOrEmpty(StaffMember.ContactNumber) ? _encryptionService.Encrypt(StaffMember.ContactNumber) : null, // Encrypt phone number
                         // Name fields will be populated below via FullName setter
                         IsActive = StaffMember.IsActive,
-                        JoinDate = DateTime.Now,
+                        JoinDate = DateTimeHelper.Now,
                         Status = "Verified", // Set as verified since added by admin
                         BirthDate = DateTime.Now.AddYears(-25), // Set a default birth date (25 years ago)
                         IsFirstLogin = true // Require password change on first login
@@ -586,7 +587,7 @@ namespace Barangay.Pages.Admin
 
                     // Save staff member details
                     StaffMember.UserId = user.Id;
-                    StaffMember.CreatedAt = DateTime.Now;
+                    StaffMember.CreatedAt = DateTimeHelper.Now;
                     StaffMember.IsActive = true;
                     StaffMember.Role = roleToAssign; // Update the role to the mapped role
                     
@@ -624,7 +625,7 @@ namespace Barangay.Pages.Admin
                         {
                             StaffMemberId = StaffMember.Id,
                             PermissionId = permissionId,
-                            GrantedAt = DateTime.UtcNow
+                            GrantedAt = DateTimeHelper.ToUtc(DateTimeHelper.Now)
                         }).ToList();
                         
                         await _context.StaffPermissions.AddRangeAsync(staffPermissions);

@@ -31,13 +31,31 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="m-0">Vital Signs</h2>
     </div>
+    
+    @if (Model.TestingMode)
+    {
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Developer Mode Active:</strong> All date and appointment restrictions are disabled. You can record vital signs for any patient on any day.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
     @if (Model.HasTodayAppointments)
     {
         <div class="card mb-4">
         <div class="card-header bg-primary text-white">
             <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Today's Appointments - @Model.Today.ToString("MMMM dd, yyyy")</h5>
+                    <h5 class="mb-0">
+                        @if (Model.TestingMode)
+                        {
+                            <text>All Appointments (Testing Mode)</text>
+                        }
+                        else
+                        {
+                            <text>Today's Appointments - @Model.Today.ToString("MMMM dd, yyyy")</text>
+                        }
+                    </h5>
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-light text-dark">@Model.TodayAppointments.Count appointment(s)</span>
                         @if (Model.TodayAppointments.Count == 0)
@@ -52,6 +70,10 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
+                                @if (Model.TestingMode)
+                                {
+                                    <th>Date</th>
+                                }
                                 <th>Time</th>
                                 <th>Patient</th>
                                 <th>Doctor</th>
@@ -64,6 +86,10 @@
                             @foreach (var appointment in Model.TodayAppointments)
                             {
                                 <tr>
+                                    @if (Model.TestingMode)
+                                    {
+                                        <td>@appointment.AppointmentDate.ToString("MMM dd, yyyy")</td>
+                                    }
                                     <td>@appointment.AppointmentTime.ToString(@"hh\:mm")</td>
                                     <td>@appointment.PatientName</td>
                                     <td>@appointment.DoctorName</td>

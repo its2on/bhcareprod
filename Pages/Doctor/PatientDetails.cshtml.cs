@@ -65,6 +65,48 @@ namespace Barangay.Pages.Doctor
 
             try
             {
+                // First, check if this is an appointment ID (for guest/booked-for-someone-else patients)
+                if (int.TryParse(id, out int appointmentId))
+                {
+                    var guestAppointment = await _context.Appointments
+                        .Include(a => a.Doctor)
+                        .FirstOrDefaultAsync(a => a.Id == appointmentId && a.BookingForOther == true);
+                    
+                    if (guestAppointment != null)
+                    {
+                        // Decrypt appointment data
+                        guestAppointment.DecryptSensitiveData(_encryptionService, User);
+                        
+                        // Create a temporary Patient object from appointment data
+                        // Calculate BirthDate from age (approximation)
+                        var estimatedBirthDate = guestAppointment.DateOfBirth ?? DateTime.Today.AddYears(-guestAppointment.AgeValue);
+                        
+                        Patient = new Patient
+                        {
+                            UserId = appointmentId.ToString(),
+                            FullName = guestAppointment.PatientName ?? "Guest Patient",
+                            Gender = guestAppointment.Gender ?? "N/A",
+                            BirthDate = estimatedBirthDate,
+                            ContactNumber = guestAppointment.ContactNumber ?? "",
+                            Email = "Guest Patient",
+                            Address = guestAppointment.Address ?? "",
+                            EmergencyContact = guestAppointment.EmergencyContact ?? "",
+                            EmergencyContactNumber = guestAppointment.EmergencyContactNumber ?? "",
+                            Allergies = guestAppointment.Allergies,
+                            MedicalHistory = guestAppointment.MedicalHistory,
+                            CurrentMedications = guestAppointment.CurrentMedications,
+                            Status = "Guest Patient",
+                            FamilyNumber = guestAppointment.FamilyNumber,
+                            Appointments = new List<Models.Appointment> { guestAppointment }
+                        };
+                        
+                        _logger.LogInformation("Loaded guest patient from appointment: {AppointmentId}", appointmentId);
+                        
+                        // Skip rest of loading since this is a guest patient
+                        return Page();
+                    }
+                }
+                
                 // Get full patient details with related data
                 Patient = await _context.Patients
                     .Include(p => p.User)
