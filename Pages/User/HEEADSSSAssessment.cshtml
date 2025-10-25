@@ -106,7 +106,7 @@
     <!-- Hidden fields -->
     <input type="hidden" asp-for="Assessment.UserId" />
     <input type="hidden" asp-for="Assessment.HealthFacility" />
-    <input type="hidden" asp-for="Assessment.FamilyNo" />
+    <!-- FamilyNo removed - user editable field exists at line 199 -->
     <input type="hidden" asp-for="Assessment.AppointmentId" />
     <input type="hidden" asp-for="Assessment.Age" />
     <input type="hidden" asp-for="Assessment.Birthday" />
@@ -121,17 +121,6 @@
                     <div class="mb-3">
                         <label class="form-label">Date of Registration:</label>
                         <input type="text" class="form-control" value="@DateTime.Now.ToString("MM/dd/yyyy")" readonly />
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-3">
-                        <label class="form-label">Client No.:</label>
-                        <div class="d-flex">
-                            <input type="text" class="form-control" asp-for="Assessment.FamilyNo" id="client-no" />
-                            <button type="button" id="generate-client-no" class="btn btn-secondary ms-2">Generate</button>
-                        </div>
-                        <small class="form-text text-muted">If you have a family number, enter it or click Generate to create a new one.</small>
-                        <small class="form-text text-info" id="client-generator-info" style="display: none;"></small>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -211,7 +200,6 @@
                             <button type="button" id="generate-family-no" class="btn btn-secondary ms-2">Generate</button>
                         </div>
                         <small class="form-text text-muted">If you have a family number, enter it or click Generate to create a new one.</small>
-                        <small class="form-text text-info" id="family-generator-info" style="display: none;"></small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label required">Contact Number</label>
@@ -1047,72 +1035,36 @@
                 });
             }
             // Generate Family Number functionality
-            $(document).ready(function() {
-                // Family Number Generate Button
-                $('#generate-family-no').on('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    generateFamilyNumber();
-                });
+            document.getElementById('generate-family-no').addEventListener('click', async function() {
+                console.log("Generate button clicked"); // Debug logging
                 
-                // Client Number Generate Button
-                $('#generate-client-no').on('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    generateFamilyNumber();
-                });
-            });
-            
-            // Function to generate family number and sync both fields
-            async function generateFamilyNumber() {
+                const lastName = '@ViewData["PatientName"]'.split(' ').pop(); // Get last name from patient name
+                if (!lastName || lastName.length === 0) {
+                    alert('Please enter your last name first to generate a family number.');
+                    return;
+                }
+                
                 try {
-                    // Get patient name from ViewData
-                    const patientName = '@ViewData["PatientName"]';
-                    
-                    if (!patientName || patientName === '' || patientName === 'null' || patientName === 'undefined') {
-                        alert('Patient name not found. Please refresh the page and try again.');
-                        return;
-                    }
-                    
-                    const lastName = patientName.split(' ').pop();
-                    
-                    if (!lastName || lastName.length === 0) {
-                        alert('Please enter your last name first to generate a family number.');
-                        return;
-                    }
-                    
-                    // Get CSRF token
-                    const csrfToken = $('input[name="__RequestVerificationToken"]').val();
-                    
+                    console.log("Sending request to generate family number for:", lastName);
                     const response = await fetch('/User/HEEADSSSAssessment?handler=GenerateFamilyNumber', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'RequestVerificationToken': csrfToken
+                            'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
                         },
                         body: JSON.stringify({ lastName: lastName })
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
                     const result = await response.json();
+                    console.log("Generate family number response:", result);
                     
                     if (result.success) {
-                        // Update both fields with the same value
-                        $('#family-no').val(result.familyNo);
-                        $('#client-no').val(result.familyNo);
-                        
-                        // Show generator information
-                        const generatorText = 'Generated by: ' + (result.generatedBy || 'Unknown');
-                        $('#family-generator-info').text(generatorText).show();
-                        $('#client-generator-info').text(generatorText).show();
-                        
+                        console.log("Generated family number:", result.familyNo);
+                        document.getElementById('family-no').value = result.familyNo;
                         if (result.isPreexisting) {
-                            alert('Using existing family number: ' + result.familyNo + '\nGenerated by: ' + (result.generatedBy || 'Unknown'));
+                            alert('Using existing family number: ' + result.familyNo);
                         } else {
-                            alert('New family number generated: ' + result.familyNo + '\nGenerated by: ' + (result.generatedBy || 'Unknown'));
+                            alert('New family number generated: ' + result.familyNo);
                         }
                     } else {
                         alert('Error generating family number: ' + (result.error || 'Unknown error'));
@@ -1365,6 +1317,16 @@
                 
                 // Log all form fields for debugging
                 console.log('=== ALL FORM FIELD VALUES ===');
+                
+                // Special check for FamilyNo
+                const familyNoField = document.getElementById('family-no');
+                const familyNoValue = familyNoField ? familyNoField.value : 'NOT FOUND';
+                console.log(`*** FAMILY NO FIELD CHECK ***`);
+                console.log(`Family No field ID: family-no`);
+                console.log(`Family No field name: ${familyNoField ? familyNoField.name : 'N/A'}`);
+                console.log(`Family No field value: "${familyNoValue}"`);
+                console.log(`Family No in form data: Assessment.FamilyNo = "${$('input[name="Assessment.FamilyNo"]').val()}"`);
+                
                 $(this).find('input, select, textarea').each(function() {
                     var fieldName = $(this).attr('name') || $(this).attr('id');
                     var fieldValue = $(this).val();
@@ -1477,10 +1439,10 @@
                         showCancelButton: true,
                         showDenyButton: true,
                         confirmButtonText: 'Continue Later',
-                        denyButtonText: 'Cancel Appointment',
+                      
                         cancelButtonText: 'Stay on Form',
                         confirmButtonColor: '#17a2b8',
-                        denyButtonColor: '#dc3545',
+                     
                         cancelButtonColor: '#6c757d'
                     }).then((result) => {
                         if (result.isConfirmed) {

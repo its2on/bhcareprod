@@ -28,7 +28,7 @@ namespace Barangay.Models
 
         [Display(Name = "Family No")]
         [StringLength(4000)]
-        [Encrypted]
+        // FamilyNo is a public identifier used for grouping - should NOT be encrypted
         public string? FamilyNo { get; set; }
 
         [Display(Name = "Address")]

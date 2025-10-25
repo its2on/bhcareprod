@@ -18,7 +18,7 @@ namespace Barangay.Models
         [Encrypted]
         public string? HealthFacility { get; set; }
         
-        [Encrypted]
+        // FamilyNo is a public identifier used for grouping - should NOT be encrypted
         public string? FamilyNo { get; set; }
         
         [Encrypted]

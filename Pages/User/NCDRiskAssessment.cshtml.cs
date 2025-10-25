@@ -233,20 +233,8 @@ namespace Barangay.Pages.User
 
             if (existingAssessment != null)
             {
-                // Decrypt FamilyNo if it's encrypted
-                var decryptedFamilyNo = existingAssessment.FamilyNo;
-                if (!string.IsNullOrEmpty(decryptedFamilyNo) && _encryptionService.CanUserDecrypt(User))
-                {
-                    try
-                    {
-                        decryptedFamilyNo = _encryptionService.Decrypt(decryptedFamilyNo);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to decrypt FamilyNo, using encrypted value");
-                    }
-                }
-                return (decryptedFamilyNo ?? "UNKNOWN-000", true);
+                // FamilyNo is no longer encrypted - use directly
+                return (existingAssessment.FamilyNo, true);
             }
 
             // Generate new family number based on first letter of last name
@@ -381,24 +369,12 @@ namespace Barangay.Pages.User
                 if (existingHEEADSSSAssessment != null)
                 {
                     _logger.LogInformation("Found existing HEEADSSS assessment with FamilyNo: {FamilyNo}", existingHEEADSSSAssessment.FamilyNo);
-                    // Decrypt FamilyNo if it's encrypted
-                    var decryptedFamilyNo = existingHEEADSSSAssessment.FamilyNo;
-                    if (!string.IsNullOrEmpty(decryptedFamilyNo) && _encryptionService.CanUserDecrypt(User))
-                    {
-                        try
-                        {
-                            decryptedFamilyNo = _encryptionService.Decrypt(decryptedFamilyNo);
-                            _logger.LogInformation("Decrypted FamilyNo: {DecryptedFamilyNo}", decryptedFamilyNo);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to decrypt FamilyNo, using encrypted value");
-                        }
-                    }
+                    // FamilyNo is no longer encrypted - use directly
+                    var familyNo = existingHEEADSSSAssessment.FamilyNo;
                     return new JsonResult(new { 
                         success = true, 
-                        familyNumber = decryptedFamilyNo,
-                        familyNo = decryptedFamilyNo, // Support both property names
+                        familyNumber = familyNo,
+                        familyNo = familyNo, // Support both property names
                         isPreexisting = true,
                         message = "You already have a family number from HEEADSSS assessment"
                     });

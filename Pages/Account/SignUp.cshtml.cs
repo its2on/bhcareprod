@@ -423,9 +423,15 @@ namespace Barangay.Pages.Account
 
             if (!ModelState.IsValid)
             {
-                _logger.LogWarning("Model state invalid: " + string.Join(", ", ModelState.Values
+                var errors = string.Join(", ", ModelState.Values
                     .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)));
+                    .Select(e => e.ErrorMessage));
+                _logger.LogWarning("Model state invalid: " + errors);
+                
+                // Add user-friendly error message
+                TempData["ErrorMessage"] = "Please correct the highlighted errors before submitting.";
+                TempData["ValidationErrors"] = errors;
+                
                 return Page();
             }
 

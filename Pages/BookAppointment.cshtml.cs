@@ -636,13 +636,15 @@ namespace Barangay.Pages
                     user.PhoneNumber = user.PhoneNumber.DecryptForUser(_encryptionService, User);
                 }
 
+                // ALWAYS ensure Patient record exists before creating appointment
+                // This is required to satisfy the FK_Appointments_Patients_PatientId foreign key constraint
+                await EnsurePatientRecordExistsAsync(userId);
+
                 // Save family number to patient record if provided (for regular bookings only)
                 // For "booking for someone else", family number is saved to Appointment.FamilyNumber below
                 if (!string.IsNullOrEmpty(familyNumber) && !bookingForOther)
                 {
                     // For regular bookings, save to the logged-in user's record
-                    await EnsurePatientRecordExistsAsync(userId);
-                    
                     var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
                     if (patient != null)
                     {

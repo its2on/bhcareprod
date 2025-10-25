@@ -61,7 +61,7 @@ namespace Barangay.Models
         
         public string? Department { get; set; }
         
-        [Required]
+        // Position is auto-set from Role, so not marked as Required
         public string? Position { get; set; }
         
         public string? Specialization { get; set; }
@@ -73,11 +73,10 @@ namespace Barangay.Models
         [Display(Name = "Contact Number")]
         public string? ContactNumber { get; set; }
         
-        [Required]
+        // Working days and hours are optional (not all staff have fixed schedules)
         [Display(Name = "Working Days")]
         public string? WorkingDays { get; set; }
         
-        [Required]
         [Display(Name = "Working Hours")]
         public string? WorkingHours { get; set; }
         

@@ -221,8 +221,8 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="form-group mb-4">
-                            <label class="form-label d-block">Working Days</label>
+                        <div class="form-group mb-3">
+                            <label class="form-label">Working Days <span class="text-muted">(Optional)</span></label>
                             <div class="btn-group d-flex flex-wrap" role="group" aria-label="Working days">
                                 @foreach (var day in Model.DaysOfWeek)
                                 {
@@ -235,12 +235,11 @@
                                 }
                             </div>
                             <input type="hidden" asp-for="StaffMember.WorkingDays" id="workingDaysInput" />
-                            <div class="invalid-feedback">Please select at least one working day.</div>
-                            <span asp-validation-for="StaffMember.WorkingDays" class="text-danger"></span>
+                            <small class="form-text text-muted">Leave unchecked if schedule varies or not applicable.</small>
                         </div>
 
                         <div class="form-group mb-3">
-                            <label class="form-label">Working Hours</label>
+                            <label class="form-label">Working Hours <span class="text-muted">(Optional)</span></label>
                             <div class="row">
                                 <div class="col-md-5">
                                     <div class="input-group">
@@ -283,8 +282,7 @@
                                 </div>
                             </div>
                             <input type="hidden" asp-for="StaffMember.WorkingHours" id="workingHoursInput" />
-                            <div class="invalid-feedback">Please select both start and end working hours.</div>
-                            <span asp-validation-for="StaffMember.WorkingHours" class="text-danger"></span>
+                            <small class="form-text text-muted">Leave default if schedule varies or not applicable.</small>
                         </div>
                     </div>
                 </div>

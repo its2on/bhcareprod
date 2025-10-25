@@ -164,28 +164,20 @@ namespace Barangay.Pages.Doctor
                     
                     if (ncdAssessment != null)
                     {
-                        try
-                        {
-                            // Decrypt the family number
-                            ncdAssessment.DecryptSensitiveData(_encryptionService, User);
-                            familyNumber = ncdAssessment.FamilyNo ?? "N/A";
-                        }
-                        catch (Exception ex)
-                        {
-                            // If decryption fails, log and keep as N/A
-                            Console.WriteLine($"Failed to decrypt FamilyNo for user {patient.PatientId}: {ex.Message}");
-                        }
+                        // FamilyNo is plain text now - no decryption needed
+                        familyNumber = ncdAssessment.FamilyNo ?? "N/A";
                     }
                     else
                     {
-                        // Fall back to HEEADSSSAssessment
+                        // Fall back to HEEADSSSAssessment (get most recent)
                         var heeadsssAssessment = await _context.HEEADSSSAssessments
-                            .FirstOrDefaultAsync(h => h.UserId == patient.PatientId);
+                            .Where(h => h.UserId == patient.PatientId && !string.IsNullOrEmpty(h.FamilyNo))
+                            .OrderByDescending(h => h.CreatedAt)
+                            .FirstOrDefaultAsync();
                         
-                        if (heeadsssAssessment != null && !string.IsNullOrEmpty(heeadsssAssessment.FamilyNo))
+                        if (heeadsssAssessment != null)
                         {
-                            // Decrypt the family number
-                            heeadsssAssessment.DecryptSensitiveData(_encryptionService, User);
+                            // FamilyNo is plain text now - no decryption needed
                             familyNumber = heeadsssAssessment.FamilyNo ?? "N/A";
                         }
                     }

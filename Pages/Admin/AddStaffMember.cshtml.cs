@@ -433,6 +433,11 @@ namespace Barangay.Pages.Admin
                     ModelState.AddModelError("StaffMember.ContactNumber", "Contact number must be in the format +639XXXXXXXXX or 09XXXXXXXXX.");
                 }
 
+                // Set Position from Role BEFORE ModelState validation (Position is required but auto-set from Role)
+                var selectedRole = StaffMember.Role ?? string.Empty;
+                StaffMember.Position = selectedRole;
+                _logger.LogInformation("Set Position to: {Position} from Role: {Role}", StaffMember.Position, StaffMember.Role);
+
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("ModelState is invalid: {Errors}", 
@@ -457,10 +462,6 @@ namespace Barangay.Pages.Admin
                 // Normalize and enforce permission selection when a role/position is chosen
                 // If no permissions were selected, auto-grant essential permissions for the chosen role
                 // Also ensure "Access Dashboard" is included
-                var selectedRole = StaffMember.Role ?? string.Empty;
-                
-                // Set Position from Role for backward compatibility
-                StaffMember.Position = selectedRole;
                 
                 if (!string.IsNullOrWhiteSpace(selectedRole))
                 {
@@ -595,6 +596,19 @@ namespace Barangay.Pages.Admin
                     if (string.IsNullOrEmpty(StaffMember.Department))
                     {
                         StaffMember.Department = "General";
+                    }
+                    
+                    // Set default values for WorkingDays and WorkingHours if not provided (database doesn't allow NULL)
+                    if (string.IsNullOrEmpty(StaffMember.WorkingDays))
+                    {
+                        StaffMember.WorkingDays = "Monday,Tuesday,Wednesday,Thursday,Friday";
+                        _logger.LogInformation("Setting default WorkingDays for staff member");
+                    }
+                    
+                    if (string.IsNullOrEmpty(StaffMember.WorkingHours))
+                    {
+                        StaffMember.WorkingHours = "8:00 AM-5:00 PM";
+                        _logger.LogInformation("Setting default WorkingHours for staff member");
                     }
 
                     _logger.LogInformation("Saving staff member details to database");
