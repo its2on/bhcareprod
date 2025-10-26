@@ -108,6 +108,7 @@ namespace Barangay.Models
         
         // Family Number for patient grouping (format: X-001 where X is first letter of last name)
         [StringLength(20)]
+        [Encrypted]
         public string? FamilyNumber { get; set; }
 
         // For backward compatibility - removed NotMapped attribute to match database column

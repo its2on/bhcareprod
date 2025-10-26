@@ -271,8 +271,34 @@ namespace Barangay.Pages.Doctor
                     familyGroups[familyNumber].PrimaryBarangay = patient.Barangay;
                 }
             }
+            
+            // Try to decrypt any encrypted family numbers
+            var result = familyGroups.Values.OrderBy(f => f.FamilyNumber).ToList();
+            foreach (var group in result)
+            {
+                // Only try to decrypt if the family number appears to be encrypted (Base64 format)
+                if (!string.IsNullOrEmpty(group.FamilyNumber) && 
+                    group.FamilyNumber.Length > 20 &&
+                    _encryptionService.IsEncrypted(group.FamilyNumber))
+                {
+                    try
+                    {
+                        // Try decryption
+                        var decrypted = _encryptionService.Decrypt(group.FamilyNumber);
+                        if (!string.IsNullOrEmpty(decrypted) && decrypted != group.FamilyNumber)
+                        {
+                            group.FamilyNumber = decrypted;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but continue with other records
+                        Console.WriteLine($"Error decrypting family number: {ex.Message}");
+                    }
+                }
+            }
 
-            return familyGroups.Values.OrderBy(f => f.FamilyNumber).ToList();
+            return result;
         }
     }
 

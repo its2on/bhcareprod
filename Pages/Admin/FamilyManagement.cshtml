@@ -1,0 +1,264 @@
+@page
+@model Barangay.Pages.Admin.FamilyManagementModel
+@{
+    ViewData["Title"] = "Family Management";
+    Layout = "_AdminLayout";
+}
+
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Family Management</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="/Admin/Dashboard">Dashboard</a></li>
+        <li class="breadcrumb-item active">Family Management</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-users me-1"></i>
+            Family Records Management
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning mb-4">
+                <div class="d-flex">
+                    <div class="me-3">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div>
+                        <h5 class="alert-heading">Warning: Administrative Tools</h5>
+                        <p class="mb-0">These tools allow you to permanently modify family records. Use with caution.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <i class="fas fa-trash-alt me-1"></i> Remove Family Record
+                        </div>
+                        <div class="card-body">
+                            <form id="removeFamilyForm">
+                                <div class="mb-3">
+                                    <label for="familyNumber" class="form-label">Family Number</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="familyNumber" name="familyNumber" required
+                                               placeholder="Enter family number (e.g., C-001)">
+                                        <button class="btn btn-outline-secondary" type="button" id="searchFamilyBtn">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="familyPreview" class="mb-3 d-none">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="familyName">Family Details</h5>
+                                            <p class="card-text" id="familyDetails">No family selected</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirmFamilyNumber" class="form-label">Confirm Family Number</label>
+                                    <input type="text" class="form-control" id="confirmFamilyNumber" name="confirmFamilyNumber" required
+                                           placeholder="Re-enter family number to confirm">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="confirmRemoval" required>
+                                        <label class="form-check-label" for="confirmRemoval">
+                                            I understand this action cannot be undone and will permanently remove all family associations.
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-danger" id="removeFamilyBtn" disabled>
+                                        <i class="fas fa-trash me-1"></i> Remove Family Record
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="fas fa-info-circle me-1"></i> Operation Status
+                        </div>
+                        <div class="card-body">
+                            <div id="statusContainer">
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-clock fa-3x mb-3"></i>
+                                    <p>Waiting for operation...</p>
+                                </div>
+                            </div>
+                            
+                            <div id="resultContainer" class="d-none">
+                                <h5>Operation Results</h5>
+                                <table class="table table-sm table-bordered">
+                                    <tbody id="resultTable">
+                                        <!-- Results will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const familyNumberInput = document.getElementById('familyNumber');
+            const confirmFamilyNumberInput = document.getElementById('confirmFamilyNumber');
+            const confirmRemovalCheckbox = document.getElementById('confirmRemoval');
+            const removeFamilyBtn = document.getElementById('removeFamilyBtn');
+            const searchFamilyBtn = document.getElementById('searchFamilyBtn');
+            const familyPreview = document.getElementById('familyPreview');
+            const familyName = document.getElementById('familyName');
+            const familyDetails = document.getElementById('familyDetails');
+            const statusContainer = document.getElementById('statusContainer');
+            const resultContainer = document.getElementById('resultContainer');
+            const resultTable = document.getElementById('resultTable');
+            
+            // Enable/disable remove button based on form validity
+            function updateButtonState() {
+                const numbersMatch = familyNumberInput.value && familyNumberInput.value === confirmFamilyNumberInput.value;
+                const isConfirmed = confirmRemovalCheckbox.checked;
+                
+                removeFamilyBtn.disabled = !(numbersMatch && isConfirmed);
+            }
+            
+            familyNumberInput.addEventListener('input', updateButtonState);
+            confirmFamilyNumberInput.addEventListener('input', updateButtonState);
+            confirmRemovalCheckbox.addEventListener('change', updateButtonState);
+            
+            // Search for family
+            searchFamilyBtn.addEventListener('click', function() {
+                const familyNumber = familyNumberInput.value.trim();
+                if (!familyNumber) return;
+                
+                // Show loading state
+                familyPreview.classList.remove('d-none');
+                familyName.textContent = `Searching for Family ${familyNumber}...`;
+                familyDetails.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i></div>';
+                
+                // Call API to get family details
+                fetch(`/api/Families/details/${encodeURIComponent(familyNumber)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Family not found');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        familyName.textContent = `Family ${familyNumber}`;
+                        
+                        let detailsHtml = `
+                            <p><strong>Members:</strong> ${data.memberCount}</p>
+                            <p><strong>Barangay:</strong> ${data.barangay || 'Not specified'}</p>
+                            <p><strong>Contact:</strong> ${data.contactNumber || 'Not specified'}</p>
+                            <div class="mt-3">
+                                <h6>Members:</h6>
+                                <ul class="list-group">
+                        `;
+                        
+                        if (data.members && data.members.length > 0) {
+                            data.members.forEach(member => {
+                                detailsHtml += `<li class="list-group-item">${member.name} (${member.age})</li>`;
+                            });
+                        } else {
+                            detailsHtml += `<li class="list-group-item text-muted">No members found</li>`;
+                        }
+                        
+                        detailsHtml += `</ul></div>`;
+                        familyDetails.innerHTML = detailsHtml;
+                    })
+                    .catch(error => {
+                        familyName.textContent = `Family ${familyNumber} - Not Found`;
+                        familyDetails.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Could not find family with number "${familyNumber}".
+                                Please check the family number and try again.
+                            </div>
+                        `;
+                    });
+            });
+            
+            // Handle form submission
+            document.getElementById('removeFamilyForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const familyNumber = familyNumberInput.value.trim();
+                
+                // Show loading state
+                statusContainer.innerHTML = `
+                    <div class="text-center py-3">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                        <p>Removing family ${familyNumber}...</p>
+                    </div>
+                `;
+                
+                resultContainer.classList.add('d-none');
+                
+                // Call API to remove family
+                fetch(`/api/AdminManagement/family/${encodeURIComponent(familyNumber)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Show success message
+                    statusContainer.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle fa-2x float-start me-3"></i>
+                            <h5>Success!</h5>
+                            <p>${data.message}</p>
+                        </div>
+                    `;
+                    
+                    // Show results
+                    resultTable.innerHTML = `
+                        <tr><td>Users Updated</td><td>${data.usersUpdated}</td></tr>
+                        <tr><td>Patients Updated</td><td>${data.patientsUpdated}</td></tr>
+                        <tr><td>Family Members Removed</td><td>${data.familyMembersRemoved}</td></tr>
+                        <tr><td>Assessments Updated</td><td>${data.assessmentsUpdated}</td></tr>
+                        <tr><td>Appointments Updated</td><td>${data.appointmentsUpdated}</td></tr>
+                    `;
+                    resultContainer.classList.remove('d-none');
+                    
+                    // Reset form
+                    familyNumberInput.value = '';
+                    confirmFamilyNumberInput.value = '';
+                    confirmRemovalCheckbox.checked = false;
+                    familyPreview.classList.add('d-none');
+                    updateButtonState();
+                })
+                .catch(error => {
+                    // Show error message
+                    statusContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle fa-2x float-start me-3"></i>
+                            <h5>Error!</h5>
+                            <p>Failed to remove family: ${error.message}</p>
+                        </div>
+                    `;
+                });
+            });
+        });
+    </script>
+}
