@@ -1166,6 +1166,50 @@
 
 @section Scripts {
     <script>
+        // Function to update blood sugar status based on input values
+        function updateBloodSugarStatus() {
+            const fasting = parseFloat($('#NCDRiskAssessment_FastingBloodSugar').val()) || 0;
+            const random = parseFloat($('#NCDRiskAssessment_RandomBloodSugar').val()) || 0;
+            
+            if (fasting > 0) {
+                if (fasting < 100) {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="Normal"]').prop('checked', true);
+                } else if (fasting <= 125) {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="Impaired"]').prop('checked', true);
+                } else {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="DM"]').prop('checked', true);
+                }
+            } else if (random > 0) {
+                if (random < 140) {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="Normal"]').prop('checked', true);
+                } else if (random < 200) {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="Pre-Diabetes"]').prop('checked', true);
+                } else {
+                    $('input[name="NCDRiskAssessment.BloodSugarStatus"][value="DM"]').prop('checked', true);
+                }
+            }
+        }
+
+        // Function to update blood pressure status based on input values
+        function updateBPStatus() {
+            const bpInput = $('#NCDRiskAssessment_BaselineBP').val() || '';
+            const [systolic, diastolic] = bpInput.split('/').map(Number);
+            
+            if (systolic && diastolic) {
+                if (systolic < 120 && diastolic < 80) {
+                    $('input[name="NCDRiskAssessment.BPStatus"][value="Normal"]').prop('checked', true);
+                } else if ((systolic >= 120 && systolic <= 129) && diastolic < 80) {
+                    $('input[name="NCDRiskAssessment.BPStatus"][value="Elevated"]').prop('checked', true);
+                } else if ((systolic >= 130 && systolic <= 139) || (diastolic >= 80 && diastolic <= 89)) {
+                    $('input[name="NCDRiskAssessment.BPStatus"][value="Pre-HPN"]').prop('checked', true);
+                } else if ((systolic >= 140 && systolic <= 159) || (diastolic >= 90 && diastolic <= 99)) {
+                    $('input[name="NCDRiskAssessment.BPStatus"][value="Stage 1"]').prop('checked', true);
+                } else if (systolic >= 160 || diastolic >= 100) {
+                    $('input[name="NCDRiskAssessment.BPStatus"][value="Stage 2"]').prop('checked', true);
+                }
+            }
+        }
+
         $(document).ready(function() {
             // DEBUGGING: Log all form field interactions
             console.log('=== NURSE EDIT FORM DEBUGGING ENABLED ===');
@@ -1660,6 +1704,30 @@
                 } else {
                     console.log('Form validation passed - submitting');
                 }
+            });
+
+            // Blood sugar automation
+            $('#NCDRiskAssessment_FastingBloodSugar, #NCDRiskAssessment_RandomBloodSugar').on('input', function() {
+                // Clear the other field when one is filled
+                if ($(this).attr('id') === 'NCDRiskAssessment_FastingBloodSugar' && $(this).val().trim() !== '') {
+                    $('#NCDRiskAssessment_RandomBloodSugar').val('');
+                } else if ($(this).attr('id') === 'NCDRiskAssessment_RandomBloodSugar' && $(this).val().trim() !== '') {
+                    $('#NCDRiskAssessment_FastingBloodSugar').val('');
+                }
+                updateBloodSugarStatus();
+            });
+
+            // Blood pressure automation
+            $('#NCDRiskAssessment_BaselineBP').on('input', function() {
+                // Format as 120/80 while typing
+                let value = $(this).val().replace(/\D/g, '');
+                if (value.length > 3) {
+                    value = value.substring(0, 3) + '/' + value.substring(3, 5);
+                }
+                $(this).val(value);
+                
+                // Update status
+                updateBPStatus();
             });
 
             // Real-time validation

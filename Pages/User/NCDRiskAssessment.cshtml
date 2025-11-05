@@ -9,6 +9,45 @@
 
 @section Styles {
     <style>
+        /* Ensure wizard steps are properly displayed */
+        .wizard-step {
+            display: none;
+        }
+        
+        .wizard-step.active {
+            display: block;
+        }
+        
+        /* Ensure the Next button is clickable */
+        .wizard-nav {
+            position: relative;
+            z-index: 100;
+        }
+        
+        .wizard-nav .btn {
+            position: relative;
+            z-index: 110;
+            pointer-events: auto !important;
+        }
+        
+        /* Fix any overlay issues */
+        .wizard-step {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Make buttons more visible */
+        .btn {
+            padding: 8px 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         /* Scoped variables for this page */
         :root {
             --primary-color: #007bff;
@@ -619,6 +658,83 @@
         // Initialize wizard state
         let currentStep = 1;
         
+        // Function to initialize the form
+        function initializeForm() {
+            console.log('Initializing NCD Risk Assessment form...');
+            
+            // Show the first step
+            showStep(1);
+            
+            // Add click handlers for navigation buttons
+            document.getElementById('next-1')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Next-1 button clicked');
+                if (validateStep(1)) {
+                    console.log('Step 1 validation passed, moving to step 2');
+                    showStep(2);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    console.log('Step 1 validation failed');
+                    const firstError = document.querySelector('.error');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+
+            document.getElementById('back-2')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep(1);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            document.getElementById('next-2')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Next-2 button clicked');
+                if (validateStep(2)) {
+                    console.log('Step 2 validation passed, moving to step 3');
+                    showStep(3);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    console.log('Step 2 validation failed');
+                    const firstError = document.querySelector('.error');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+
+            document.getElementById('back-3')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep(2);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            document.getElementById('next-3')?.addEventListener('click', function(e) { 
+                e.preventDefault();
+                console.log('Next-3 button clicked');
+                if (validateStep(3)) {
+                    console.log('Step 3 validation passed, moving to step 4');
+                    showStep(4);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    console.log('Step 3 validation failed');
+                    const firstError = document.querySelector('.error');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+
+            document.getElementById('back-4')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showStep(3);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            console.log('Form initialization complete');
+        }
+        
         // Encryption configuration - MUST match server-side key (exactly 32 bytes)
         const ENCRYPTION_KEY = "BHCARE_2024_SECRET_KEY_32BYTES_LONG"; // Exactly 32 bytes for AES-256
         
@@ -820,11 +936,31 @@
         }
 
         // Document ready function
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize form tracking
+        // Debug: Log initial state
+        console.log('Document readyState:', document.readyState);
+        console.log('Next button exists on initial load:', !!document.getElementById('next-1'));
+        
+        // Add a global reference to the next button for debugging
+        window.nextButton = document.getElementById('next-1');
+        
+        // Wait for the DOM to be fully loaded before initializing
+        if (document.readyState === 'loading') {
+            // Document is still loading, wait for DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOM fully loaded, initializing form...');
+                initializeForm();
+                trackFormChanges();
+                addBeforeUnloadListener();
+                addNavigationListeners();
+            });
+        } else {
+            // DOM is already ready
+            console.log('DOM already loaded, initializing form...');
+            initializeForm();
             trackFormChanges();
             addBeforeUnloadListener();
             addNavigationListeners();
+        }
             
             // Don't show popup on page load - only show when user tries to leave
             
@@ -1281,11 +1417,33 @@
 
         function showStep(step) {
             console.log(`showStep called with step: ${step}`);
-            steps().forEach(s => s.classList.remove('active'));
+            
+            // Hide all steps first
+            const allSteps = document.querySelectorAll('.wizard-step');
+            console.log(`Found ${allSteps.length} total wizard steps`);
+            allSteps.forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Show the active step
             const active = document.querySelector(`.wizard-step[data-step="${step}"]`);
-            if (active) active.classList.add('active');
-            currentStep = step;
+            if (active) {
+                console.log(`Activating step ${step}`);
+                active.classList.add('active');
+                // Ensure the step is visible
+                active.style.display = 'block';
+            } else {
+                console.error(`Could not find step with data-step="${step}"`);
+            }
+            
+            // Update progress indicator
             updateStepIndicator(step);
+            
+            // Log current active step for debugging
+            console.log(`Current active step: ${step}`);
+            
+            currentStep = step;
+            
             if (step === 4) {
                 console.log('Reached step 4, populating summary and validating');
                 populateSummary();
@@ -1317,69 +1475,72 @@
             if (!container) return true;
             let isValid = true;
             container.querySelectorAll('.error-text').forEach(e => e.remove());
+            
+            // Handle Step 1 validation
+            if (step === 1) {
+                // Validate required text fields
+                const requiredFields = [
+                    { id: 'relihiyon', name: 'Relihiyon' },
+                    { id: 'hanapbuhay', name: 'Hanapbuhay' },
+                    { id: 'estado-sibil', name: 'Estado Sibil' }
+                ];
+
+                // Clear previous errors
+                requiredFields.forEach(field => {
+                    const element = document.getElementById(field.id);
+                    if (element) {
+                        element.classList.remove('error');
+                    }
+                });
+
+                // Check required fields
+                requiredFields.forEach(field => {
+                    const element = document.getElementById(field.id);
+                    if (element && !element.value.trim()) {
+                        isValid = false;
+                        element.classList.add('error');
+                        addError(element, `${field.name} is required`);
+                    }
+                });
+
+                // Validate Edad (age)
+                const edadField = document.getElementById('edad');
+                if (edadField) {
+                    const v = parseInt(edadField.value, 10);
+                    if (isNaN(v)) {
+                        isValid = false;
+                        edadField.classList.add('error');
+                        addError(edadField, 'Please enter a valid age');
+                    }
+                }
+                
+                return isValid;
+            }
+            
+            // For other steps, use the general validation
             const requiredFields = container.querySelectorAll('[required]');
-            
-            // For Step 1, these fields will have custom validation messages
-            const specialFieldIds = ['relihiyon', 'hanapbuhay', 'estado-sibil'];
-            
             requiredFields.forEach(field => {
                 field.classList.remove('error');
                 const type = field.getAttribute('type');
                 
-                // Skip validation for readonly and disabled fields (prefilled/locked)
+                // Skip validation for readonly and disabled fields
                 if (field.readOnly || field.disabled) {
-                    return;
-                }
-                
-                // For Step 1, skip the three special fields in general validation
-                // They will be validated with custom messages below
-                if (step === 1 && specialFieldIds.includes(field.id)) {
                     return;
                 }
                 
                 if ((type === 'text' || type === 'date' || type === 'number') && !field.value.trim()) {
                     isValid = false;
                     field.classList.add('error');
-                    addError(field, 'Required');
+                    addError(field, 'This field is required');
                 } else if (type === 'radio') {
                     const group = container.querySelectorAll(`input[name="${field.name}"]`);
                     if (![...group].some(r => r.checked)) {
                         isValid = false;
-                        addError(field.closest('.form-group') || field, 'Select an option');
+                        addError(field.closest('.form-group') || field, 'Please select an option');
                     }
                 }
             });
             
-            // Additional logical validation for Step 1
-            if (step === 1) {
-                // Validate Edad
-                const edadField = document.getElementById('edad');
-                const v = parseInt(edadField.value, 10);
-                if (isNaN(v)) { isValid = false; edadField.classList.add('error'); addError(edadField, 'Enter a valid number'); }
-                
-                // Validate required fields with custom messages: Relihiyon, Hanapbuhay, Estado Sibil
-                const relihiyon = document.getElementById('relihiyon');
-                const hanapbuhay = document.getElementById('hanapbuhay');
-                const estadoSibil = document.getElementById('estado-sibil');
-                
-                if (!relihiyon.value.trim()) {
-                    isValid = false;
-                    relihiyon.classList.add('error');
-                    addError(relihiyon, 'Relihiyon is required');
-                }
-                
-                if (!hanapbuhay.value.trim()) {
-                    isValid = false;
-                    hanapbuhay.classList.add('error');
-                    addError(hanapbuhay, 'Hanapbuhay is required');
-                }
-                
-                if (!estadoSibil.value.trim()) {
-                    isValid = false;
-                    estadoSibil.classList.add('error');
-                    addError(estadoSibil, 'Estado Sibil is required');
-                }
-            }
             return isValid;
         }
 
@@ -1449,24 +1610,147 @@
             });
         }
 
-        // Navigation buttons
-        document.getElementById('next-1')?.addEventListener('click', () => { if (validateStep(1)) showStep(2); });
-        document.getElementById('back-2')?.addEventListener('click', () => showStep(1));
-        document.getElementById('next-2')?.addEventListener('click', () => { if (validateStep(2)) showStep(3); });
-        document.getElementById('back-3')?.addEventListener('click', () => showStep(2));
-        document.getElementById('next-3')?.addEventListener('click', () => { 
-            console.log('Next-3 button clicked');
-            if (validateStep(3)) {
-                console.log('Step 3 validation passed, moving to step 4');
-                showStep(4);
+        // Function to make button clickable by any means necessary
+        function makeButtonClickable() {
+            const nextButton = document.getElementById('next-1');
+            if (!nextButton) {
+                console.error('Next button not found!');
+                return;
+            }
+
+            console.log('Making Next button clickable...');
+            
+            // 1. Remove any existing event listeners
+            const newButton = nextButton.cloneNode(true);
+            nextButton.parentNode.replaceChild(newButton, nextButton);
+            
+            // 2. Add click handler directly
+            newButton.onclick = function(e) {
+                console.log('Next button clicked!');
+                e.preventDefault();
+                e.stopPropagation();
+                if (validateStep(1)) {
+                    showStep(2);
+                }
+                return false;
+            };
+            
+            // 3. Make sure it's not being covered
+            newButton.style.position = 'relative';
+            newButton.style.zIndex = '9999';
+            newButton.style.pointerEvents = 'auto';
+            
+            // 4. Add visual feedback on hover
+            newButton.style.transition = 'all 0.3s';
+            newButton.addEventListener('mouseover', () => {
+                newButton.style.transform = 'scale(1.02)';
+                newButton.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
+            });
+            newButton.addEventListener('mouseout', () => {
+                newButton.style.transform = 'scale(1)';
+                newButton.style.boxShadow = 'none';
+            });
+            
+            console.log('Next button should now be clickable');
+            return newButton;
+        }
+        
+        // Test if we can find and click the next button programmatically
+        function testNextButton() {
+            const nextButton = document.getElementById('next-1');
+            console.log('Testing Next button:', nextButton);
+            
+            if (nextButton) {
+                console.log('Next button found, adding debug click handler');
+                nextButton.addEventListener('click', function(e) {
+                    debugger; // This will pause execution when the button is clicked
+                    console.log('Next button clicked in debug handler');
+                    e.preventDefault();
+                    if (validateStep(1)) {
+                        showStep(2);
+                    }
+                });
+                
+                // Also try a direct onclick handler as a fallback
+                nextButton.onclick = function(e) {
+                    debugger;
+                    console.log('Direct onclick handler fired');
+                    e.preventDefault();
+                    if (validateStep(1)) {
+                        showStep(2);
+                    }
+                    return false;
+                };
+                
+                // Test if we can trigger a click programmatically
+                console.log('Attempting to trigger click programmatically');
+                try {
+                    nextButton.click();
+                } catch (err) {
+                    console.error('Error triggering click:', err);
+                }
             } else {
-                console.log('Step 3 validation failed');
+                console.error('Next button not found in the DOM');
+            }
+        }
+        
+        // Directly add a click handler to the Next button
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded, adding direct click handler...');
+            
+            // Find the Next button
+            const nextButton = document.getElementById('next-1');
+            console.log('Next button found:', nextButton);
+            
+            if (nextButton) {
+                // Remove all existing event listeners
+                const newButton = nextButton.cloneNode(true);
+                nextButton.parentNode.replaceChild(newButton, nextButton);
+                
+                // Add a direct click handler
+                newButton.onclick = function(e) {
+                    console.log('Direct click handler triggered!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Show which step we're on
+                    console.log('Current step before:', currentStep);
+                    
+                    // Manually validate and go to next step
+                    if (validateStep(1)) {
+                        console.log('Validation passed, showing step 2');
+                        showStep(2);
+                    } else {
+                        console.log('Validation failed');
+                    }
+                    
+                    return false;
+                };
+                
+                // Make sure the button is clickable
+                newButton.style.pointerEvents = 'auto';
+                newButton.style.position = 'relative';
+                newButton.style.zIndex = '9999';
+                
+                console.log('Direct click handler added to Next button');
+                
+                // Try to click it once to test
+                setTimeout(() => {
+                    console.log('Testing button click...');
+                    newButton.click();
+                }, 1000);
+            } else {
+                console.error('Next button not found in the DOM');
+                // Try to find it again after a delay
+                setTimeout(() => {
+                    const retryButton = document.getElementById('next-1');
+                    console.log('Retry finding Next button:', retryButton);
+                }, 1000);
             }
         });
-        document.getElementById('back-4')?.addEventListener('click', () => showStep(3));
-
-        // Initialize step 1 UI
-        showStep(1);
+        
+        // Also add a global reference for easy access in console
+        window.testNextButton = testNextButton;
 
         // Form submission handler
         document.getElementById('submit-btn').addEventListener('click', function(event) {
