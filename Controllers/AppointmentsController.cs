@@ -95,7 +95,7 @@ namespace Barangay.Controllers
                 // Check if slot is already booked
                 var isSlotBooked = await _context.Appointments
                     .AnyAsync(a => a.DoctorId == model.DoctorId && 
-                          DateTimeHelper.AreDatesEqual(a.AppointmentDate, appointmentDate) &&
+                          a.AppointmentDate.Date == appointmentDate.Date &&
                           a.AppointmentTime == parsedTime &&
                           a.Status != AppointmentStatus.Cancelled);
 
@@ -107,7 +107,7 @@ namespace Barangay.Controllers
 
                 var existingAppointments = await _context.Appointments
                     .CountAsync(a => a.DoctorId == model.DoctorId && 
-                          DateTimeHelper.AreDatesEqual(a.AppointmentDate, appointmentDate) &&
+                          a.AppointmentDate.Date == appointmentDate.Date &&
                           a.Status != AppointmentStatus.Cancelled);
 
                 if (existingAppointments >= doctor.MaxDailyPatients)

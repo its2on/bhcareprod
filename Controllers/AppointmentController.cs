@@ -357,7 +357,7 @@ namespace Barangay.Controllers
                 // Check for conflicts
                 var hasConflict = await _context.Appointments
                     .AnyAsync(a => a.DoctorId == model.DoctorId &&
-                                 DateTimeHelper.AreDatesEqual(a.AppointmentDate, appointmentDate) &&
+                                 a.AppointmentDate.Date == appointmentDate.Date &&
                                  a.AppointmentTime == appointmentTime &&
                                  a.Status != AppointmentStatus.Cancelled);
 
@@ -512,7 +512,7 @@ namespace Barangay.Controllers
                 // Get existing appointments for the doctor on the selected date
                 var existingAppointments = await _context.Appointments
                     .Where(a => a.DoctorId == doctorId && 
-                           DateTimeHelper.AreDatesEqual(a.AppointmentDate, appointmentDate) &&
+                           a.AppointmentDate.Date == appointmentDate.Date &&
                            a.Status != AppointmentStatus.Cancelled)
                     .Select(a => a.AppointmentTime)
                     .ToListAsync();

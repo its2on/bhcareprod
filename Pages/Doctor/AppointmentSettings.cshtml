@@ -1,0 +1,243 @@
+@page
+@model Barangay.Pages.Doctor.AppointmentSettingsModel
+@{
+    ViewData["Title"] = "Appointment Settings";
+}
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fa-solid fa-cog me-2"></i>Appointment Settings
+            </h1>
+            <p class="text-muted mb-0">Configure your daily appointment slots and working hours</p>
+        </div>
+        <div>
+            <a asp-page="./Consultation" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Consultation
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert alert-@(Model.IsSuccess ? "success" : "danger") alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-@(Model.IsSuccess ? "check-circle" : "exclamation-triangle") me-2"></i>
+            @Model.Message
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form method="post">
+        <div class="row">
+            <!-- Daily Slot Configuration -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fa-solid fa-calendar-day me-2"></i>Daily Slot Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="Settings.MaxAppointmentsPerDay" class="form-label">
+                                <i class="fa-solid fa-users me-2"></i>Maximum Appointments Per Day
+                            </label>
+                            <input asp-for="Settings.MaxAppointmentsPerDay" class="form-control form-control-lg" type="number" min="1" max="100" />
+                            <span asp-validation-for="Settings.MaxAppointmentsPerDay" class="text-danger"></span>
+                            <div class="form-text">
+                                <i class="fa-solid fa-info-circle me-1"></i>
+                                The system will automatically divide your working hours into this many equal time slots.
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <i class="fa-solid fa-calculator fa-2x me-3"></i>
+                                <div>
+                                    <strong>Calculated Slot Duration:</strong>
+                                    <div id="slotDuration" class="h4 mb-0 text-primary">
+                                        ~@Model.Settings.CalculatedSlotDuration minutes per appointment
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Settings.StartTime" class="form-label">
+                                    <i class="fa-solid fa-clock me-2"></i>Start Time
+                                </label>
+                                <input asp-for="Settings.StartTime" class="form-control" type="time" />
+                                <span asp-validation-for="Settings.StartTime" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Settings.EndTime" class="form-label">
+                                    <i class="fa-solid fa-clock me-2"></i>End Time
+                                </label>
+                                <input asp-for="Settings.EndTime" class="form-control" type="time" />
+                                <span asp-validation-for="Settings.EndTime" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input asp-for="Settings.IsAvailable" class="form-check-input" type="checkbox" role="switch" />
+                            <label asp-for="Settings.IsAvailable" class="form-check-label">
+                                <strong>Currently Accepting Appointments</strong>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Working Days -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fa-solid fa-calendar-week me-2"></i>Working Days
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Select the days you are available for appointments</p>
+
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Monday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Monday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Monday
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Tuesday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Tuesday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Tuesday
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Wednesday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Wednesday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Wednesday
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Thursday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Thursday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Thursday
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Friday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Friday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Friday
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item bg-light">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Saturday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Saturday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Saturday <span class="badge bg-warning text-dark">Weekend</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="list-group-item bg-light">
+                                <div class="form-check form-switch">
+                                    <input asp-for="Settings.Sunday" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Settings.Sunday" class="form-check-label">
+                                        <i class="fa-solid fa-calendar me-2"></i>Sunday <span class="badge bg-warning text-dark">Weekend</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Example Calculation -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fa-solid fa-lightbulb me-2"></i>How It Works
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>The system will automatically calculate appointment slots based on your settings:</strong></p>
+                <ol>
+                    <li><strong>Total Working Hours:</strong> End Time - Start Time</li>
+                    <li><strong>Total Minutes:</strong> Working Hours × 60</li>
+                    <li><strong>Minutes Per Slot:</strong> Total Minutes ÷ Max Appointments Per Day</li>
+                    <li><strong>Slots are distributed evenly</strong> throughout the day with any leftover minutes added to the first few slots</li>
+                </ol>
+
+                <div class="alert alert-warning">
+                    <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                    <strong>Example:</strong> If you work 9 hours (540 minutes) and allow 30 appointments per day, 
+                    each slot will be approximately <strong>18 minutes</strong> (540 ÷ 30 = 18).
+                </div>
+
+                <div class="alert alert-success">
+                    <i class="fa-solid fa-check-circle me-2"></i>
+                    <strong>Current Configuration:</strong> 
+                    With your settings, you'll have <strong>@Model.Settings.MaxAppointmentsPerDay time slots</strong> 
+                    of approximately <strong>@Model.Settings.CalculatedSlotDuration minutes</strong> each.
+                </div>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fa-solid fa-save me-2"></i>Save Settings
+            </button>
+            <a asp-page="./Consultation" class="btn btn-secondary btn-lg">
+                <i class="fa-solid fa-times me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    
+    <script>
+        // Update slot duration calculation in real-time
+        function updateSlotDuration() {
+            const maxSlots = parseInt($('#Settings_MaxAppointmentsPerDay').val()) || 30;
+            const startTime = $('#Settings_StartTime').val() || '08:00';
+            const endTime = $('#Settings_EndTime').val() || '17:00';
+            
+            // Parse times
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            
+            // Calculate working minutes
+            const startMinutes = startHour * 60 + startMin;
+            const endMinutes = endHour * 60 + endMin;
+            const workingMinutes = endMinutes - startMinutes;
+            
+            if (workingMinutes > 0 && maxSlots > 0) {
+                const slotDuration = Math.floor(workingMinutes / maxSlots);
+                $('#slotDuration').html(`~${slotDuration} minutes per appointment`);
+            } else {
+                $('#slotDuration').html('Invalid configuration');
+            }
+        }
+        
+        // Update on input change
+        $('#Settings_MaxAppointmentsPerDay, #Settings_StartTime, #Settings_EndTime').on('input change', updateSlotDuration);
+        
+        // Initial calculation
+        updateSlotDuration();
+    </script>
+}
+

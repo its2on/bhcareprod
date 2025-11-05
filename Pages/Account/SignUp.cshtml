@@ -30,20 +30,52 @@
             <div id="section1" class="section">
                 <h4 class="text-primary"><i class="fas fa-user"></i> Personal Information</h4>
                 
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label asp-for="Input.Username" class="form-label">Username <span class="required">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-user"></i>
-                                </span>
-                                <input asp-for="Input.Username" class="form-control" placeholder="Username (min. 3 characters)" aria-label="Username input" />
+                <!-- ID Scanner Section -->
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-light">
+                        <i class="fas fa-id-card me-2 text-primary"></i> Quick Fill with ID Scanner
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Upload your ID to automatically fill your information</p>
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <input type="file" id="idScannerInput" accept="image/*" class="form-control" capture="environment" />
+                                <small class="text-muted mt-1 d-block">Upload your ID image (JPG, PNG)</small>
                             </div>
-                            <div class="invalid-feedback" id="usernameError">Username is required</div>
-                            <small class="form-text text-muted">Username can only contain letters, numbers, and underscores</small>
+                            <div class="col-md-6">
+                                <button type="button" id="scanIdButton" class="btn btn-primary w-100">
+                                    <i class="fas fa-camera me-2"></i> Scan ID
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3 small">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enhancedModeCheckbox" checked>
+                                <label class="form-check-label" for="enhancedModeCheckbox">
+                                    Enable enhanced recognition mode (more accurate but takes longer)
+                                </label>
+                            </div>
+                        </div>
+                        <div id="scannerStatus" class="mt-2 d-none">
+                            <div class="progress" style="height: 5px;">
+                                <div id="scanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                            </div>
+                            <div class="d-flex align-items-center mt-2">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Processing...</span>
+                                </div>
+                                <span class="ms-2" id="scanStatusText">Initializing scanner...</span>
+                            </div>
+                        </div>
+                        <div id="scannerResult" class="mt-2 d-none"></div>
+                        <div id="previewContainer" class="mt-3 text-center d-none">
+                            <p class="small text-muted">Image preview (you can enhance below if text isn't clear):</p>
+                            <img id="imagePreview" class="img-fluid img-thumbnail" style="max-height: 200px;" />
                         </div>
                     </div>
+                </div>
+                
+                <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.Email" class="form-label">Email Address <span class="required">*</span></label>
@@ -464,24 +496,6 @@
                     }
 
                     setupRealTimeValidation() {
-                        // Username validation - only validate on blur to avoid too many AJAX calls
-                        const usernameInput = document.getElementById('Input_Username');
-                        if (usernameInput) {
-                            usernameInput.addEventListener('blur', async () => {
-                                await this.validateUsername();
-                                this.updateStep1NextButtonState();
-                            });
-                            usernameInput.addEventListener('input', () => {
-                                const value = usernameInput.value.trim();
-                                // Only clear error if value doesn't have obvious spam
-                                if (value && !this.hasExcessiveRepetition(value, 2)) {
-                                    this.clearError('username');
-                                } else if (value && this.hasExcessiveRepetition(value, 2)) {
-                                    this.showError('username', 'Username contains too many repeated characters');
-                                }
-                                this.updateStep1NextButtonState();
-                            });
-                        }
 
                         // Email validation - only validate on blur to avoid too many AJAX calls
                         const emailInput = document.getElementById('Input_Email');
@@ -670,7 +684,6 @@
                         }
                         
                         // Check if all Step 1 fields are filled
-                        const username = document.getElementById('Input_Username')?.value?.trim();
                         const email = document.getElementById('Input_Email')?.value?.trim();
                         const firstName = document.getElementById('Input_FirstName')?.value?.trim();
                         const lastName = document.getElementById('Input_LastName')?.value?.trim();
@@ -680,7 +693,7 @@
                         const genderSelected = document.querySelector('input[name="Input.Gender"]:checked');
                         const barangay = document.getElementById('Input_Barangay')?.value;
                         
-                        const allFieldsFilled = username && email && firstName && lastName && 
+                        const allFieldsFilled = email && firstName && lastName && 
                                                contactNumber && address && birthDate && 
                                                genderSelected && barangay;
                         
@@ -696,7 +709,6 @@
                             allFieldsFilled,
                             hasInvalidFields,
                             hasVisibleErrors,
-                            username: !!username,
                             email: !!email,
                             firstName: !!firstName,
                             lastName: !!lastName,
@@ -735,53 +747,6 @@
 
                     // Validation Methods
                     async validateUsername() {
-                        const input = document.getElementById('Input_Username');
-                        const value = input?.value?.trim();
-                        
-                        if (!value) {
-                            this.showError('username', 'Username is required');
-                            return false;
-                        }
-                        
-                        if (value.length < 3) {
-                            this.showError('username', 'Username must be at least 3 characters long');
-                            return false;
-                        }
-                        
-                        // Allow letters, numbers, underscores, dots, and hyphens
-                        const usernamePattern = /^[a-zA-Z0-9._-]+$/;
-                        if (!usernamePattern.test(value)) {
-                            this.showError('username', 'Username can only contain letters, numbers, dots, hyphens, and underscores');
-                            return false;
-                        }
-                        
-                        // Username should not start or end with special characters
-                        const edgePattern = /^[._-]|[._-]$/;
-                        if (edgePattern.test(value)) {
-                            this.showError('username', 'Username cannot start or end with special characters');
-                            return false;
-                        }
-                        
-                        // Prevent spam: check for excessive repetition
-                        if (this.hasExcessiveRepetition(value, 2)) {
-                            this.showError('username', 'Username contains too many repeated characters');
-                            return false;
-                        }
-                        
-                        // Check if username already exists via AJAX
-                        try {
-                            const response = await fetch(`/Account/SignUp?handler=CheckUsername&username=${encodeURIComponent(value)}`);
-                            const data = await response.json();
-                            
-                            if (data.exists) {
-                                this.showError('username', 'This username is already taken. Please choose a different username.');
-                                return false;
-                            }
-                        } catch (error) {
-                            console.error('Error checking username:', error);
-                        }
-                        
-                        this.clearError('username');
                         return true;
                     }
 
@@ -1191,11 +1156,9 @@
 
                     // Step Validation Methods
                     async validateStep1() {
-                        const usernameValid = await this.validateUsername();
                         const emailValid = await this.validateEmail();
                         const contactNumberValid = await this.validateContactNumber();
                         const isValid = 
-                            usernameValid &&
                             emailValid &&
                             this.validateName('FirstName') &&
                             this.validateName('LastName') &&
@@ -1805,6 +1768,10 @@
 @section Scripts {
     <!-- zxcvbn password strength library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js" integrity="sha512-TZlMGFY9xKj38t/5m2FzJ+RM/aD5alMHDe26p0mYUMoCF5G7ibfHUQILq0qQPV3wlsnCwL+TPRNK4vIWGLOkUQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Tesseract.js for OCR (using v2 for better compatibility) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+    <!-- Image preprocessing -->
+    <script src="https://cdn.jsdelivr.net/npm/compressorjs@1.2.1/dist/compressor.min.js"></script>
     <script src="~/js/signup.js" asp-append-version="true"></script>
     <script src="~/js/password-validation.js" asp-append-version="true"></script>
     <script src="~/js/form-validation.js" asp-append-version="true"></script>
@@ -2156,5 +2123,805 @@
                         sendVerificationEmail();
                     }
                 })();
+    </script>
+    
+    <!-- ID Scanner Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const scanIdButton = document.getElementById('scanIdButton');
+            const idScannerInput = document.getElementById('idScannerInput');
+            const scannerStatus = document.getElementById('scannerStatus');
+            const scannerResult = document.getElementById('scannerResult');
+            
+            if (!scanIdButton || !idScannerInput) return;
+            
+            // Initialize Tesseract worker
+            let worker = null;
+            let isWorkerInitialized = false;
+            
+            async function initializeWorker() {
+                if (worker) return true;
+                try {
+                    console.log('Initializing Tesseract worker...');
+                    
+                    // Use version 2.x API
+                    worker = Tesseract.createWorker({
+                        logger: m => {
+                            console.log(m);
+                            // Update progress bar during loading if visible
+                            const statusText = document.getElementById('scanStatusText');
+                            if (statusText && m.status && m.status !== 'recognizing text') {
+                                statusText.textContent = `Initializing scanner: ${m.status}`;
+                            }
+                        }
+                    });
+                    
+                    await worker.load();
+                    await worker.loadLanguage('eng');
+                    await worker.initialize('eng');
+                    await worker.setParameters({
+                        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/\\-():; '
+                    });
+                    
+                    console.log('OCR worker initialized successfully');
+                    scannerResult.innerHTML = `<div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i> Scanner ready to use!
+                    </div>`;
+                    scannerResult.classList.remove('d-none');
+                    isWorkerInitialized = true;
+                    return true;
+                } catch (error) {
+                    console.error('Failed to initialize OCR worker:', error);
+                    scannerResult.innerHTML = `<div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> Scanner initialization failed. Please try again or use a different browser.
+                    </div>`;
+                    scannerResult.classList.remove('d-none');
+                    return false;
+                }
+            }
+            
+            // Don't initialize in background to avoid memory issues
+            
+            // Handle file selection change
+            idScannerInput.addEventListener('change', function() {
+                if (scanIdButton && this.files && this.files[0]) {
+                    scanIdButton.disabled = false;
+                    scanIdButton.innerHTML = '<i class="fas fa-camera me-2"></i> Process Selected Image';
+                    
+                    // Show image preview
+                    const previewContainer = document.getElementById('previewContainer');
+                    const imagePreview = document.getElementById('imagePreview');
+                    if (previewContainer && imagePreview) {
+                        const file = this.files[0];
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            imagePreview.src = e.target.result;
+                            previewContainer.classList.remove('d-none');
+                        }
+                        reader.readAsDataURL(file);
+                    }
+                } else {
+                    scanIdButton.disabled = true;
+                    scanIdButton.innerHTML = '<i class="fas fa-camera me-2"></i> Scan ID';
+                    
+                    // Hide preview
+                    const previewContainer = document.getElementById('previewContainer');
+                    if (previewContainer) {
+                        previewContainer.classList.add('d-none');
+                    }
+                }
+            });
+            
+
+            
+            // Handle scan button click
+            scanIdButton.addEventListener('click', async function() {
+                if (!idScannerInput.files || !idScannerInput.files[0]) {
+                    idScannerInput.click();
+                    return;
+                }
+                
+                scannerStatus.classList.remove('d-none');
+                scannerResult.classList.add('d-none');
+                scanIdButton.disabled = true;
+                
+                const file = idScannerInput.files[0];
+                const enhancedMode = document.getElementById('enhancedModeCheckbox')?.checked || false;
+                const idType = 'NationalID'; // Default to PhilID
+                const progressBar = document.getElementById('scanProgressBar');
+                const scanStatusText = document.getElementById('scanStatusText');
+                
+                try {
+                    scanStatusText.textContent = 'Preparing image...';
+                    progressBar.style.width = '10%';
+                    
+                    // Log image info for debugging
+                    console.log('Processing image:', file.name, file.type, file.size);
+                    console.log('Selected ID type:', idType);
+                    
+                    // Create form data for the API call
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    // Add enhancement options and ID type
+                    const options = {
+                        enhancedMode: enhancedMode,
+                        brightness: 0,
+                        contrast: 0,
+                        sharpness: 0,
+                        idType: idType
+                    };
+                    
+                    formData.append('options', JSON.stringify(options));
+                    
+                    progressBar.style.width = '30%';
+                    scanStatusText.textContent = 'Processing ID (this may take up to 30 seconds)...';
+                    
+                    // Call the server API
+                    const response = await fetch('/api/IdScanner/process', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    progressBar.style.width = '60%';
+                    scanStatusText.textContent = 'Analyzing results...';
+                    
+                    if (!response.ok) {
+                        // Handle HTTP error
+                        const errorText = await response.text();
+                        throw new Error(`API Error (${response.status}): ${errorText}`);
+                    }
+                    
+                    // Parse the response
+                    const result = await response.json();
+                    console.log('API response:', result);
+                    
+                    progressBar.style.width = '90%';
+                    scanStatusText.textContent = 'Filling form fields...';
+                    
+                    if (result.success && result.data) {
+                        // Update image preview if available
+                        if (result.processedImageUrl) {
+                            const imagePreview = document.getElementById('imagePreview');
+                            if (imagePreview) {
+                                imagePreview.src = result.processedImageUrl;
+                            }
+                        }
+                        
+                        // Fill the form with extracted data
+                        fillFormFields(result.data);
+                        
+                        // Show confidence message if data might be inaccurate
+                        let confidenceMessage = '';
+                        if (result.confidence < 0.7) {
+                            confidenceMessage = '<div class="mt-1 small text-warning"><i class="fas fa-info-circle"></i> Some fields may be inaccurate. Please verify the information.</div>';
+                        }
+                        
+                        // Show detailed success message with what was extracted
+                        let extractedFields = [];
+                        if (result.data.FirstName) extractedFields.push('First Name');
+                        if (result.data.MiddleName) extractedFields.push('Middle Name');
+                        if (result.data.LastName) extractedFields.push('Last Name');
+                        if (result.data.BirthDate) extractedFields.push('Birth Date');
+                        if (result.data.Address) extractedFields.push('Address');
+                        if (result.data.Barangay) extractedFields.push('Barangay');
+                        if (result.data.Gender) extractedFields.push('Gender');
+                        if (result.data.ContactNumber) extractedFields.push('Contact Number');
+                        
+                        let fieldsExtracted = extractedFields.length > 0 
+                            ? `<div class="small mt-2"><strong>Extracted:</strong> ${extractedFields.join(', ')}</div>` 
+                            : '';
+                        
+                        scannerResult.innerHTML = `<div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i> ID scanned successfully! Form fields have been populated.
+                            ${confidenceMessage}
+                            ${fieldsExtracted}
+                            <div class="small mt-2 text-muted">Please verify all information before submitting.</div>
+                        </div>`;
+                    } else {
+                        // Handle API success but processing failure
+                        throw new Error(result.message || 'No useful data could be extracted from the image');
+                    }
+                } catch (error) {
+                    console.error('Error processing ID:', error);
+                    
+                    // Provide more specific error messages when possible
+                    let errorMessage = 'Error processing ID. Please try again or fill the form manually.';
+                    let tipMessage = 'Tip: Try with a clearer image in good lighting with all text visible.';
+                    
+                    if (error.message?.includes('network') || error.message?.includes('API Error')) {
+                        errorMessage = 'Server connection error. Please check your internet connection and try again.';
+                        tipMessage = 'If the problem persists, please fill the form manually.';
+                    } else if (error.message?.includes('format')) {
+                        errorMessage = 'Unsupported image format. Please use JPG, PNG or PDF.';
+                        tipMessage = 'The system works best with high-resolution color images.';
+                    }
+                    
+                    scannerResult.innerHTML = `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i> ${errorMessage}
+                        <small class="d-block mt-1">${tipMessage}</small>
+                        <small class="d-block mt-1">Make sure the ID text is clearly readable and not blurry.</small>
+                    </div>`;
+                } finally {
+                    progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        scannerStatus.classList.add('d-none');
+                        scannerResult.classList.remove('d-none');
+                        scanIdButton.disabled = false;
+                        progressBar.style.width = '0%';
+                    }, 500);
+                }
+            });
+            
+            // Image data state
+            let currentImageData = null;
+            
+            // Preprocess image to improve OCR accuracy
+            async function preprocessImage(file, enhancements = null) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        // Create a direct canvas processing option for better control
+                        const img = new Image();
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(e) {
+                            // Store the image data for further enhancements
+                            if (!enhancements) {
+                                currentImageData = e.target.result;
+                            }
+                            
+                            img.onload = function() {
+                                // Calculate dimensions while maintaining aspect ratio
+                                let width = img.width;
+                                let height = img.height;
+                                const MAX_SIZE = 1800; // Increased for better text recognition
+                                
+                                if (width > height && width > MAX_SIZE) {
+                                    height = Math.round(height * (MAX_SIZE / width));
+                                    width = MAX_SIZE;
+                                } else if (height > MAX_SIZE) {
+                                    width = Math.round(width * (MAX_SIZE / height));
+                                    height = MAX_SIZE;
+                                }
+                                
+                                // Create canvas and draw image with proper orientation
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                
+                                // Apply preprocessing optimizations for OCR
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                
+                                // Draw image
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                // Apply enhancements if provided
+                                if (enhancements) {
+                                    const imageData = ctx.getImageData(0, 0, width, height);
+                                    const enhancedData = applyImageEnhancements(imageData, enhancements);
+                                    ctx.putImageData(enhancedData, 0, 0);
+                                }
+                                
+                                // Apply thresholding for better text contrast
+                                try {
+                                    // Only threshold if using enhanced mode
+                                    const enhancedMode = document.getElementById('enhancedModeCheckbox')?.checked;
+                                    if (enhancedMode) {
+                                        const imageData = ctx.getImageData(0, 0, width, height);
+                                        const thresholdedData = applyAdaptiveThreshold(imageData);
+                                        ctx.putImageData(thresholdedData, 0, 0);
+                                    }
+                                } catch (e) {
+                                    console.warn('Thresholding failed:', e);
+                                }
+                                
+                                // Convert to blob and resolve
+                                canvas.toBlob(blob => {
+                                    // Update preview if it exists
+                                    const imagePreview = document.getElementById('imagePreview');
+                                    if (imagePreview) {
+                                        imagePreview.src = canvas.toDataURL();
+                                    }
+                                    
+                                    resolve(blob);
+                                }, 'image/png', 1.0); // Use PNG for better quality
+                            };
+                            
+                            img.onerror = function() {
+                                console.warn('Error loading image, using original');
+                                resolve(file);
+                            };
+                            
+                            img.src = e.target.result;
+                        };
+                        
+                        reader.onerror = function() {
+                            console.warn('Error reading file, using original');
+                            resolve(file);
+                        };
+                        
+                        if (enhancements && currentImageData) {
+                            // Use the stored image data for enhancements
+                            reader.onload({target: {result: currentImageData}});
+                        } else {
+                            reader.readAsDataURL(file);
+                        }
+                    } catch (error) {
+                        console.warn('Image preprocessing error, using original image:', error);
+                        resolve(file); // Fall back to original file
+                    }
+                });
+            }
+            
+            // Apply various image enhancements for better OCR
+            function applyImageEnhancements(imageData, enhancements) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                
+                // Apply brightness, contrast, and sharpening
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const idx = (y * width + x) * 4;
+                        
+                        // Apply brightness
+                        if (enhancements.brightness !== 0) {
+                            const brightnessFactor = 1 + (enhancements.brightness / 100);
+                            data[idx] = Math.min(255, data[idx] * brightnessFactor);
+                            data[idx+1] = Math.min(255, data[idx+1] * brightnessFactor);
+                            data[idx+2] = Math.min(255, data[idx+2] * brightnessFactor);
+                        }
+                        
+                        // Apply contrast
+                        if (enhancements.contrast !== 0) {
+                            const contrastFactor = (259 * (enhancements.contrast + 255)) / (255 * (259 - enhancements.contrast));
+                            data[idx] = Math.max(0, Math.min(255, contrastFactor * (data[idx] - 128) + 128));
+                            data[idx+1] = Math.max(0, Math.min(255, contrastFactor * (data[idx+1] - 128) + 128));
+                            data[idx+2] = Math.max(0, Math.min(255, contrastFactor * (data[idx+2] - 128) + 128));
+                        }
+                    }
+                }
+                
+                // Apply sharpening if requested
+                if (enhancements.sharpen > 0) {
+                    return applySharpen(imageData, enhancements.sharpen);
+                }
+                
+                return imageData;
+            }
+            
+            // Apply sharpening filter
+            function applySharpen(imageData, amount) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                const factor = amount / 10;
+                const result = new Uint8ClampedArray(data);
+                
+                // Simple sharpening kernel
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const centerIdx = (y * width + x) * 4;
+                        
+                        for (let c = 0; c < 3; c++) { // Process RGB channels
+                            const centerValue = data[centerIdx + c];
+                            const topValue = data[((y-1) * width + x) * 4 + c];
+                            const leftValue = data[(y * width + (x-1)) * 4 + c];
+                            const rightValue = data[(y * width + (x+1)) * 4 + c];
+                            const bottomValue = data[((y+1) * width + x) * 4 + c];
+                            
+                            // Apply sharpening formula: center * (1 + 4*factor) - factor * (surrounding pixels)
+                            result[centerIdx + c] = Math.max(0, Math.min(255, 
+                                centerValue * (1 + 4*factor) - factor * (topValue + leftValue + rightValue + bottomValue)
+                            ));
+                        }
+                    }
+                }
+                
+                return new ImageData(result, width, height);
+            }
+            
+            // Apply adaptive thresholding for better text extraction
+            function applyAdaptiveThreshold(imageData, blockSize = 11, C = 2) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                const result = new Uint8ClampedArray(data);
+                
+                // Convert to grayscale if not already
+                for (let i = 0; i < data.length; i += 4) {
+                    const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                    result[i] = result[i+1] = result[i+2] = gray;
+                }
+                
+                // Simple adaptive threshold (simplified for performance)
+                const halfBlockSize = Math.floor(blockSize / 2);
+                
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const idx = (y * width + x) * 4;
+                        const pixelValue = result[idx];
+                        
+                        // Calculate local mean (simplified for performance)
+                        let sum = 0;
+                        let count = 0;
+                        
+                        for (let wy = Math.max(0, y - halfBlockSize); 
+                             wy <= Math.min(height - 1, y + halfBlockSize); wy++) {
+                            for (let wx = Math.max(0, x - halfBlockSize); 
+                                 wx <= Math.min(width - 1, x + halfBlockSize); wx++) {
+                                sum += result[(wy * width + wx) * 4];
+                                count++;
+                            }
+                        }
+                        
+                        const mean = sum / count;
+                        const threshold = mean - C;
+                        
+                        // Apply threshold
+                        const newValue = pixelValue > threshold ? 255 : 0;
+                        result[idx] = result[idx + 1] = result[idx + 2] = newValue;
+                    }
+                }
+                
+                return new ImageData(result, width, height);
+            }
+            
+            function processExtractedText(text, enhancedMode = false) {
+                // Initialize data object
+                const data = {
+                    firstName: '',
+                    middleName: '',
+                    lastName: '',
+                    address: '',
+                    birthDate: '',
+                    contactNumber: ''
+                };
+                
+                // Clean up text to improve pattern matching
+                const cleanedText = text
+                    .replace(/\r\n/g, '\n')
+                    .replace(/\s+/g, ' ')
+                    .replace(/\n+/g, '\n')
+                    .trim();
+                
+                console.log('Cleaned text for processing:', cleanedText);
+                
+                // Try to find name using various patterns common in IDs
+                const namePatterns = [
+                    /NAME[:\s]+(.*?)(?:\n|\s{2,}|$)/i,
+                    /LAST NAME[:\s]+(\S+)[\s\n]+FIRST NAME[:\s]+(\S+)(?:[\s\n]+MIDDLE NAME[:\s]+(\S+))?/i,
+                    /SURNAME[:\s]+(\S+)[\s\n]+GIVEN NAME[:\s]+(\S+)(?:[\s\n]+MIDDLE NAME[:\s]+(\S+))?/i,
+                    /(?:^|\n)([A-Z]+,[\s]+[A-Z]+(?:[\s]+[A-Z]\.?)?)(?:\n|$)/i  // LASTNAME, FIRSTNAME M.
+                ];
+                
+                // Try each pattern
+                for (const pattern of namePatterns) {
+                    const match = cleanedText.match(pattern);
+                    if (match) {
+                        if (match.length >= 4 && match[1] && match[2]) {
+                            // Pattern with explicit last name, first name, and optional middle name
+                            data.lastName = match[1].trim();
+                            data.firstName = match[2].trim();
+                            if (match[3]) data.middleName = match[3].trim();
+                            break;
+                        } else if (match[1]) {
+                            // Full name in one group - need to split
+                            let fullName = match[1].trim();
+                            
+                            // Check if name is in LASTNAME, FIRSTNAME format
+                            if (fullName.includes(',')) {
+                                const parts = fullName.split(',').map(p => p.trim());
+                                if (parts.length >= 2) {
+                                    data.lastName = parts[0];
+                                    const remaining = parts[1].split(/\s+/);
+                                    data.firstName = remaining[0];
+                                    if (remaining.length > 1) {
+                                        data.middleName = remaining.slice(1).join(' ');
+                                    }
+                                }
+                            } else {
+                                // Assume format: FIRSTNAME MIDDLENAME LASTNAME
+                                const nameParts = fullName.split(/\s+/);
+                                if (nameParts.length >= 2) {
+                                    data.firstName = nameParts[0];
+                                    data.lastName = nameParts[nameParts.length - 1];
+                                    if (nameParts.length > 2) {
+                                        data.middleName = nameParts.slice(1, -1).join(' ');
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                
+                // Try to find address using various patterns
+                const addressPatterns = [
+                    /ADDRESS[:\s]+(.*?)(?:\n\n|\n[A-Z]+:|$)/i,
+                    /RESIDENCE[:\s]+(.*?)(?:\n\n|\n[A-Z]+:|$)/i,
+                    /(?:^|\n)([^\n]+(?:STREET|ST\.|AVENUE|AVE\.|ROAD|RD\.|BARANGAY|BRGY\.|CITY)[^\n]+)(?:\n|$)/i
+                ];
+                
+                for (const pattern of addressPatterns) {
+                    const match = cleanedText.match(pattern);
+                    if (match && match[1]) {
+                        data.address = match[1].trim()
+                            .replace(/\s+/g, ' ')  // Replace multiple spaces with one
+                            .replace(/\n/g, ', ');  // Replace newlines with commas
+                        break;
+                    }
+                }
+                
+                // Try to find birth date using various formats
+                const dobPatterns = [
+                    /(?:DATE OF BIRTH|BIRTH DATE|DOB|BORN)[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})(?:\n|\s|$)/i,
+                    /(?:DATE OF BIRTH|BIRTH DATE|DOB|BORN)[:\s]+(\w+\s+\d{1,2},?\s+\d{4})(?:\n|\s|$)/i,  // Month DD, YYYY
+                    /(?:^|\n)(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})(?:\n|\s|$)/  // Just a date format
+                ];
+                
+                for (const pattern of dobPatterns) {
+                    const match = cleanedText.match(pattern);
+                    if (match && match[1]) {
+                        const dateStr = match[1].trim();
+                        try {
+                            // Try to parse various formats
+                            let birthDate = '';
+                            
+                            if (dateStr.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/)) {
+                                // Format: DD/MM/YYYY or MM/DD/YYYY
+                                const parts = dateStr.split(/[\/\-]/);
+                                if (parts.length === 3) {
+                                    let year = parts[2];
+                                    const month = parts[1].padStart(2, '0');
+                                    const day = parts[0].padStart(2, '0');
+                                    
+                                    if (year.length === 2) {
+                                        year = parseInt(year, 10) > 50 ? '19' + year : '20' + year;
+                                    }
+                                    
+                                    birthDate = `${year}-${month}-${day}`;
+                                    
+                                    // Validate date
+                                    const testDate = new Date(birthDate);
+                                    if (!isNaN(testDate.getTime())) {
+                                        data.birthDate = birthDate;
+                                    }
+                                }
+                            } else if (dateStr.match(/\w+\s+\d{1,2},?\s+\d{4}/)) {
+                                // Format: Month DD, YYYY
+                                const dateObj = new Date(dateStr);
+                                if (!isNaN(dateObj.getTime())) {
+                                    const year = dateObj.getFullYear();
+                                    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                                    const day = dateObj.getDate().toString().padStart(2, '0');
+                                    data.birthDate = `${year}-${month}-${day}`;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Error parsing date:', e);
+                        }
+                        break;
+                    }
+                }
+                
+                // Try to find contact number
+                const phonePatterns = [
+                    /(?:MOBILE|PHONE|CONTACT|TEL|CELL)[\s#:\.]+([0-9\+\-\(\)\s]{7,})(?:\n|\s|$)/i,
+                    /(?:^|\n|\s)(\+?\d{2,3}[\s\-\.]?\d{2,3}[\s\-\.]?\d{3,}[\s\-\.]?\d{3,})(?:\n|\s|$)/
+                ];
+                
+                for (const pattern of phonePatterns) {
+                    const match = cleanedText.match(pattern);
+                    if (match && match[1]) {
+                        // Clean up the phone number
+                        data.contactNumber = match[1].replace(/[^0-9+]/g, '');
+                        break;
+                    }
+                }
+                
+                // Try enhanced processing if enabled
+                if (enhancedMode) {
+                    // Additional processing for Philippine IDs
+                    if (!data.firstName || !data.lastName) {
+                        // Look for Philippine Identification System (PhilSys) ID format
+                        const philSysMatch = cleanedText.match(/(?:REPUBLIC OF THE PHILIPPINES|PHILIPPINE IDENTIFICATION).*?(?:\n|\s)(\w+)\s+(\w+)(?:\s+(\w+))?/i);
+                        if (philSysMatch) {
+                            data.firstName = philSysMatch[1] || data.firstName;
+                            if (philSysMatch[3]) {
+                                data.lastName = philSysMatch[3] || data.lastName;
+                                data.middleName = philSysMatch[2] || data.middleName;
+                            } else {
+                                data.lastName = philSysMatch[2] || data.lastName;
+                            }
+                        }
+                    }
+                    
+                    // Look for common Philippine address patterns
+                    if (!data.address) {
+                        const brgyMatch = cleanedText.match(/(?:BRGY|BARANGAY)[.\s]+(\w+)/i);
+                        const cityMatch = cleanedText.match(/(?:CITY OF|MUNICIPALITY OF)[\s]+(\w+(?:\s+\w+)?)/i);
+                        
+                        if (brgyMatch || cityMatch) {
+                            let addressParts = [];
+                            if (brgyMatch && brgyMatch[1]) addressParts.push(`Barangay ${brgyMatch[1]}`);
+                            if (cityMatch && cityMatch[1]) addressParts.push(cityMatch[1]);
+                            if (addressParts.length > 0) {
+                                data.address = addressParts.join(', ');
+                            }
+                        }
+                    }
+                }
+                
+                // Clean up and capitalize names
+                if (data.firstName) data.firstName = capitalizeWords(data.firstName);
+                if (data.middleName) data.middleName = capitalizeWords(data.middleName);
+                if (data.lastName) data.lastName = capitalizeWords(data.lastName);
+                
+                return data;
+            }
+            
+            function capitalizeWords(text) {
+                return text.replace(/\w\S*/g, function(word) {
+                    return word.charAt(0).toUpperCase() + word.substr(1).toLowerCase();
+                });
+            }
+            
+            function fillFormFields(data) {
+                console.log('Filling form fields with data:', data);
+                console.log('Data object:', JSON.stringify(data, null, 2));
+                
+                // Debug: Log all input fields in the form
+                const allInputs = document.querySelectorAll('input, textarea');
+                console.log('All inputs in the form:', Array.from(allInputs).map(inp => ({
+                    name: inp.name,
+                    id: inp.id,
+                    type: inp.type
+                })));
+                
+                // Find all input fields by name rather than ID
+                // This is more reliable as ASP.NET Core might generate different IDs
+                const findInputByName = (name) => {
+                    // Try multiple naming patterns that ASP.NET Core might use
+                    const selectors = [
+                        `[name="Input.${name}"]`,
+                        `[name="Input_${name}"]`,
+                        `[name="${name}"]`,
+                        `#Input_${name}`,
+                        `input[aria-label*="${name.toLowerCase()}" i]`
+                    ];
+                    
+                    for (const selector of selectors) {
+                        const input = document.querySelector(selector);
+                        if (input) {
+                            console.log(`Found input using selector: ${selector}`);
+                            return input;
+                        }
+                    }
+                    
+                    console.warn(`Could not find input for ${name} with any selector`);
+                    return null;
+                };
+                
+                // Helper function to set field value with event dispatch
+                const setFieldValue = (fieldName, value) => {
+                    if (!value) return;
+                    
+                    console.log(`Setting ${fieldName}:`, value);
+                    const input = findInputByName(fieldName);
+                    if (input) {
+                        input.value = value;
+                        // Dispatch events to trigger validation
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        console.log(`${fieldName} set successfully`);
+                    } else {
+                        console.error(`${fieldName} input not found!`);
+                    }
+                };
+                
+                // Fill form fields with extracted data - handling case differences
+                // Property names from backend use camelCase (firstName) while frontend uses PascalCase (FirstName)
+                if (data.firstName || data.FirstName) {
+                    setFieldValue('FirstName', data.firstName || data.FirstName);
+                }
+                
+                if (data.middleName || data.MiddleName) {
+                    setFieldValue('MiddleName', data.middleName || data.MiddleName);
+                }
+                
+                if (data.lastName || data.LastName) {
+                    setFieldValue('LastName', data.lastName || data.LastName);
+                }
+                
+                if (data.suffix || data.Suffix) {
+                    setFieldValue('Suffix', data.suffix || data.Suffix);
+                }
+                
+                if (data.address || data.Address) {
+                    setFieldValue('Address', data.address || data.Address);
+                }
+                
+                if (data.birthDate || data.BirthDate) {
+                    const birthDate = data.birthDate || data.BirthDate;
+                    console.log('Setting birthDate:', birthDate);
+                    // Try to format the date as YYYY-MM-DD for the date input
+                    let formattedDate = birthDate;
+                    try {
+                        // Handle YYYY-MM-DD format or convert from other formats
+                        if (birthDate.includes('-')) {
+                            formattedDate = birthDate.split('T')[0]; // Take date part only
+                        } else {
+                            const date = new Date(birthDate);
+                            if (!isNaN(date.getTime())) {
+                                formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Could not format date:', e);
+                    }
+                    
+                    const birthDateInput = findInputByName('BirthDate');
+                    if (birthDateInput) {
+                        birthDateInput.value = formattedDate;
+                        birthDateInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        birthDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        console.log('BirthDate input found and set to', formattedDate);
+                    }
+                }
+                
+                if (data.contactNumber || data.ContactNumber) {
+                    setFieldValue('ContactNumber', data.contactNumber || data.ContactNumber);
+                }
+                
+                // === GENDER EXTRACTION AND AUTO-FILL ===
+                if (data.gender || data.Gender) {
+                    const genderValue = data.gender || data.Gender;
+                    console.log('Setting Gender:', genderValue);
+                    
+                    // Find and check the appropriate radio button
+                    const genderRadios = document.querySelectorAll('input[name="Input.Gender"]');
+                    genderRadios.forEach(radio => {
+                        if (radio.value.toLowerCase() === genderValue.toLowerCase()) {
+                            radio.checked = true;
+                            radio.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log('Gender radio set to:', genderValue);
+                        }
+                    });
+                }
+                
+                // === BARANGAY EXTRACTION AND AUTO-FILL ===
+                if (data.barangay || data.Barangay) {
+                    const barangayValue = data.barangay || data.Barangay;
+                    console.log('Setting Barangay:', barangayValue);
+                    
+                    const barangaySelect = findInputByName('Barangay');
+                    if (barangaySelect) {
+                        // Set the value if it matches one of the options
+                        barangaySelect.value = barangayValue;
+                        barangaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        console.log('Barangay dropdown set to:', barangayValue);
+                    } else {
+                        console.warn('Barangay select not found');
+                    }
+                }
+                
+                // === ENHANCED DEBUG LOGGING ===
+                console.log('=== FORM FILL DEBUG INFO ===');
+                console.log('Data received from API:', data);
+                console.log('Data properties:', Object.keys(data));
+                console.log('FirstName:', data.FirstName || data.firstName);
+                console.log('MiddleName:', data.MiddleName || data.middleName);
+                console.log('LastName:', data.LastName || data.lastName);
+                console.log('BirthDate:', data.BirthDate || data.birthDate);
+                console.log('Address:', data.Address || data.address);
+                console.log('Barangay:', data.Barangay || data.barangay);
+                console.log('ContactNumber:', data.ContactNumber || data.contactNumber);
+                console.log('Gender:', data.Gender || data.gender);
+                console.log('=========================');
+            }
+        });
     </script>
 }

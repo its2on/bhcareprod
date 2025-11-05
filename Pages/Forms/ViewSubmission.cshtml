@@ -1,0 +1,185 @@
+@page
+@model Barangay.Pages.Forms.ViewSubmissionModel
+@{
+    ViewData["Title"] = "View Form Submission";
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<style>
+    body {
+        background: #f8f9fa;
+    }
+    
+    .submission-container {
+        max-width: 900px;
+        margin: 30px auto 40px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .submission-header {
+        background: #ff8c42;
+        color: white;
+        padding: 30px;
+        border-bottom: 3px solid #e67e22;
+    }
+    
+    .submission-header h1 {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .submission-meta {
+        background: rgba(255,255,255,0.1);
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+    }
+    
+    .submission-body {
+        padding: 40px;
+    }
+    
+    .form-field {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-field:last-child {
+        border-bottom: none;
+    }
+    
+    .field-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .field-value {
+        font-size: 1.05rem;
+        color: #212529;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border-left: 4px solid #ff8c42;
+    }
+    
+    .empty-value {
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .action-buttons {
+        padding: 20px 40px;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .appointment-info {
+        background: #e7f3ff;
+        border-left: 4px solid #0d6efd;
+        padding: 15px;
+        margin-bottom: 30px;
+        border-radius: 6px;
+    }
+</style>
+
+<div class="submission-container">
+    <div class="submission-header">
+        <h1>
+            <i class="@(Model.FormTemplate.IconClass ?? "fa-solid fa-file-alt") me-2"></i>
+            @Model.FormTemplate.FormName
+        </h1>
+        
+        @if (!string.IsNullOrEmpty(Model.FormTemplate.Description))
+        {
+            <p class="mb-0 opacity-75">@Model.FormTemplate.Description</p>
+        }
+        
+        <div class="submission-meta">
+            <div class="row">
+                <div class="col-md-6">
+                    <small><strong>Submitted:</strong> @Model.Submission.SubmittedAt.ToString("MMM dd, yyyy hh:mm tt")</small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small><strong>Status:</strong> @Model.Submission.Status</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="submission-body">
+        @if (Model.Appointment != null)
+        {
+            <div class="appointment-info">
+                <h6 class="mb-2"><i class="fa-solid fa-calendar-check me-2"></i>Appointment Context</h6>
+                <p class="mb-1"><strong>Patient:</strong> @Model.Appointment.PatientName</p>
+                <p class="mb-1"><strong>Appointment Date:</strong> @Model.Appointment.AppointmentDate.ToString("MMM dd, yyyy")</p>
+                <p class="mb-0"><strong>Status:</strong> <span class="badge bg-@(Model.Appointment.Status == Barangay.Models.AppointmentStatus.Completed ? "success" : "info")">@Model.Appointment.Status</span></p>
+            </div>
+        }
+
+        @if (Model.SubmissionData != null && Model.SubmissionData.Any())
+        {
+            @foreach (var field in Model.SubmissionData)
+            {
+                <div class="form-field">
+                    <span class="field-label">@field.Key</span>
+                    <div class="field-value">
+                        @if (string.IsNullOrWhiteSpace(field.Value))
+                        {
+                            <span class="empty-value">(No response)</span>
+                        }
+                        else
+                        {
+                            @Html.Raw(field.Value.Replace("\n", "<br>"))
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-center text-muted py-5">
+                <i class="fa-solid fa-inbox fa-3x mb-3"></i>
+                <p>No data available for this submission.</p>
+            </div>
+        }
+    </div>
+
+    <div class="action-buttons d-flex justify-content-between">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-2"></i>Back
+        </a>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="fa-solid fa-print me-2"></i>Print
+            </button>
+            @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+            {
+                <a href="/Admin/FormResponses?id=@Model.FormTemplate.FormTemplateId" class="btn btn-outline-info">
+                    <i class="fa-solid fa-chart-bar me-2"></i>View All Responses
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Print styles
+        window.addEventListener('beforeprint', function() {
+            document.querySelector('.action-buttons').style.display = 'none';
+        });
+        
+        window.addEventListener('afterprint', function() {
+            document.querySelector('.action-buttons').style.display = 'flex';
+        });
+    </script>
+}
+

@@ -717,6 +717,9 @@
                 // Extract ongoing appointments
                 @foreach (var appointment in Model.OngoingAppointments)
                 {
+                    var needsForms = Model.AppointmentNeedsForms.ContainsKey(appointment.Id) && Model.AppointmentNeedsForms[appointment.Id];
+                    var formsCompleted = Model.AppointmentFormsCompleted.ContainsKey(appointment.Id) && Model.AppointmentFormsCompleted[appointment.Id];
+                    var canComplete = needsForms && !formsCompleted;
                     <text>
                     appointments.push({
                         id: @appointment.Id,
@@ -728,8 +731,10 @@
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
                         statusType: 'ongoing',
-                        canComplete: false,
-                        canCancel: true
+                        canComplete: @(canComplete ? "true" : "false"),
+                        canCancel: true,
+                        needsForms: @(needsForms ? "true" : "false"),
+                        formsCompleted: @(formsCompleted ? "true" : "false")
                     });
                     </text>
                 }
@@ -737,6 +742,9 @@
                 // Extract draft appointments
                 @foreach (var appointment in Model.DraftAppointments)
                 {
+                    var needsForms = Model.AppointmentNeedsForms.ContainsKey(appointment.Id) && Model.AppointmentNeedsForms[appointment.Id];
+                    var formsCompleted = Model.AppointmentFormsCompleted.ContainsKey(appointment.Id) && Model.AppointmentFormsCompleted[appointment.Id];
+                    var canComplete = needsForms && !formsCompleted;
                     <text>
                     appointments.push({
                         id: @appointment.Id,
@@ -748,8 +756,10 @@
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
                         statusType: 'draft',
-                        canComplete: true,
-                        canCancel: true
+                        canComplete: @(canComplete ? "true" : "false"),
+                        canCancel: true,
+                        needsForms: @(needsForms ? "true" : "false"),
+                        formsCompleted: @(formsCompleted ? "true" : "false")
                     });
                     </text>
                 }
@@ -910,35 +920,50 @@
                     return;
                 }
                 
-                // Determine the correct assessment form based on age for General Consult only
-                let redirectUrl;
-                if (age >= 20) {
-                    redirectUrl = `/User/NCDRiskAssessment?appointmentId=${appointmentId}`;
-                    console.log('Redirecting to NCD Risk Assessment for age:', age);
-                } else if (age >= 10) {
-                    redirectUrl = `/User/HEEADSSSAssessment?appointmentId=${appointmentId}`;
-                    console.log('Redirecting to HEEADSSS Assessment for age:', age);
-                } else {
-                    alert('No assessment form is required for patients under 10 years old.');
-                    return;
-                }
+                // Get available dynamic forms for this age
+                console.log('Fetching available dynamic forms for age:', age);
                 
-                // Test the URL first
-                console.log('Testing URL accessibility...');
-                fetch(redirectUrl, { method: 'HEAD' })
-                    .then(response => {
-                        console.log('URL test response:', response.status, response.statusText);
-                        if (response.ok) {
-                            console.log('URL is accessible, redirecting...');
-                            window.location.href = redirectUrl;
+                fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.forms && data.forms.length > 0) {
+                            // Redirect to the first available dynamic form
+                            const firstForm = data.forms[0];
+                            const redirectUrl = `/Forms/SubmitForm/${firstForm.formKey}?appointmentId=${appointmentId}`;
+                            console.log(`Redirecting to dynamic form: ${firstForm.formName} (${redirectUrl})`);
+                            
+                            // Test the URL first
+                            console.log('Testing URL accessibility...');
+                            fetch(redirectUrl, { method: 'HEAD' })
+                                .then(response => {
+                                    console.log('URL test response:', response.status, response.statusText);
+                                    if (response.ok) {
+                                        console.log('URL is accessible, redirecting...');
+                                        window.location.href = redirectUrl;
+                                    } else {
+                                        console.error('URL not accessible:', response.status);
+                                        alert(`Assessment form is not accessible (Status: ${response.status}). Please contact support.`);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error testing URL:', error);
+                                    alert('Error accessing assessment form. Please try again or contact support.');
+                                });
                         } else {
-                            console.error('URL not accessible:', response.status);
-                            alert(`Assessment form is not accessible (Status: ${response.status}). Please contact support.`);
+                            // No forms available for this age
+                            console.log('No assessment forms available for age:', age);
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'No Assessment Required',
+                                text: 'No assessment forms are required for this age group.',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#17a2b8'
+                            });
                         }
                     })
                     .catch(error => {
-                        console.error('Error testing URL:', error);
-                        alert('Error accessing assessment form. Please try again or contact support.');
+                        console.error('Error fetching dynamic forms:', error);
+                        alert('Error loading assessment form. Please try again or contact support.');
                     });
             }
 

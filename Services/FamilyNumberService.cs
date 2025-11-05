@@ -17,6 +17,7 @@ namespace Barangay.Services
         Task<string?> GetExistingFamilyNumberAsync(string userId);
         Task<string?> GetFamilyNumberByLastNameAsync(string lastName);
         Task<GenerateFamilyNumberResponse> GenerateOrReuseFamilyNumberAsync(string lastName, string userId, bool sameFamily);
+        Task<string> GenerateNewFamilyNumberAsync(string lastName);
     }
 
     public class FamilyNumberService : IFamilyNumberService
@@ -324,6 +325,38 @@ namespace Barangay.Services
                     Success = false,
                     Error = "Error processing family number request"
                 };
+            }
+        }
+
+        /// <summary>
+        /// Generate a brand new family number without checking for existing ones
+        /// </summary>
+        public async Task<string> GenerateNewFamilyNumberAsync(string lastName)
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Generating brand new family number for {LastName}", lastName);
+
+                // Get the first letter of last name for prefix
+                var prefix = lastName.Substring(0, 1).ToUpper();
+
+                // Get the next available number for this prefix
+                var nextNumber = await GetNextFamilyNumberAsync(prefix);
+
+                var newFamilyNumber = $"{prefix}-{nextNumber:D3}";
+                _logger.LogInformation("Generated new family number: {FamilyNumber}", newFamilyNumber);
+
+                return newFamilyNumber;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating new family number for {LastName}", lastName);
+                throw;
+            }
+            finally
+            {
+                _semaphore.Release();
             }
         }
     }

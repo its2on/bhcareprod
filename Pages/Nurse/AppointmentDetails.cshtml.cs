@@ -87,6 +87,22 @@ namespace Barangay.Pages.Nurse
         public List<string> CompletedForms { get; set; } = new List<string>();
         public List<string> AvailableForms { get; set; } = new List<string>();
 
+        // Dynamic Forms Integration
+        public List<DynamicFormInfo> DynamicForms { get; set; } = new List<DynamicFormInfo>();
+        
+        // Helper class for dynamic forms
+        public class DynamicFormInfo
+        {
+            public int FormTemplateId { get; set; }
+            public string FormName { get; set; }
+            public string FormKey { get; set; }
+            public string IconClass { get; set; }
+            public string Description { get; set; }
+            public bool IsCompleted { get; set; }
+            public int? SubmissionId { get; set; }
+            public DateTime? SubmittedAt { get; set; }
+        }
+
         [TempData]
         public string StatusMessage { get; set; }
 
@@ -654,6 +670,74 @@ namespace Barangay.Pages.Nurse
                 _logger.LogInformation("Booked by: {BookedBy}, Booking date: {BookingDate}", BookedBy, BookingDate);
                 _logger.LogInformation("Completed forms: {CompletedCount}, Available forms: {AvailableCount}", 
                     CompletedForms.Count, AvailableForms.Count);
+
+                // Step 8.5: Load Dynamic Forms (NEW)
+                _logger.LogInformation("Step 8.5: Loading Dynamic Forms for appointment workflow");
+                try
+                {
+                    // Get all active dynamic forms that should appear in appointment flow
+                    var dynamicFormTemplates = await _context.FormTemplates
+                        .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                        .OrderBy(f => f.DisplayOrder)
+                        .ToListAsync();
+
+                    _logger.LogInformation("Found {Count} dynamic forms in workflow", dynamicFormTemplates.Count);
+
+                    foreach (var template in dynamicFormTemplates)
+                    {
+                        // Check if this form is age-appropriate
+                        bool isAgeAppropriate = true;
+                        
+                        if (template.MinAge.HasValue && PatientAge < template.MinAge.Value)
+                            isAgeAppropriate = false;
+                        
+                        if (template.MaxAge.HasValue && PatientAge > template.MaxAge.Value)
+                            isAgeAppropriate = false;
+
+                        if (!isAgeAppropriate)
+                        {
+                            _logger.LogInformation("Form '{FormName}' skipped due to age restrictions (Patient: {Age}, Min: {Min}, Max: {Max})", 
+                                template.FormName, PatientAge, template.MinAge, template.MaxAge);
+                            continue;
+                        }
+
+                        // Check if this form has been submitted for this appointment
+                        var submission = await _context.FormSubmissions
+                            .Where(s => s.FormTemplateId == template.FormTemplateId && s.AppointmentId == id.Value)
+                            .OrderByDescending(s => s.SubmittedAt)
+                            .FirstOrDefaultAsync();
+
+                        var formInfo = new DynamicFormInfo
+                        {
+                            FormTemplateId = template.FormTemplateId,
+                            FormName = template.FormName,
+                            FormKey = template.FormKey,
+                            IconClass = template.IconClass ?? "fa-solid fa-file-medical",
+                            Description = template.Description,
+                            IsCompleted = submission != null,
+                            SubmissionId = submission?.FormSubmissionId,
+                            SubmittedAt = submission?.SubmittedAt
+                        };
+
+                        DynamicForms.Add(formInfo);
+
+                        // Also add to AvailableForms/CompletedForms for compatibility
+                        if (formInfo.IsCompleted)
+                            CompletedForms.Add(formInfo.FormName);
+                        else
+                            AvailableForms.Add(formInfo.FormName);
+                    }
+
+                    _logger.LogInformation("Step 8.5 Complete: Loaded {Count} age-appropriate dynamic forms ({Completed} completed, {Available} available)", 
+                        DynamicForms.Count, 
+                        DynamicForms.Count(f => f.IsCompleted), 
+                        DynamicForms.Count(f => !f.IsCompleted));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error loading dynamic forms for appointment {Id}", id);
+                    // Continue without breaking the page
+                }
 
                 // Step 9: Complete
                 _logger.LogInformation("Step 9: All processing complete, returning page");

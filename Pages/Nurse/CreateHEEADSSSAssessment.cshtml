@@ -813,7 +813,7 @@
                 
                 if (height && weight && height > 0 && weight > 0) {
                     const heightInMeters = height / 100; // Convert cm to meters
-                    const bmi = (weight / (heightInMeters * heightInMeters)).toFixed(1);
+                    const bmi = (weight / (heightInMeters * heightInMeters)).toFixed(2);
                     $('#bmi-input').val(bmi);
                     
                     // Auto-select BMI status based on value

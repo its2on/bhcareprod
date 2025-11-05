@@ -1,0 +1,254 @@
+@page
+@model Barangay.Pages.Admin.FormManagementModel
+@{
+    ViewData["Title"] = "Form Management";
+    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fa-solid fa-file-lines me-2"></i>Form Management
+            </h1>
+            <p class="text-muted mb-0">Create and manage dynamic forms for your application</p>
+        </div>
+        <div>
+            <a asp-page="./FormBuilder" class="btn btn-primary">
+                <i class="fa-solid fa-plus me-2"></i>Add New Form
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Forms</option>
+                        <option value="active" selected="@(Model.StatusFilter == "active")">Active</option>
+                        <option value="inactive" selected="@(Model.StatusFilter == "inactive")">Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        @foreach (var category in Model.Categories)
+                        {
+                            <option value="@category" selected="@(Model.CategoryFilter == category)">@category</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Search forms..." value="@Model.SearchQuery">
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="fa-solid fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Forms List -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Form Templates</h6>
+            <span class="badge bg-light text-dark border">@Model.FormTemplates.Count() forms</span>
+        </div>
+        <div class="card-body">
+            @if (!Model.FormTemplates.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fa-solid fa-file-circle-exclamation fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No forms found. Create your first form to get started.</p>
+                    <a asp-page="./FormBuilder" class="btn btn-primary">
+                        <i class="fa-solid fa-plus me-2"></i>Create Form
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Form Name</th>
+                                <th>Category</th>
+                                <th>Fields</th>
+                                <th>Submissions</th>
+                                <th>Status</th>
+                                <th>Version</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var form in Model.FormTemplates)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            @if (!string.IsNullOrEmpty(form.IconClass))
+                                            {
+                                                <i class="@form.IconClass me-2 text-primary"></i>
+                                            }
+                                            <div>
+                                                <strong>@form.FormName</strong>
+                                                @if (!string.IsNullOrEmpty(form.Description))
+                                                {
+                                                    <br><small class="text-muted">@form.Description</small>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(form.Category))
+                                        {
+                                            <span class="badge bg-light text-dark border">@form.Category</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">@form.FormFields.Count</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">@form.FormSubmissions.Count</span>
+                                    </td>
+                                    <td>
+                                        @if (form.IsActive)
+                                        {
+                                            <span class="badge bg-light text-success border border-success">
+                                                <i class="fa-solid fa-check-circle me-1"></i>Active
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-secondary border">
+                                                <i class="fa-solid fa-circle-xmark me-1"></i>Inactive
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">v@form.Version</span>
+                                    </td>
+                                    <td>
+                                        @if (form.UpdatedAt.HasValue)
+                                        {
+                                            <small>@form.UpdatedAt.Value.ToLocalTime().ToString("MMM dd, yyyy")</small>
+                                        }
+                                        else
+                                        {
+                                            <small>@form.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a asp-page="./FormBuilder" asp-route-id="@form.FormTemplateId" 
+                                               class="btn btn-sm btn-outline-secondary" title="Edit Form">
+                                                <i class="fa-solid fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                    title="@(form.IsActive ? "Deactivate" : "Activate")"
+                                                    onclick="toggleFormStatus(@form.FormTemplateId, @form.IsActive.ToString().ToLower())">
+                                                <i class="fa-solid fa-@(form.IsActive ? "toggle-on" : "toggle-off")"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    title="Delete Form"
+                                                    onclick="confirmDelete(@form.FormTemplateId, '@form.FormName')">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the form "<strong id="formNameToDelete"></strong>"?</p>
+                <p class="text-danger mb-0">
+                    <i class="fa-solid fa-warning me-2"></i>
+                    This action cannot be undone. All fields and submissions will be permanently deleted.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" asp-page-handler="Delete" id="deleteForm">
+                    <input type="hidden" name="id" id="formIdToDelete" />
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-trash me-2"></i>Delete Form
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function confirmDelete(formId, formName) {
+            document.getElementById('formIdToDelete').value = formId;
+            document.getElementById('formNameToDelete').textContent = formName;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        function toggleFormStatus(formId, isActive) {
+            if (confirm(`Are you sure you want to ${isActive ? 'deactivate' : 'activate'} this form?`)) {
+                fetch(`/Admin/FormManagement?handler=ToggleStatus&id=${formId}`, {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to update form status.');
+                    }
+                });
+            }
+        }
+        
+    </script>
+}

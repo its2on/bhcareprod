@@ -84,7 +84,7 @@ namespace Barangay.Controllers
 
                 var dateString = DateTimeHelper.ToDateString(date);
                 var existingAppointments = await _context.Appointments
-                    .Where(a => DateTimeHelper.AreDatesEqual(a.AppointmentDate, date) && 
+                    .Where(a => a.AppointmentDate.Date == date.Date && 
                            a.DoctorId == doctorId &&
                            a.Status != AppointmentStatus.Cancelled)
                     .Select(a => a.AppointmentTime)

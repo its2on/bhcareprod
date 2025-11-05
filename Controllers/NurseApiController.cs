@@ -89,7 +89,7 @@ namespace Barangay.Controllers
                 var today = DateTime.Today;
                 var appointments = await _context.Appointments
                     .Include(a => a.Patient)
-                    .Where(a => DateTimeHelper.IsDateEqual(a.AppointmentDate, today))
+                    .Where(a => a.AppointmentDate.Date == today.Date)
                     .ToListAsync();
 
                 var metrics = new

@@ -261,9 +261,72 @@
         </div>
 
         <div class="col-md-6">
+            @* Dynamic Forms Section (NEW) *@
+            @if (Model.DynamicForms.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Clinical Assessment Forms
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            @foreach (var form in Model.DynamicForms)
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="@form.IconClass me-2"></i>
+                                            @form.FormName
+                                        </h6>
+                                        @if (!string.IsNullOrEmpty(form.Description))
+                                        {
+                                            <small class="text-muted">@form.Description</small>
+                                        }
+                                        @if (form.IsCompleted && form.SubmittedAt.HasValue)
+                                        {
+                                            <br/>
+                                            <small class="text-success">
+                                                <i class="fas fa-check-circle"></i>
+                                                Completed on @form.SubmittedAt.Value.ToString("MMM dd, yyyy")
+                                            </small>
+                                        }
+                                    </div>
+                                    <div>
+                                        @if (form.IsCompleted)
+                                        {
+                                            <a href="/Forms/ViewSubmission?id=@form.SubmissionId" 
+                                               class="btn btn-sm btn-outline-info me-2" 
+                                               title="View Submission">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                            <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.Appointment.Id" 
+                                               class="btn btn-sm btn-outline-warning" 
+                                               title="Re-submit Form">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.Appointment.Id" 
+                                               class="btn btn-sm btn-primary" 
+                                               title="Fill Out Form">
+                                                <i class="fas fa-plus-circle"></i> Fill Out
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            
             <div class="card mb-4">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Assessment Forms</h5>
+                    <h5 class="mb-0">Assessment Forms (Legacy)</h5>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">

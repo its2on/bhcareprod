@@ -58,7 +58,7 @@ namespace Barangay.Services
         {
             return !await _context.Appointments
                 .AnyAsync(a => a.DoctorId == doctorId &&
-                              DateTimeHelper.AreDatesEqual(a.AppointmentDate, date) &&
+                              a.AppointmentDate.Date == date.Date &&
                               a.AppointmentTime == time &&
                               a.Status != AppointmentStatus.Cancelled);
         }
@@ -67,7 +67,7 @@ namespace Barangay.Services
         {
             return await _context.Appointments
                 .AnyAsync(a => a.PatientId == patientId &&
-                              DateTimeHelper.AreDatesEqual(a.AppointmentDate, date) &&
+                              a.AppointmentDate.Date == date.Date &&
                               a.Status != AppointmentStatus.Cancelled);
         }
 
@@ -88,7 +88,7 @@ namespace Barangay.Services
             var maxDailyPatients = doctor.MaxDailyPatients > 0 ? doctor.MaxDailyPatients : 8;
             var currentAppointments = await _context.Appointments
                 .CountAsync(a => a.DoctorId == doctorId &&
-                                DateTimeHelper.AreDatesEqual(a.AppointmentDate, date) &&
+                                a.AppointmentDate.Date == date.Date &&
                                 a.Status != AppointmentStatus.Cancelled);
 
             return currentAppointments < maxDailyPatients;

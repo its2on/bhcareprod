@@ -68,6 +68,8 @@ namespace Barangay.Services
                             Sunday = false,
                             StartTime = TimeSpan.FromHours(8),  // 8:00 AM
                             EndTime = TimeSpan.FromHours(17),   // 5:00 PM
+                            MaxAppointmentsPerDay = 100,        // 100 slots per day
+                            SlotDurationMinutes = 5,            // 5 minutes per slot
                             IsAvailable = true,
                             LastUpdated = DateTime.UtcNow
                         };

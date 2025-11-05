@@ -46,6 +46,11 @@ namespace Barangay.Pages.User
         public List<Appointment> CancelledAppointments { get; set; } = new List<Appointment>();
         public List<Appointment> CompletedAppointments { get; set; } = new List<Appointment>();
         public Dictionary<string, ApplicationUser> Doctors { get; set; } = new Dictionary<string, ApplicationUser>();
+        
+        // Track which appointments have completed forms
+        public Dictionary<int, bool> AppointmentFormsCompleted { get; set; } = new Dictionary<int, bool>();
+        // Track which appointments need forms (have age-appropriate forms available)
+        public Dictionary<int, bool> AppointmentNeedsForms { get; set; } = new Dictionary<int, bool>();
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -241,7 +246,87 @@ namespace Barangay.Pages.User
                 CompletedAppointments = new List<Appointment>();
             }
 
+            // Check form completion status for all appointments
+            await LoadFormCompletionStatusAsync();
+
             return Page();
+        }
+
+        private async Task LoadFormCompletionStatusAsync()
+        {
+            try
+            {
+                // Get all appointments that need checking
+                var allAppointments = OngoingAppointments
+                    .Concat(DraftAppointments)
+                    .Concat(CompletedAppointments)
+                    .ToList();
+
+                if (!allAppointments.Any())
+                {
+                    Console.WriteLine("DEBUG: No appointments to check for forms");
+                    return;
+                }
+
+                // Get all active form templates that show in appointment workflow
+                var activeFormTemplates = await _context.FormTemplates
+                    .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                    .ToListAsync();
+
+                Console.WriteLine($"DEBUG: Found {activeFormTemplates.Count} active form templates in workflow");
+
+                // Get all form submissions for these appointments
+                var appointmentIds = allAppointments.Select(a => a.Id).ToList();
+                var formSubmissions = await _context.FormSubmissions
+                    .Where(fs => appointmentIds.Contains(fs.AppointmentId ?? 0))
+                    .GroupBy(fs => fs.AppointmentId)
+                    .Select(g => new
+                    {
+                        AppointmentId = g.Key,
+                        FormTemplateIds = g.Select(fs => fs.FormTemplateId).Distinct().ToList()
+                    })
+                    .ToListAsync();
+
+                Console.WriteLine($"DEBUG: Found form submissions for {formSubmissions.Count} appointments");
+
+                // Check each appointment
+                foreach (var appointment in allAppointments)
+                {
+                    // Determine patient age for this appointment
+                    int patientAge = appointment.AgeValue;
+
+                    // Get age-appropriate forms for this appointment
+                    var appropriateForms = activeFormTemplates
+                        .Where(f => (!f.MinAge.HasValue || patientAge >= f.MinAge.Value) &&
+                                    (!f.MaxAge.HasValue || patientAge <= f.MaxAge.Value))
+                        .ToList();
+
+                    if (appropriateForms.Any())
+                    {
+                        AppointmentNeedsForms[appointment.Id] = true;
+
+                        // Check if ALL required forms have been submitted
+                        var submission = formSubmissions.FirstOrDefault(fs => fs.AppointmentId == appointment.Id);
+                        bool allFormsCompleted = submission != null &&
+                            appropriateForms.All(f => submission.FormTemplateIds.Contains(f.FormTemplateId));
+
+                        AppointmentFormsCompleted[appointment.Id] = allFormsCompleted;
+
+                        Console.WriteLine($"DEBUG: Appointment {appointment.Id} (Age: {patientAge}) - Needs Forms: Yes, Forms Completed: {allFormsCompleted}, Required Forms: {appropriateForms.Count}, Submitted Forms: {submission?.FormTemplateIds.Count ?? 0}");
+                    }
+                    else
+                    {
+                        AppointmentNeedsForms[appointment.Id] = false;
+                        AppointmentFormsCompleted[appointment.Id] = true; // No forms needed = "completed"
+                        Console.WriteLine($"DEBUG: Appointment {appointment.Id} (Age: {patientAge}) - Needs Forms: No");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Failed to load form completion status: {ex.Message}");
+                Console.WriteLine($"ERROR: Stack trace: {ex.StackTrace}");
+            }
         }
 
         public string GetDoctorName(string doctorId)

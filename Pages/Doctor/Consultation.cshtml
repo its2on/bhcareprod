@@ -44,6 +44,54 @@
 
     @if (!Model.IsDataLoaded)
     {
+        <!-- Daily Slot Statistics Banner -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card border-left-primary shadow">
+                    <div class="card-body py-3">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa-solid fa-calendar-check fa-2x text-primary me-3"></i>
+                                    <div>
+                                        <h6 class="mb-0">Daily Appointment Slots for @Model.SelectedDate.ToString("MMM dd, yyyy")</h6>
+                                        <small class="text-muted">
+                                            @{
+                                                var totalSlots = Model.TotalAppointments; // This should be replaced with MaxAppointmentsPerDay from DoctorAvailability
+                                                var bookedSlots = Model.ConsultationQueue?.Count ?? 0;
+                                                var availableSlots = totalSlots - bookedSlots;
+                                                var percentage = totalSlots > 0 ? (bookedSlots * 100.0 / totalSlots) : 0;
+                                            }
+                                            <strong>@bookedSlots</strong> of <strong>@totalSlots</strong> slots used (@percentage.ToString("F0")% capacity)
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <span class="badge @(availableSlots > 10 ? "bg-success" : availableSlots > 5 ? "bg-warning" : "bg-danger") fs-5 px-3 py-2">
+                                    @availableSlots slots available
+                                </span>
+                            </div>
+                            <div class="col-auto">
+                                <a asp-page="./AppointmentSettings" class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-cog me-1"></i>Settings
+                                </a>
+                            </div>
+                        </div>
+                        <div class="progress mt-2" style="height: 10px;">
+                            <div class="progress-bar @(percentage > 75 ? "bg-danger" : percentage > 50 ? "bg-warning" : "bg-success")" 
+                                 role="progressbar" 
+                                 style="width: @percentage%"
+                                 aria-valuenow="@bookedSlots" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="@totalSlots">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Date Filter Section -->
         <div class="row mb-3">
             <div class="col-md-4">
@@ -127,7 +175,13 @@
                                             <span class="badge @badgeClass">@appointment.Status</span>
                                         </td>
                                         <td>
-                                            <a class="btn btn-sm btn-primary" href="/Doctor/Consultation?id=@appointment.Id&startConsultation=true">
+                                            @{
+                                                var isToday = appointment.AppointmentDate.Date == DateTimeHelper.Today;
+                                                var btnClass = isToday ? "btn-primary" : "btn-secondary";
+                                                var disabled = !isToday ? "disabled" : "";
+                                                var tooltip = !isToday ? "data-bs-toggle=\"tooltip\" title=\"Consultation can only be started on the appointment day\"" : "";
+                                            }
+                                            <a class="btn btn-sm @btnClass" href="/Doctor/Consultation?id=@appointment.Id&startConsultation=true" @disabled @Html.Raw(tooltip)>
                                                 <i class="fas fa-play-circle me-1"></i> Start Consultation
                                             </a>
                                         </td>
@@ -626,6 +680,11 @@
     <script>
         // Form validation and submission handling
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
             const consultationForm = document.getElementById('consultationForm');
             const completeConsultationBtn = document.getElementById('completeConsultationBtn');
             const followUpReasonField = document.getElementById('FollowUpReason');

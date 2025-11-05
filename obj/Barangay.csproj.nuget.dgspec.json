@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Heeaaddsprob\\BHCARE-addstafffixed\\BHCARE-main\\Barangay.csproj": {}
+    "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj": {}
   },
   "projects": {
-    "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Heeaaddsprob\\BHCARE-addstafffixed\\BHCARE-main\\Barangay.csproj": {
+    "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Heeaaddsprob\\BHCARE-addstafffixed\\BHCARE-main\\Barangay.csproj",
+        "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj",
         "projectName": "Barangay",
-        "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Heeaaddsprob\\BHCARE-addstafffixed\\BHCARE-main\\Barangay.csproj",
+        "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj",
         "packagesPath": "C:\\Users\\Ben\\.nuget\\packages\\",
-        "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Heeaaddsprob\\BHCARE-addstafffixed\\BHCARE-main\\obj\\",
+        "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Ben\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -91,6 +91,10 @@
               "target": "Package",
               "version": "[8.0.2, )"
             },
+            "Microsoft.Extensions.Http": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Microsoft.IdentityModel.Tokens": {
               "target": "Package",
               "version": "[8.6.0, )"
@@ -99,9 +103,29 @@
               "target": "Package",
               "version": "[8.0.1, )"
             },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
+            "OpenCvSharp4": {
+              "target": "Package",
+              "version": "[4.10.0.20240616, )"
+            },
+            "OpenCvSharp4.runtime.win": {
+              "target": "Package",
+              "version": "[4.10.0.20240616, )"
+            },
             "Portable.BouncyCastle": {
               "target": "Package",
               "version": "[1.9.0, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.3, )"
+            },
+            "SixLabors.ImageSharp.Drawing": {
+              "target": "Package",
+              "version": "[2.1.2, )"
             },
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",

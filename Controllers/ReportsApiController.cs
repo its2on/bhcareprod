@@ -107,7 +107,7 @@ namespace Barangay.Controllers
                 try
                 {
                     totalAppointments = await _context.Appointments
-                        .Where(a => DateTimeHelper.IsDateGreaterThanOrEqual(a.AppointmentDate, startDate.Value) && DateTimeHelper.IsDateLessThanOrEqual(a.AppointmentDate, endDate.Value))
+                        .Where(a => a.AppointmentDate.Date >= startDate.Value.Date && a.AppointmentDate.Date <= endDate.Value.Date)
                         .CountAsync();
                     _logger.LogInformation($"Total appointments: {totalAppointments}");
                 }

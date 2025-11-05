@@ -1,0 +1,426 @@
+@model Barangay.Models.FormTemplate
+
+@if (Model == null)
+{
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-exclamation-triangle me-2"></i>
+        Form not found or is inactive.
+    </div>
+    return;
+}
+
+<div class="dynamic-form-container @Model.CssClasses">
+    @if (!string.IsNullOrEmpty(Model.Description))
+    {
+        <div class="alert alert-info mb-4">
+            <i class="fa-solid fa-info-circle me-2"></i>
+            @Model.Description
+        </div>
+    }
+
+    <form id="dynamicForm_@Model.FormKey" 
+          class="dynamic-form needs-validation" 
+          data-form-key="@Model.FormKey"
+          data-form-id="@Model.FormTemplateId"
+          novalidate>
+        
+        <div class="row g-3">
+            @foreach (var field in Model.FormFields.OrderBy(f => f.DisplayOrder))
+            {
+                <div class="@field.FieldWidth @field.CssClasses">
+                    @switch (field.FieldType)
+                    {
+                        case "text":
+                        case "email":
+                        case "tel":
+                        case "number":
+                        case "date":
+                        case "time":
+                        case "datetime-local":
+                            <label for="@field.FieldName" class="form-label">
+                                @field.FieldLabel
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+                            <input type="@field.FieldType" 
+                                   id="@field.FieldName" 
+                                   name="@field.FieldName" 
+                                   class="form-control @(field.IsRequired ? "required" : "")"
+                                   placeholder="@field.Placeholder"
+                                   value="@field.DefaultValue"
+                                   @(field.IsRequired ? "required" : "")
+                                   @(field.IsReadOnly ? "readonly" : "")
+                                   @(field.IsDisabled ? "disabled" : "") />
+                            @if (!string.IsNullOrEmpty(field.HelpText))
+                            {
+                                <small class="form-text text-muted">@field.HelpText</small>
+                            }
+                            <div class="invalid-feedback">
+                                Please provide a valid @field.FieldLabel.ToLower().
+                            </div>
+                            break;
+
+                        case "textarea":
+                            <label for="@field.FieldName" class="form-label">
+                                @field.FieldLabel
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+                            <textarea id="@field.FieldName" 
+                                      name="@field.FieldName" 
+                                      class="form-control"
+                                      placeholder="@field.Placeholder"
+                                      rows="3"
+                                      @(field.IsRequired ? "required" : "")
+                                      @(field.IsReadOnly ? "readonly" : "")
+                                      @(field.IsDisabled ? "disabled" : "")>@field.DefaultValue</textarea>
+                            @if (!string.IsNullOrEmpty(field.HelpText))
+                            {
+                                <small class="form-text text-muted">@field.HelpText</small>
+                            }
+                            <div class="invalid-feedback">
+                                Please provide a valid @field.FieldLabel.ToLower().
+                            </div>
+                            break;
+
+                        case "select":
+                            <label for="@field.FieldName" class="form-label">
+                                @field.FieldLabel
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+                            <select id="@field.FieldName" 
+                                    name="@field.FieldName" 
+                                    class="form-select"
+                                    @(field.IsRequired ? "required" : "")
+                                    @(field.IsDisabled ? "disabled" : "")>
+                                <option value="">-- Select @field.FieldLabel --</option>
+                                @foreach (var option in field.FormFieldOptions.Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                {
+                                    <option value="@option.OptionValue" selected="@(option.IsDefault)">
+                                        @option.OptionLabel
+                                    </option>
+                                }
+                            </select>
+                            @if (!string.IsNullOrEmpty(field.HelpText))
+                            {
+                                <small class="form-text text-muted">@field.HelpText</small>
+                            }
+                            <div class="invalid-feedback">
+                                Please select a @field.FieldLabel.ToLower().
+                            </div>
+                            break;
+
+                        case "radio":
+                            <fieldset>
+                                <legend class="form-label">
+                                    @field.FieldLabel
+                                    @if (field.IsRequired)
+                                    {
+                                        <span class="text-danger">*</span>
+                                    }
+                                </legend>
+                                @foreach (var option in field.FormFieldOptions.Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                {
+                                    <div class="form-check">
+                                        <input type="radio" 
+                                               id="@($"{field.FieldName}_{option.OptionValue}")" 
+                                               name="@field.FieldName" 
+                                               value="@option.OptionValue"
+                                               class="form-check-input"
+                                               checked="@(option.IsDefault)"
+                                               @(field.IsRequired ? "required" : "")
+                                               @(field.IsDisabled ? "disabled" : "") />
+                                        <label class="form-check-label" for="@($"{field.FieldName}_{option.OptionValue}")">
+                                            @option.OptionLabel
+                                        </label>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(field.HelpText))
+                                {
+                                    <small class="form-text text-muted d-block">@field.HelpText</small>
+                                }
+                            </fieldset>
+                            break;
+
+                        case "checkbox":
+                            <fieldset>
+                                <legend class="form-label">
+                                    @field.FieldLabel
+                                    @if (field.IsRequired)
+                                    {
+                                        <span class="text-danger">*</span>
+                                    }
+                                </legend>
+                                @foreach (var option in field.FormFieldOptions.Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" 
+                                               id="@($"{field.FieldName}_{option.OptionValue}")" 
+                                               name="@field.FieldName" 
+                                               value="@option.OptionValue"
+                                               class="form-check-input"
+                                               checked="@(option.IsDefault)"
+                                               @(field.IsDisabled ? "disabled" : "") />
+                                        <label class="form-check-label" for="@($"{field.FieldName}_{option.OptionValue}")">
+                                            @option.OptionLabel
+                                        </label>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(field.HelpText))
+                                {
+                                    <small class="form-text text-muted d-block">@field.HelpText</small>
+                                }
+                            </fieldset>
+                            break;
+
+                        case "file":
+                            <label for="@field.FieldName" class="form-label">
+                                @field.FieldLabel
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+                            <input type="file" 
+                                   id="@field.FieldName" 
+                                   name="@field.FieldName" 
+                                   class="form-control"
+                                   @(field.IsRequired ? "required" : "")
+                                   @(field.IsDisabled ? "disabled" : "") />
+                            @if (!string.IsNullOrEmpty(field.HelpText))
+                            {
+                                <small class="form-text text-muted">@field.HelpText</small>
+                            }
+                            <div class="invalid-feedback">
+                                Please upload a file.
+                            </div>
+                            break;
+
+                        case "hidden":
+                            <input type="hidden" 
+                                   id="@field.FieldName" 
+                                   name="@field.FieldName" 
+                                   value="@field.DefaultValue" />
+                            break;
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="form-actions mt-4">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-paper-plane me-2"></i>Submit
+            </button>
+            <button type="reset" class="btn btn-secondary ms-2">
+                <i class="fa-solid fa-rotate-left me-2"></i>Reset
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        // Bootstrap validation
+        const form = document.getElementById('dynamicForm_@Model.FormKey');
+        
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return;
+            }
+
+            // Collect form data
+            const formData = new FormData(form);
+            const data = {};
+            
+            formData.forEach((value, key) => {
+                // Handle multiple checkboxes with same name
+                if (data[key]) {
+                    if (Array.isArray(data[key])) {
+                        data[key].push(value);
+                    } else {
+                        data[key] = [data[key], value];
+                    }
+                } else {
+                    data[key] = value;
+                }
+            });
+
+            // Submit via AJAX
+            fetch('/api/DynamicForm/Submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({
+                    formTemplateId: @Model.FormTemplateId,
+                    formData: data
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Show success message
+                    alert('@(Model.SuccessMessage ?? "Form submitted successfully!")');
+                    
+                    // Redirect if specified
+                    @if (!string.IsNullOrEmpty(Model.RedirectUrl))
+                    {
+                        <text>window.location.href = '@Model.RedirectUrl';</text>
+                    }
+                    else
+                    {
+                        <text>form.reset();
+                        form.classList.remove('was-validated');</text>
+                    }
+                } else {
+                    alert('Error submitting form: ' + (result.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error submitting form: ' + error.message);
+            });
+        });
+        
+        // BMI Calculator - Auto-calculates BMI from Height and Weight
+        initializeBMICalculator_@(Model.FormKey)();
+        
+        function initializeBMICalculator_@(Model.FormKey)() {
+            // Find Height, Weight, BMI, and BMI Status fields
+            // Support various field name patterns
+            const heightField = findFieldByKeywords(form, ['Height', 'height', 'altura']);
+            const weightField = findFieldByKeywords(form, ['Weight', 'weight', 'peso', 'timbang']);
+            const bmiField = findFieldByKeywords(form, ['BMI', 'bmi', 'body mass index']);
+            const bmiStatusField = findFieldByKeywords(form, ['BMI Status', 'bmi status', 'BMI_Status', 'bmi_status', 'BMIStatus']);
+            
+            if (!heightField || !weightField || !bmiField) {
+                console.log('BMI Calculator: Required fields not found (Height, Weight, or BMI)');
+                return;
+            }
+            
+            console.log('BMI Calculator initialized for form @Model.FormKey:', {
+                height: heightField.name,
+                weight: weightField.name,
+                bmi: bmiField.name,
+                bmiStatus: bmiStatusField ? bmiStatusField.name : 'Not found'
+            });
+            
+            // Make BMI field readonly
+            bmiField.setAttribute('readonly', 'readonly');
+            bmiField.style.backgroundColor = '#f8f9fa';
+            bmiField.style.cursor = 'not-allowed';
+            
+            // Function to calculate and update BMI
+            function calculateBMI() {
+                const height = parseFloat(heightField.value);
+                const weight = parseFloat(weightField.value);
+                
+                // Validate inputs
+                if (!height || !weight || height <= 0 || weight <= 0) {
+                    bmiField.value = '';
+                    if (bmiStatusField) {
+                        bmiStatusField.value = '';
+                    }
+                    return;
+                }
+                
+                // Calculate BMI: weight (kg) / (height (m))²
+                const heightInMeters = height / 100; // Convert cm to meters
+                const bmi = weight / (heightInMeters * heightInMeters);
+                const bmiRounded = bmi.toFixed(2); // 2 decimal precision
+                
+                // Update BMI field
+                bmiField.value = bmiRounded;
+                
+                // Determine BMI classification
+                let bmiClassification = '';
+                if (bmi < 18.5) {
+                    bmiClassification = 'Underweight';
+                } else if (bmi >= 18.5 && bmi < 25) {
+                    bmiClassification = 'Normal';
+                } else if (bmi >= 25 && bmi < 30) {
+                    bmiClassification = 'Overweight';
+                } else if (bmi >= 30) {
+                    bmiClassification = 'Obese';
+                }
+                
+                // Update BMI Status field if it exists
+                if (bmiStatusField) {
+                    bmiStatusField.value = bmiClassification;
+                    
+                    // Make BMI Status field readonly too
+                    bmiStatusField.setAttribute('readonly', 'readonly');
+                    bmiStatusField.style.backgroundColor = '#f8f9fa';
+                    bmiStatusField.style.cursor = 'not-allowed';
+                    
+                    // Add color indicator for BMI status
+                    let statusColor = '';
+                    if (bmiClassification === 'Underweight') {
+                        statusColor = '#ffc107'; // Yellow/Warning
+                    } else if (bmiClassification === 'Normal') {
+                        statusColor = '#28a745'; // Green/Success
+                    } else if (bmiClassification === 'Overweight') {
+                        statusColor = '#fd7e14'; // Orange
+                    } else if (bmiClassification === 'Obese') {
+                        statusColor = '#dc3545'; // Red/Danger
+                    }
+                    
+                    if (statusColor) {
+                        bmiStatusField.style.color = statusColor;
+                        bmiStatusField.style.fontWeight = 'bold';
+                    }
+                }
+                
+                // Dispatch change event to trigger form validation
+                bmiField.dispatchEvent(new Event('input', { bubbles: true }));
+                bmiField.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                console.log(`BMI Calculated: Height=${height}cm, Weight=${weight}kg, BMI=${bmiRounded}, Status=${bmiClassification}`);
+            }
+            
+            // Attach event listeners to Height and Weight fields
+            heightField.addEventListener('input', calculateBMI);
+            heightField.addEventListener('change', calculateBMI);
+            weightField.addEventListener('input', calculateBMI);
+            weightField.addEventListener('change', calculateBMI);
+            
+            // Calculate BMI on page load if values already exist
+            if (heightField.value && weightField.value) {
+                calculateBMI();
+            }
+        }
+        
+        // Helper function to find form fields by keywords
+        function findFieldByKeywords(form, keywords) {
+            const allInputs = form.querySelectorAll('input, textarea, select');
+            
+            for (let input of allInputs) {
+                const name = (input.name || '').toLowerCase();
+                const placeholder = (input.placeholder || '').toLowerCase();
+                const id = (input.id || '').toLowerCase();
+                
+                for (let keyword of keywords) {
+                    const lowerKeyword = keyword.toLowerCase();
+                    if (name.includes(lowerKeyword) || placeholder.includes(lowerKeyword) || id.includes(lowerKeyword)) {
+                        return input;
+                    }
+                }
+            }
+            
+            return null;
+        }
+    })();
+</script>

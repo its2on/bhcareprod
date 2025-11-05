@@ -1,0 +1,131 @@
+@page
+@model Barangay.Pages.Admin.SeedFormCmsModel
+@{
+    ViewData["Title"] = "Seed Form CMS";
+    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fa-solid fa-database me-2"></i>Seed Form CMS
+            </h1>
+            <p class="text-muted mb-0">Initialize the Form CMS with common form templates</p>
+        </div>
+        <div>
+            <a asp-page="./FormManagement" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Form Management
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Seed Common Forms</h6>
+                </div>
+                <div class="card-body">
+                    @if (Model.HasExistingForms)
+                    {
+                        <div class="alert alert-info">
+                            <i class="fa-solid fa-info-circle me-2"></i>
+                            <strong>Forms already exist!</strong> The database already contains @Model.ExistingFormsCount form template(s).
+                            You can still run the seeder, but it will skip existing forms.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                            <strong>No forms found.</strong> Click the button below to populate the system with common form templates.
+                        </div>
+                    }
+
+                    <h5 class="mt-4">Forms to be created:</h5>
+                    <ul class="list-group mb-4">
+                        <li class="list-group-item">
+                            <i class="fa-solid fa-user-plus text-primary me-2"></i>
+                            <strong>Patient Registration</strong>
+                            <br><small class="text-muted">Complete patient registration form with personal information, contact details, and demographics</small>
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fa-solid fa-clipboard-check text-success me-2"></i>
+                            <strong>Health Screening Survey</strong>
+                            <br><small class="text-muted">Quick health screening questionnaire for symptom checking and community health monitoring</small>
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fa-solid fa-star text-warning me-2"></i>
+                            <strong>Appointment Feedback</strong>
+                            <br><small class="text-muted">Patient satisfaction survey to collect feedback on healthcare services</small>
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fa-solid fa-virus text-danger me-2"></i>
+                            <strong>Contact Tracing Form</strong> <span class="badge bg-secondary">Inactive</span>
+                            <br><small class="text-muted">Visitor log and contact tracing for infection control (disabled by default)</small>
+                        </li>
+                    </ul>
+
+                    <form method="post">
+                        <button type="submit" class="btn btn-primary btn-lg" @(Model.HasExistingForms ? "disabled" : "")>
+                            <i class="fa-solid fa-seedling me-2"></i>Seed Forms
+                        </button>
+                        @if (Model.HasExistingForms)
+                        {
+                            <p class="text-muted mt-2 mb-0">
+                                <small>Seeder is disabled because forms already exist. You can create new forms manually via Form Management.</small>
+                            </p>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4 bg-light">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fa-solid fa-info-circle me-2"></i>Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">What does this do?</h6>
+                    <p class="small">
+                        This seeder creates sample form templates with pre-configured fields and options.
+                        These forms are ready to use and can be customized to fit your needs.
+                    </p>
+
+                    <h6 class="text-primary mt-3">After Seeding:</h6>
+                    <ol class="small mb-0">
+                        <li>Review the created forms in Form Management</li>
+                        <li>Customize fields and options as needed</li>
+                        <li>Activate/deactivate forms based on requirements</li>
+                        <li>Use the forms in your application pages</li>
+                    </ol>
+
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                        <strong>Note:</strong> Once seeded, you can modify or delete these forms via Form Management.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

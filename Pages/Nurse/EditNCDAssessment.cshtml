@@ -1193,6 +1193,115 @@
                 console.log(`Field changed: ${fieldName} (${fieldType}) = "${fieldValue}" (checked: ${isChecked})`);
             });
             
+            // ===== ANTHROPOMETRIC MEASUREMENTS AUTO-CALCULATION =====
+            // Handle BMI and WH Ratio calculations automatically
+            
+            // Get weight, height, BMI input fields
+            const weightInput = $('input[name="NCDRiskAssessment.Weight"]');
+            const heightInput = $('input[name="NCDRiskAssessment.Height"]');
+            const bmiInput = $('input[name="NCDRiskAssessment.BMI"]');
+            
+            // Get waist, hip, ratio input fields
+            const waistInput = $('input[name="NCDRiskAssessment.Waist"]');
+            const hipInput = $('input[name="NCDRiskAssessment.Hip"]');
+            const whRatioInput = $('input[name="NCDRiskAssessment.WHRatio"]');
+            
+            // Calculate BMI and select appropriate status
+            function calculateBMI() {
+                const weight = parseFloat(weightInput.val());
+                const heightCm = parseFloat(heightInput.val());
+                
+                if (isNaN(weight) || isNaN(heightCm) || weight <= 0 || heightCm <= 0) {
+                    bmiInput.val('');
+                    return;
+                }
+                
+                // Calculate BMI (weight in kg / height in m²)
+                const heightM = heightCm / 100;
+                const bmi = weight / (heightM * heightM);
+                bmiInput.val(bmi.toFixed(2));
+                
+                // Select appropriate BMI status radio
+                selectBMIStatus(bmi);
+            }
+            
+            // Select the appropriate BMI status radio button
+            function selectBMIStatus(bmi) {
+                const underweightRadio = $('input[name="NCDRiskAssessment.BMIStatus"][value="Underweight"]');
+                const normalRadio = $('input[name="NCDRiskAssessment.BMIStatus"][value="Normal"]');
+                const overweightRadio = $('input[name="NCDRiskAssessment.BMIStatus"][value="Overweight"]');
+                const obeseRadio = $('input[name="NCDRiskAssessment.BMIStatus"][value="Obese"]');
+                
+                // Clear all selections first
+                $('input[name="NCDRiskAssessment.BMIStatus"]').prop('checked', false);
+                
+                // Select based on BMI thresholds
+                if (bmi < 18.5) {
+                    underweightRadio.prop('checked', true);
+                } else if (bmi >= 18.5 && bmi < 23) {
+                    normalRadio.prop('checked', true);
+                } else if (bmi >= 23 && bmi < 25) {
+                    overweightRadio.prop('checked', true);
+                } else if (bmi >= 25) {
+                    obeseRadio.prop('checked', true);
+                }
+            }
+            
+            // Calculate Waist-Hip Ratio and select appropriate status
+            function calculateWHRatio() {
+                const waist = parseFloat(waistInput.val());
+                const hip = parseFloat(hipInput.val());
+                
+                if (isNaN(waist) || isNaN(hip) || waist <= 0 || hip <= 0) {
+                    whRatioInput.val('');
+                    return;
+                }
+                
+                // Calculate Waist-Hip Ratio
+                const whRatio = waist / hip;
+                whRatioInput.val(whRatio.toFixed(2));
+                
+                // Select appropriate WH status radio
+                selectWHStatus(whRatio);
+            }
+            
+            // Select the appropriate WH status radio button
+            function selectWHStatus(whRatio) {
+                // Get gender to determine appropriate threshold
+                const gender = $('input[name="NCDRiskAssessment.Kasarian"]:checked').val() || 'Male';
+                
+                const noRiskRadio = $('input[name="NCDRiskAssessment.WHStatus"][value="No risk"]');
+                const atRiskRadio = $('input[name="NCDRiskAssessment.WHStatus"][value="At risk"]');
+                
+                // Clear all selections first
+                $('input[name="NCDRiskAssessment.WHStatus"]').prop('checked', false);
+                
+                // Select based on WH ratio thresholds per gender
+                if ((gender === 'Male' && whRatio < 1.0) || 
+                    (gender === 'Female' && whRatio < 0.85)) {
+                    noRiskRadio.prop('checked', true);
+                } else {
+                    atRiskRadio.prop('checked', true);
+                }
+            }
+            
+            // Set up event listeners for real-time calculation
+            weightInput.on('input', calculateBMI);
+            heightInput.on('input', calculateBMI);
+            waistInput.on('input', calculateWHRatio);
+            hipInput.on('input', calculateWHRatio);
+            
+            // Gender changes should trigger WH ratio recalculation
+            $('input[name="NCDRiskAssessment.Kasarian"]').on('change', function() {
+                if (whRatioInput.val()) {
+                    calculateWHRatio();
+                }
+            });
+            
+            // Initialize calculations if fields already have values
+            calculateBMI();
+            calculateWHRatio();
+            
             // DEBUGGING: Enhanced checkbox and radio button tracking
             $('input[type="checkbox"], input[type="radio"]').on('change', function() {
                 const fieldName = $(this).attr('name') || $(this).attr('id');

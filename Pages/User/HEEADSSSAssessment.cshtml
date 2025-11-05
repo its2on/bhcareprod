@@ -98,6 +98,36 @@
             Please consult with your healthcare provider about the appropriate assessment form for your age group.
         </div>
     }
+    
+    @* Display Appointment Context for user reference *@
+    @if (ViewData["AppointmentContext_DisplayName"] != null)
+    {
+        var displayName = ViewData["AppointmentContext_DisplayName"]?.ToString() ?? "Unknown";
+        var displayAge = ViewData["AppointmentContext_DisplayAge"]?.ToString() ?? "N/A";
+        var bookedBy = ViewData["AppointmentContext_BookedBy"]?.ToString() ?? "";
+        var appointmentDate = ViewData["AppointmentContext_AppointmentDate"]?.ToString() ?? "N/A";
+        var familyNumber = ViewData["AppointmentContext_FamilyNumber"]?.ToString() ?? "";
+        var bookingForOther = ViewData["AppointmentContext_BookingForOther"] as bool? ?? false;
+        var relationship = ViewData["AppointmentContext_Relationship"]?.ToString() ?? "";
+        
+        <div class="alert alert-primary" role="alert">
+            <i class="fas fa-clipboard-list me-2"></i>
+            <strong>Appointment Context</strong>
+            <div class="mt-2">
+                <div><strong>Patient:</strong> @displayName</div>
+                <div><strong>Age:</strong> @displayAge years old</div>
+                <div><strong>Appointment Date:</strong> @appointmentDate</div>
+                @if (!string.IsNullOrEmpty(familyNumber))
+                {
+                    <div><strong>Family Number:</strong> @familyNumber</div>
+                }
+                @if (bookingForOther && !string.IsNullOrEmpty(relationship))
+                {
+                    <div><strong>Booked by:</strong> @bookedBy (@relationship)</div>
+                }
+            </div>
+        </div>
+    }
 
     <form method="post" id="heeadsssForm" class="wizard-form">
     <!-- Wizard Stepper Indicator -->
@@ -808,7 +838,7 @@
                 
                 if (height && weight && height > 0 && weight > 0) {
                     const heightInMeters = height / 100; // Convert cm to meters
-                    const bmi = (weight / (heightInMeters * heightInMeters)).toFixed(1);
+                    const bmi = (weight / (heightInMeters * heightInMeters)).toFixed(2);
                     $('#Assessment_BMI').val(bmi);
                     
                     // Auto-select BMI status based on value
@@ -1072,6 +1102,95 @@
                 } catch (error) {
                     console.error('Error generating family number:', error);
                     alert('Error generating family number. Please try again.');
+                }
+            });
+
+            // Autocomplete/searchable family number functionality
+            const familyNoInput = document.getElementById('family-no');
+            let searchTimeout;
+            let dropdownContainer;
+            
+            // Create dropdown container
+            function createDropdown() {
+                if (!dropdownContainer) {
+                    dropdownContainer = document.createElement('div');
+                    dropdownContainer.id = 'family-search-dropdown';
+                    dropdownContainer.style.cssText = 'position: relative; width: 100%;';
+                    
+                    const dropdown = document.createElement('div');
+                    dropdown.className = 'list-group';
+                    dropdown.style.cssText = 'position: absolute; z-index: 1000; width: 100%; max-height: 300px; overflow-y: auto; display: none;';
+                    dropdown.id = 'family-results';
+                    
+                    dropdownContainer.appendChild(dropdown);
+                    familyNoInput.parentElement.appendChild(dropdownContainer);
+                    return dropdown;
+                }
+                return document.getElementById('family-results');
+            }
+            
+            function hideDropdown() {
+                const dropdown = document.getElementById('family-results');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
+            function showResults(families) {
+                const dropdown = document.getElementById('family-results') || createDropdown();
+                dropdown.innerHTML = '';
+                
+                if (families.length === 0) {
+                    dropdown.innerHTML = '<div class="list-group-item">No families found</div>';
+                } else {
+                    families.forEach(family => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `<strong>${family.familyNumber}</strong><br><small>${family.members.map(m => m.name).join(', ')}</small>`;
+                        item.addEventListener('click', function() {
+                            familyNoInput.value = family.familyNumber;
+                            hideDropdown();
+                        });
+                        dropdown.appendChild(item);
+                    });
+                }
+                
+                dropdown.style.display = 'block';
+            }
+            
+            // Search for families
+            familyNoInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                
+                clearTimeout(searchTimeout);
+                
+                if (searchTerm.length < 2) {
+                    hideDropdown();
+                    return;
+                }
+                
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/User/HEEADSSSAssessment?handler=SearchFamilies&searchTerm=${encodeURIComponent(searchTerm)}`);
+                        const result = await response.json();
+                        
+                        if (result.success && result.families) {
+                            showResults(result.families);
+                        } else {
+                            hideDropdown();
+                        }
+                    } catch (error) {
+                        console.error('Error searching for families:', error);
+                    }
+                }, 300);
+            });
+            
+            // Hide dropdown when clicking outside
+            document.addEventListener('click', function(event) {
+                const dropdownElement = document.getElementById('family-search-dropdown');
+                if (!familyNoInput.contains(event.target) && dropdownElement && !dropdownElement.contains(event.target)) {
+                    hideDropdown();
                 }
             });
             

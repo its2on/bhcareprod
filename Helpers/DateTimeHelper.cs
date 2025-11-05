@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 
 namespace Barangay.Helpers
@@ -132,6 +132,12 @@ namespace Barangay.Helpers
 
                 // If direct parsing fails, clean up the string to handle common issues
                 timeString = timeString.Trim();
+                
+                // Handle time range format (e.g., "8:00 AM - 8:06 AM") by extracting the start time
+                if (timeString.Contains(" - "))
+                {
+                    timeString = timeString.Split(new[] { " - " }, StringSplitOptions.None)[0].Trim();
+                }
                 
                 // Handle comma-separated values by taking the first part
                 if (timeString.Contains(","))

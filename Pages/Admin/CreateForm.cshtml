@@ -1,0 +1,224 @@
+@page
+@model Barangay.Pages.Admin.CreateFormModel
+@{
+    ViewData["Title"] = "Create Form";
+    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fa-solid fa-file-circle-plus me-2"></i>Create New Form
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a asp-page="./FormManagement">Form Management</a></li>
+                    <li class="breadcrumb-item active">Create Form</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a asp-page="./FormManagement" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Forms
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Form Information</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        <div class="row g-3">
+                            <!-- Form Name -->
+                            <div class="col-md-12">
+                                <label asp-for="FormTemplate.FormName" class="form-label">
+                                    Form Name <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="FormTemplate.FormName" class="form-control" required />
+                                <span asp-validation-for="FormTemplate.FormName" class="text-danger"></span>
+                            </div>
+
+                            <!-- Form Key -->
+                            <div class="col-md-6">
+                                <label asp-for="FormTemplate.FormKey" class="form-label">
+                                    Form Key <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="FormTemplate.FormKey" class="form-control" 
+                                       placeholder="e.g., patient-registration" 
+                                       pattern="[a-z0-9-]+" 
+                                       title="Only lowercase letters, numbers, and hyphens"
+                                       required />
+                                <small class="text-muted">Unique identifier (lowercase, no spaces)</small>
+                                <span asp-validation-for="FormTemplate.FormKey" class="text-danger"></span>
+                            </div>
+
+                            <!-- Category -->
+                            <div class="col-md-6">
+                                <label asp-for="FormTemplate.Category" class="form-label">Category</label>
+                                <input asp-for="FormTemplate.Category" class="form-control" 
+                                       list="categoryList"
+                                       placeholder="e.g., Registration, Assessment" />
+                                <datalist id="categoryList">
+                                    <option value="Registration"></option>
+                                    <option value="Assessment"></option>
+                                    <option value="Medical"></option>
+                                    <option value="Survey"></option>
+                                    <option value="Feedback"></option>
+                                </datalist>
+                                <span asp-validation-for="FormTemplate.Category" class="text-danger"></span>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="col-md-12">
+                                <label asp-for="FormTemplate.Description" class="form-label">Description</label>
+                                <textarea asp-for="FormTemplate.Description" class="form-control" rows="3" 
+                                          placeholder="Brief description of the form's purpose"></textarea>
+                                <span asp-validation-for="FormTemplate.Description" class="text-danger"></span>
+                            </div>
+
+                            <!-- Icon Class -->
+                            <div class="col-md-6">
+                                <label asp-for="FormTemplate.IconClass" class="form-label">Icon Class</label>
+                                <input asp-for="FormTemplate.IconClass" class="form-control" 
+                                       placeholder="e.g., fa-solid fa-file-medical" 
+                                       list="iconList" />
+                                <datalist id="iconList">
+                                    <option value="fa-solid fa-file-medical"></option>
+                                    <option value="fa-solid fa-clipboard-list"></option>
+                                    <option value="fa-solid fa-user-plus"></option>
+                                    <option value="fa-solid fa-notes-medical"></option>
+                                    <option value="fa-solid fa-heart-pulse"></option>
+                                </datalist>
+                                <small class="text-muted">Font Awesome icon class</small>
+                                <span asp-validation-for="FormTemplate.IconClass" class="text-danger"></span>
+                            </div>
+
+                            <!-- Display Order -->
+                            <div class="col-md-6">
+                                <label asp-for="FormTemplate.DisplayOrder" class="form-label">Display Order</label>
+                                <input asp-for="FormTemplate.DisplayOrder" type="number" class="form-control" 
+                                       min="0" value="0" />
+                                <small class="text-muted">Lower numbers appear first</small>
+                                <span asp-validation-for="FormTemplate.DisplayOrder" class="text-danger"></span>
+                            </div>
+
+                            <!-- Success Message -->
+                            <div class="col-md-12">
+                                <label asp-for="FormTemplate.SuccessMessage" class="form-label">Success Message</label>
+                                <textarea asp-for="FormTemplate.SuccessMessage" class="form-control" rows="2" 
+                                          placeholder="Message to show after successful submission"></textarea>
+                                <span asp-validation-for="FormTemplate.SuccessMessage" class="text-danger"></span>
+                            </div>
+
+                            <!-- Redirect URL -->
+                            <div class="col-md-12">
+                                <label asp-for="FormTemplate.RedirectUrl" class="form-label">Redirect URL (Optional)</label>
+                                <input asp-for="FormTemplate.RedirectUrl" class="form-control" 
+                                       placeholder="/success-page" />
+                                <small class="text-muted">Page to redirect after submission (leave empty for default)</small>
+                                <span asp-validation-for="FormTemplate.RedirectUrl" class="text-danger"></span>
+                            </div>
+
+                            <!-- CSS Classes -->
+                            <div class="col-md-12">
+                                <label asp-for="FormTemplate.CssClasses" class="form-label">Custom CSS Classes</label>
+                                <input asp-for="FormTemplate.CssClasses" class="form-control" 
+                                       placeholder="e.g., custom-form theme-blue" />
+                                <small class="text-muted">Space-separated CSS class names</small>
+                                <span asp-validation-for="FormTemplate.CssClasses" class="text-danger"></span>
+                            </div>
+
+                            <!-- Active Status -->
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input asp-for="FormTemplate.IsActive" class="form-check-input" type="checkbox" checked />
+                                    <label asp-for="FormTemplate.IsActive" class="form-check-label">
+                                        Form is Active
+                                    </label>
+                                </div>
+                                <small class="text-muted">Inactive forms won't be accessible to users</small>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a asp-page="./FormManagement" class="btn btn-secondary">
+                                <i class="fa-solid fa-times me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-save me-2"></i>Create Form
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4 bg-light">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fa-solid fa-lightbulb me-2"></i>Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">Form Key Guidelines:</h6>
+                    <ul class="small mb-3">
+                        <li>Use only lowercase letters, numbers, and hyphens</li>
+                        <li>Must be unique across all forms</li>
+                        <li>Cannot be changed once created</li>
+                        <li>Examples: patient-registration, health-survey</li>
+                    </ul>
+
+                    <h6 class="text-primary mt-3">Next Steps:</h6>
+                    <ol class="small mb-0">
+                        <li>Create the form template</li>
+                        <li>Add form fields</li>
+                        <li>Configure field options (for dropdowns)</li>
+                        <li>Test the form</li>
+                        <li>Activate and deploy</li>
+                    </ol>
+
+                    <div class="alert alert-info mt-3 mb-0" role="alert">
+                        <i class="fa-solid fa-info-circle me-2"></i>
+                        <strong>Note:</strong> After creating the form, you'll be able to add and configure fields.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Auto-generate form key from form name
+        document.querySelector('input[name="FormTemplate.FormName"]').addEventListener('input', function(e) {
+            const formKeyInput = document.querySelector('input[name="FormTemplate.FormKey"]');
+            if (!formKeyInput.value || formKeyInput.value === '') {
+                const key = e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .trim();
+                formKeyInput.value = key;
+            }
+        });
+    </script>
+}

@@ -1,0 +1,1299 @@
+@page "{id:int?}"
+@model Barangay.Pages.Admin.FormBuilderModel
+@{
+    ViewData["Title"] = Model.IsEdit ? "Edit Form" : "Create Form";
+    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+}
+
+<style>
+    :root {
+        --form-builder-primary: #ff8c42;
+        --form-builder-hover: #e67e22;
+        --form-builder-light: #fff5f0;
+        --form-builder-border: #dee2e6;
+        --form-builder-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    body {
+        background-color: #f8f9fa;
+    }
+    
+    .form-builder-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+    
+    .form-header-card {
+        background: white;
+        border-radius: 8px;
+        border-top: 10px solid var(--form-builder-primary);
+        box-shadow: var(--form-builder-shadow);
+        padding: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .form-header-card input {
+        border: none;
+        border-bottom: 1px solid var(--form-builder-border);
+        border-radius: 0;
+        font-size: 2rem;
+        font-weight: 300;
+        padding: 8px 0;
+        transition: border-bottom-color 0.3s;
+    }
+    
+    .form-header-card input:focus {
+        border-bottom-color: var(--form-builder-primary);
+        box-shadow: none;
+    }
+    
+    .form-header-card textarea {
+        border: none;
+        border-bottom: 1px solid var(--form-builder-border);
+        border-radius: 0;
+        padding: 8px 0;
+        resize: none;
+    }
+    
+    .form-header-card textarea:focus {
+        border-bottom-color: var(--form-builder-primary);
+        box-shadow: none;
+    }
+    
+    .question-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: var(--form-builder-shadow);
+        padding: 24px;
+        margin-bottom: 12px;
+        border-left: 6px solid transparent;
+        transition: all 0.3s;
+        cursor: move;
+    }
+    
+    .question-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    }
+    
+    .question-card.selected {
+        border-left-color: var(--form-builder-primary);
+        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.2);
+    }
+    
+    .question-card .question-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+    
+    .question-card .question-input {
+        border: none;
+        border-bottom: 1px solid var(--form-builder-border);
+        border-radius: 0;
+        padding: 8px 0;
+        font-size: 1rem;
+        width: 100%;
+    }
+    
+    .question-card .question-input:focus {
+        border-bottom-color: var(--form-builder-primary);
+        box-shadow: none;
+    }
+    
+    .field-type-selector {
+        min-width: 200px;
+        border: 1px solid var(--form-builder-border);
+        border-radius: 4px;
+    }
+    
+    .field-type-selector:focus {
+        border-color: var(--form-builder-primary);
+        box-shadow: 0 0 0 0.25rem rgba(255, 140, 66, 0.1);
+    }
+    
+    .options-list {
+        margin-top: 16px;
+    }
+    
+    .option-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .option-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .option-input {
+        flex: 1;
+        border: none;
+        border-bottom: 1px dotted var(--form-builder-border);
+        padding: 4px 8px;
+        margin: 0 12px;
+    }
+    
+    .option-input:focus {
+        border-bottom-style: solid;
+        border-bottom-color: var(--form-builder-primary);
+        outline: none;
+    }
+    
+    .question-footer {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--form-builder-border);
+    }
+    
+    .field-meta-section {
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .field-meta-content {
+        padding: 8px 0;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 12px;
+    }
+    
+    .field-meta-content input,
+    .field-meta-content textarea {
+        background-color: white;
+    }
+    
+    .btn-add-field {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--form-builder-primary);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.4);
+        font-size: 24px;
+        transition: all 0.3s;
+        z-index: 1000;
+    }
+    
+    .btn-add-field:hover {
+        background: var(--form-builder-hover);
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(255, 140, 66, 0.5);
+        color: white;
+    }
+    
+    .field-type-icon {
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        color: #6c757d;
+    }
+    
+    .sidebar-tools {
+        position: sticky;
+        top: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+    
+    .tool-btn {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        border: 1px solid var(--form-builder-border);
+        border-radius: 8px;
+        background: white;
+        transition: all 0.2s;
+        cursor: pointer;
+        text-align: left;
+    }
+    
+    .tool-btn:hover {
+        background: var(--form-builder-light);
+        border-color: var(--form-builder-primary);
+        transform: translateX(4px);
+    }
+    
+    .tool-btn i {
+        margin-right: 12px;
+        font-size: 20px;
+        color: var(--form-builder-primary);
+    }
+    
+    .top-bar {
+        background: white;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--form-builder-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        position: sticky;
+        top: 0;
+        z-index: 999;
+    }
+    
+    .drag-handle {
+        cursor: move;
+        color: #6c757d;
+        margin-right: 12px;
+    }
+    
+    .drag-handle:hover {
+        color: var(--form-builder-primary);
+    }
+    
+    .section-break {
+        background: linear-gradient(to right, var(--form-builder-border), var(--form-builder-primary), var(--form-builder-border));
+        height: 2px;
+        margin: 24px 0;
+        position: relative;
+    }
+    
+    .section-break-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #6c757d;
+        border: 1px solid var(--form-builder-border);
+    }
+    
+    .sortable-ghost {
+        opacity: 0.4;
+        background: #f0f0f0;
+    }
+</style>
+
+<div class="top-bar">
+    <div class="d-flex align-items-center">
+        <a asp-page="./FormManagement" class="btn btn-light me-3">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0" id="formTitleDisplay">@(Model.IsEdit ? Model.FormTemplate.FormName : "Untitled Form")</h5>
+            <small class="text-muted">Auto-saved</small>
+        </div>
+    </div>
+    <div>
+        <button type="button" class="btn btn-outline-secondary me-2" onclick="previewForm()">
+            <i class="fa-solid fa-eye me-2"></i>Preview
+        </button>
+        <button type="button" class="btn btn-primary" onclick="saveForm()">
+            <i class="fa-solid fa-save me-2"></i>Save Form
+        </button>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Form Builder Area -->
+        <div class="col-lg-9">
+            <div class="form-builder-container">
+                <!-- Form Header Card -->
+                <div class="form-header-card">
+                    <input type="text" 
+                           class="form-control" 
+                           id="formName" 
+                           placeholder="Form Title" 
+                           value="@(Model.IsEdit ? Model.FormTemplate.FormName : "")"
+                           oninput="updateFormTitle(this.value)">
+                    <textarea class="form-control mt-3" 
+                              id="formDescription" 
+                              rows="2" 
+                              placeholder="Form description">@(Model.IsEdit ? Model.FormTemplate.Description : "")</textarea>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Form Key (unique identifier)</label>
+                            <input type="text" 
+                                   class="form-control form-control-sm" 
+                                   id="formKey" 
+                                   placeholder="e.g., patient-registration"
+                                   pattern="[a-z0-9-]+"
+                                   value="@(Model.IsEdit ? Model.FormTemplate.FormKey : "")">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Category</label>
+                            <input type="text" 
+                                   class="form-control form-control-sm" 
+                                   id="formCategory" 
+                                   list="categoryList"
+                                   placeholder="e.g., Registration, Assessment"
+                                   value="@(Model.IsEdit ? Model.FormTemplate.Category : "")">
+                            <datalist id="categoryList">
+                                <option value="Registration"></option>
+                                <option value="Assessment"></option>
+                                <option value="Medical"></option>
+                                <option value="Survey"></option>
+                                <option value="Feedback"></option>
+                            </datalist>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Container -->
+                <div id="questionsContainer">
+                    <!-- Questions will be added here dynamically -->
+                </div>
+
+                <!-- Add Field Button -->
+                <button type="button" class="btn-add-field" onclick="addNewField()" title="Add Question">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar Tools -->
+        <div class="col-lg-3">
+            <div class="sidebar-tools">
+                <h6 class="text-muted mb-3">ADD FIELD</h6>
+                
+                <button type="button" class="tool-btn" onclick="addField('text')">
+                    <i class="fa-solid fa-font"></i>
+                    <span>Short Answer</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('textarea')">
+                    <i class="fa-solid fa-align-left"></i>
+                    <span>Paragraph</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('radio')">
+                    <i class="fa-solid fa-circle-dot"></i>
+                    <span>Multiple Choice</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('checkbox')">
+                    <i class="fa-solid fa-square-check"></i>
+                    <span>Checkboxes</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('select')">
+                    <i class="fa-solid fa-caret-down"></i>
+                    <span>Dropdown</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('date')">
+                    <i class="fa-solid fa-calendar"></i>
+                    <span>Date</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('time')">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Time</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('file')">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>File Upload</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('number')">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <span>Number</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('email')">
+                    <i class="fa-solid fa-envelope"></i>
+                    <span>Email</span>
+                </button>
+                
+                <button type="button" class="tool-btn" onclick="addField('tel')">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>Phone Number</span>
+                </button>
+                
+                <hr class="my-3">
+                
+                <button type="button" class="tool-btn" onclick="addSectionBreak()">
+                    <i class="fa-solid fa-grip-lines"></i>
+                    <span>Section Break</span>
+                </button>
+
+                <hr class="my-3">
+                
+                <h6 class="text-muted mb-3 mt-4">SETTINGS</h6>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="formIsActive" @(Model.IsEdit && Model.FormTemplate.IsActive ? "checked" : Model.IsEdit ? "" : "checked")>
+                            <label class="form-check-label" for="formIsActive">
+                                <small>Form Active</small>
+                            </label>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Display Order</label>
+                            <input type="number" class="form-control form-control-sm" id="formDisplayOrder" value="@(Model.IsEdit ? Model.FormTemplate.DisplayOrder : 0)">
+                        </div>
+                        
+                        <hr class="my-2">
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="showInAppointmentFlow" @(Model.IsEdit && Model.FormTemplate.ShowInAppointmentFlow ? "checked" : "")>
+                            <label class="form-check-label" for="showInAppointmentFlow">
+                                <small>Show in Appointment Workflow</small>
+                            </label>
+                            <small class="form-text text-muted d-block">Enable for clinical forms (HEEADSSS, NCD)</small>
+                        </div>
+                        
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <label class="form-label small">Min Age</label>
+                                <input type="number" class="form-control form-control-sm" id="minAge" 
+                                       placeholder="e.g., 10" min="0" max="120"
+                                       value="@(Model.IsEdit && Model.FormTemplate.MinAge.HasValue ? Model.FormTemplate.MinAge.Value.ToString() : "")">
+                                <small class="form-text text-muted">Leave empty for no restriction</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Max Age</label>
+                                <input type="number" class="form-control form-control-sm" id="maxAge" 
+                                       placeholder="e.g., 19" min="0" max="120"
+                                       value="@(Model.IsEdit && Model.FormTemplate.MaxAge.HasValue ? Model.FormTemplate.MaxAge.Value.ToString() : "")">
+                                <small class="form-text text-muted">Leave empty for no restriction</small>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-2">
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Icon Class</label>
+                            <input type="text" class="form-control form-control-sm" id="formIconClass" 
+                                   placeholder="fa-solid fa-file-medical" 
+                                   list="iconList"
+                                   value="@(Model.IsEdit ? Model.FormTemplate.IconClass : "")">
+                            <datalist id="iconList">
+                                <option value="fa-solid fa-file-medical"></option>
+                                <option value="fa-solid fa-clipboard-list"></option>
+                                <option value="fa-solid fa-user-plus"></option>
+                                <option value="fa-solid fa-notes-medical"></option>
+                                <option value="fa-solid fa-heart-pulse"></option>
+                            </datalist>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Success Message</label>
+                            <textarea class="form-control form-control-sm" id="formSuccessMessage" rows="2" 
+                                      placeholder="Thank you for your submission!">@(Model.IsEdit ? Model.FormTemplate.SuccessMessage : "")</textarea>
+                        </div>
+                        
+                        <div class="mb-0">
+                            <label class="form-label small">Redirect URL (optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="formRedirectUrl" 
+                                   placeholder="/success-page"
+                                   value="@(Model.IsEdit ? Model.FormTemplate.RedirectUrl : "")">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script>
+        let fieldIdCounter = 0;
+        let selectedFieldId = null;
+        const formTemplateId = @(Model.IsEdit ? Model.FormTemplate.FormTemplateId : 0);
+        const existingFields = @Html.Raw(Model.FormFieldsJson ?? "[]");
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            const questionsContainer = document.getElementById('questionsContainer');
+            new Sortable(questionsContainer, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                onEnd: function() {
+                    updateFieldOrders();
+                }
+            });
+            
+            // Load existing fields if editing
+            if (existingFields && existingFields.length > 0) {
+                existingFields.forEach(field => {
+                    loadExistingField(field);
+                });
+            }
+        });
+        
+        function loadExistingField(field) {
+            fieldIdCounter++;
+            const fieldId = 'field_' + fieldIdCounter;
+            
+            const fieldHtml = createFieldHtml(fieldId, field.fieldType);
+            document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', fieldHtml);
+            
+            // Set field data
+            const fieldCard = document.getElementById(fieldId);
+            fieldCard.querySelector('[data-field="label"]').value = field.fieldLabel;
+            fieldCard.querySelector('[data-field="required"]').checked = field.isRequired;
+            fieldCard.dataset.existingId = field.formFieldId;
+            
+            // Load title and description if they exist
+            const titleInput = fieldCard.querySelector('[data-field="title"]');
+            const descInput = fieldCard.querySelector('[data-field="description"]');
+            if (field.title && titleInput) {
+                titleInput.value = field.title;
+                // Show the meta section if there's content
+                const metaContent = document.getElementById(`${fieldId}_meta`);
+                if (metaContent) {
+                    metaContent.style.display = 'block';
+                    const toggleBtn = document.getElementById(`${fieldId}_meta_toggle`);
+                    if (toggleBtn) {
+                        toggleBtn.innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Hide title & description';
+                    }
+                }
+            }
+            if (field.description && descInput) {
+                descInput.value = field.description;
+            }
+            
+            // Load validation pattern if it exists
+            const validationSelect = fieldCard.querySelector('[data-field="validation"]');
+            if (field.validationPattern && validationSelect) {
+                validationSelect.value = field.validationPattern;
+            }
+            
+            // Load options if applicable
+            if (['radio', 'checkbox', 'select'].includes(field.fieldType) && field.options) {
+                field.options.forEach(option => {
+                    addOption(fieldId, option.optionLabel);
+                });
+            }
+        }
+        
+        function updateFormTitle(title) {
+            document.getElementById('formTitleDisplay').textContent = title || 'Untitled Form';
+        }
+        
+        function addNewField() {
+            addField('text');
+        }
+        
+        function addField(fieldType) {
+            fieldIdCounter++;
+            const fieldId = 'field_' + fieldIdCounter;
+            
+            const fieldHtml = createFieldHtml(fieldId, fieldType);
+            document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', fieldHtml);
+            
+            // Initialize options for choice fields
+            if (['radio', 'checkbox', 'select'].includes(fieldType)) {
+                addOption(fieldId, 'Option 1');
+            }
+            
+            // Select the newly added field
+            selectField(fieldId);
+        }
+        
+        function createFieldHtml(fieldId, fieldType) {
+            const fieldTypeLabels = {
+                'text': 'Short Answer',
+                'textarea': 'Paragraph',
+                'radio': 'Multiple Choice',
+                'checkbox': 'Checkboxes',
+                'select': 'Dropdown',
+                'date': 'Date',
+                'time': 'Time',
+                'file': 'File Upload',
+                'number': 'Number',
+                'email': 'Email',
+                'tel': 'Phone Number',
+                'datetime-local': 'Date & Time'
+            };
+            
+            return `
+                <div class="question-card" id="${fieldId}" data-field-type="${fieldType}">
+                    <div class="question-header">
+                        <div class="flex-grow-1 d-flex align-items-center">
+                            <span class="drag-handle">
+                                <i class="fa-solid fa-grip-vertical"></i>
+                            </span>
+                            <input type="text" 
+                                   class="question-input flex-grow-1" 
+                                   placeholder="Question" 
+                                   data-field="label"
+                                   onclick="selectField('${fieldId}')">
+                        </div>
+                        <select class="field-type-selector ms-3" data-field="type" onchange="changeFieldType('${fieldId}', this.value)">
+                            ${Object.keys(fieldTypeLabels).map(type => 
+                                `<option value="${type}" ${type === fieldType ? 'selected' : ''}>${fieldTypeLabels[type]}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- Title and Description Section -->
+                    <div class="field-meta-section mt-2">
+                        <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none p-0 mb-2" 
+                                onclick="toggleFieldMeta('${fieldId}')" id="${fieldId}_meta_toggle">
+                            <i class="fa-solid fa-circle-info me-1"></i>Add title & description
+                        </button>
+                        <div id="${fieldId}_meta" class="field-meta-content" style="display: none;">
+                            <input type="text" 
+                                   class="form-control form-control-sm mb-2" 
+                                   placeholder="Field title (optional)" 
+                                   data-field="title">
+                            <textarea class="form-control form-control-sm" 
+                                      rows="2" 
+                                      placeholder="Field description (optional)" 
+                                      data-field="description"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="question-body">
+                        ${getFieldBodyHtml(fieldType, fieldId)}
+                    </div>
+                    
+                    <div class="question-footer">
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none me-2" onclick="duplicateField('${fieldId}')">
+                            <i class="fa-solid fa-copy me-1"></i>Duplicate
+                        </button>
+                        <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none me-3" onclick="deleteField('${fieldId}')">
+                            <i class="fa-solid fa-trash me-1"></i>Delete
+                        </button>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="${fieldId}_required" data-field="required">
+                            <label class="form-check-label" for="${fieldId}_required">Required</label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function getFieldBodyHtml(fieldType, fieldId) {
+            switch(fieldType) {
+                case 'text':
+                    return `
+                        <input type="text" class="form-control mt-2" placeholder="Short answer text" disabled>
+                        <div class="mt-2">
+                            <label class="form-label text-muted small">Validation Pattern</label>
+                            <select class="form-select form-select-sm" data-field="validation">
+                                <option value="">No validation</option>
+                                <option value="text-only">Text only (letters and spaces)</option>
+                                <option value="letters-only">Letters only (no spaces)</option>
+                                <option value="alphanumeric">Letters and numbers</option>
+                            </select>
+                        </div>
+                    `;
+                case 'email':
+                case 'tel':
+                    return `<input type="text" class="form-control mt-2" placeholder="Short answer text" disabled>`;
+                case 'number':
+                    return `
+                        <input type="text" class="form-control mt-2" placeholder="Number" disabled>
+                        <div class="mt-2">
+                            <label class="form-label text-muted small">Validation Pattern</label>
+                            <select class="form-select form-select-sm" data-field="validation">
+                                <option value="number">Numbers only</option>
+                                <option value="integer">Whole numbers only</option>
+                                <option value="decimal">Decimal numbers allowed</option>
+                            </select>
+                        </div>
+                    `;
+                    
+                case 'textarea':
+                    return `<textarea class="form-control mt-2" rows="3" placeholder="Long answer text" disabled></textarea>`;
+                    
+                case 'radio':
+                case 'checkbox':
+                case 'select':
+                    return `
+                        <div class="options-list mt-2" id="${fieldId}_options">
+                            <!-- Options will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-link mt-2" onclick="addOption('${fieldId}')">
+                            <i class="fa-solid fa-plus me-1"></i>Add option
+                        </button>
+                    `;
+                    
+                case 'date':
+                    return `<input type="date" class="form-control mt-2" disabled>`;
+                    
+                case 'time':
+                    return `<input type="time" class="form-control mt-2" disabled>`;
+                    
+                case 'datetime-local':
+                    return `<input type="datetime-local" class="form-control mt-2" disabled>`;
+                    
+                case 'file':
+                    return `<input type="file" class="form-control mt-2" disabled>`;
+                    
+                default:
+                    return '';
+            }
+        }
+        
+        function addOption(fieldId, defaultValue = '') {
+            const optionsContainer = document.getElementById(`${fieldId}_options`);
+            if (!optionsContainer) return;
+            
+            const fieldType = document.getElementById(fieldId).dataset.fieldType;
+            const optionCount = optionsContainer.children.length + 1;
+            const optionId = `${fieldId}_option_${optionCount}`;
+            
+            const iconClass = fieldType === 'radio' ? 'fa-circle' : (fieldType === 'checkbox' ? 'fa-square' : 'fa-list');
+            
+            const optionHtml = `
+                <div class="option-item" id="${optionId}">
+                    <i class="fa-regular ${iconClass} field-type-icon"></i>
+                    <input type="text" 
+                           class="option-input" 
+                           placeholder="Option ${optionCount}" 
+                           value="${defaultValue}"
+                           data-option="label">
+                    <button type="button" class="btn btn-sm btn-link text-danger" onclick="deleteOption('${optionId}')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            `;
+            
+            optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
+        }
+        
+        function deleteOption(optionId) {
+            document.getElementById(optionId)?.remove();
+        }
+        
+        function toggleFieldMeta(fieldId) {
+            const metaContent = document.getElementById(`${fieldId}_meta`);
+            const toggleBtn = document.getElementById(`${fieldId}_meta_toggle`);
+            
+            if (metaContent.style.display === 'none') {
+                metaContent.style.display = 'block';
+                toggleBtn.innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Hide title & description';
+            } else {
+                metaContent.style.display = 'none';
+                toggleBtn.innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Add title & description';
+            }
+        }
+        
+        function changeFieldType(fieldId, newType) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+            
+            field.dataset.fieldType = newType;
+            const questionBody = field.querySelector('.question-body');
+            questionBody.innerHTML = getFieldBodyHtml(newType, fieldId);
+            
+            // Add default option for choice fields
+            if (['radio', 'checkbox', 'select'].includes(newType)) {
+                addOption(fieldId, 'Option 1');
+            }
+        }
+        
+        function selectField(fieldId) {
+            document.querySelectorAll('.question-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.classList.add('selected');
+                selectedFieldId = fieldId;
+            }
+        }
+        
+        function duplicateField(fieldId) {
+            const originalField = document.getElementById(fieldId);
+            if (!originalField) return;
+            
+            fieldIdCounter++;
+            const newFieldId = 'field_' + fieldIdCounter;
+            const fieldType = originalField.dataset.fieldType;
+            
+            const newFieldHtml = createFieldHtml(newFieldId, fieldType);
+            originalField.insertAdjacentHTML('afterend', newFieldHtml);
+            
+            const originalLabel = originalField.querySelector('[data-field="label"]').value;
+            const newField = document.getElementById(newFieldId);
+            newField.querySelector('[data-field="label"]').value = originalLabel + ' (Copy)';
+            
+            if (['radio', 'checkbox', 'select'].includes(fieldType)) {
+                const originalOptions = originalField.querySelectorAll('[data-option="label"]');
+                originalOptions.forEach(opt => {
+                    addOption(newFieldId, opt.value);
+                });
+            }
+        }
+        
+        function deleteField(fieldId) {
+            if (confirm('Are you sure you want to delete this question?')) {
+                document.getElementById(fieldId)?.remove();
+            }
+        }
+        
+        function addSectionBreak() {
+            fieldIdCounter++;
+            const sectionId = 'section_' + fieldIdCounter;
+            
+            const sectionHtml = `
+                <div class="my-4 p-4 bg-white rounded shadow-sm" id="${sectionId}" data-section-break="true">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-muted mb-0">
+                            <i class="fa-solid fa-grip-lines me-2"></i>Section Break
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-link text-danger" onclick="document.getElementById('${sectionId}').remove()">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                    <input type="text" class="form-control mb-2" placeholder="Section Title (optional)" data-section="title">
+                    <textarea class="form-control" rows="2" placeholder="Section Description (optional)" data-section="description"></textarea>
+                </div>
+            `;
+            
+            document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', sectionHtml);
+        }
+        
+        function updateFieldOrders() {
+            const fields = document.querySelectorAll('.question-card');
+            fields.forEach((field, index) => {
+                field.dataset.order = index;
+            });
+        }
+        
+        function previewForm() {
+            const formData = collectFormData();
+            const previewWindow = window.open('', '_blank');
+            previewWindow.document.write(generatePreviewHtml(formData));
+        }
+        
+        function collectFormData() {
+            const formName = document.getElementById('formName').value;
+            const formDescription = document.getElementById('formDescription').value;
+            const formKey = document.getElementById('formKey').value;
+            const formCategory = document.getElementById('formCategory').value;
+            const formIsActive = document.getElementById('formIsActive').checked;
+            const formDisplayOrder = document.getElementById('formDisplayOrder').value;
+            const showInAppointmentFlow = document.getElementById('showInAppointmentFlow').checked;
+            const minAge = document.getElementById('minAge').value;
+            const maxAge = document.getElementById('maxAge').value;
+            const formIconClass = document.getElementById('formIconClass').value;
+            const formSuccessMessage = document.getElementById('formSuccessMessage').value;
+            const formRedirectUrl = document.getElementById('formRedirectUrl').value;
+            
+            const fields = [];
+            const container = document.getElementById('questionsContainer');
+            const allElements = container.children;
+            
+            Array.from(allElements).forEach((element, index) => {
+                // Check if it's a section break
+                if (element.dataset.sectionBreak === 'true') {
+                    const sectionTitle = element.querySelector('[data-section="title"]')?.value || '';
+                    const sectionDescription = element.querySelector('[data-section="description"]')?.value || '';
+                    
+                    fields.push({
+                        fieldType: 'section',
+                        fieldLabel: sectionTitle,
+                        description: sectionDescription,
+                        displayOrder: index
+                    });
+                }
+                // Check if it's a question card
+                else if (element.classList.contains('question-card')) {
+                    const fieldId = element.id;
+                    const fieldType = element.dataset.fieldType;
+                    const fieldLabel = element.querySelector('[data-field="label"]').value;
+                    const isRequired = element.querySelector('[data-field="required"]').checked;
+                    const existingId = element.dataset.existingId || 0;
+                    
+                    // Get title and description
+                    const fieldTitle = element.querySelector('[data-field="title"]')?.value || '';
+                    const fieldDescription = element.querySelector('[data-field="description"]')?.value || '';
+                    
+                    // Get validation pattern
+                    const validationPattern = element.querySelector('[data-field="validation"]')?.value || '';
+                    
+                    const field = {
+                        formFieldId: parseInt(existingId),
+                        fieldLabel: fieldLabel || 'Untitled Question',
+                        fieldName: (fieldLabel || 'field').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
+                        fieldType: fieldType,
+                        isRequired: isRequired,
+                        displayOrder: index,
+                        title: fieldTitle,
+                        description: fieldDescription,
+                        validationPattern: validationPattern,
+                        options: []
+                    };
+                    
+                    if (['radio', 'checkbox', 'select'].includes(fieldType)) {
+                        element.querySelectorAll('[data-option="label"]').forEach((optionInput, optIndex) => {
+                            const optionLabel = optionInput.value || `Option ${optIndex + 1}`;
+                            field.options.push({
+                                optionLabel: optionLabel,
+                                optionValue: optionLabel.toLowerCase().replace(/\s+/g, '_'),
+                                displayOrder: optIndex
+                            });
+                        });
+                    }
+                    
+                    fields.push(field);
+                }
+            });
+            
+            return {
+                formTemplateId: formTemplateId,
+                formName: formName || 'Untitled Form',
+                formDescription: formDescription,
+                formKey: formKey || 'untitled-form',
+                category: formCategory,
+                isActive: formIsActive,
+                displayOrder: parseInt(formDisplayOrder) || 0,
+                showInAppointmentFlow: showInAppointmentFlow,
+                minAge: minAge ? parseInt(minAge) : null,
+                maxAge: maxAge ? parseInt(maxAge) : null,
+                iconClass: formIconClass,
+                successMessage: formSuccessMessage,
+                redirectUrl: formRedirectUrl,
+                fields: fields
+            };
+        }
+        
+        function generatePreviewHtml(formData) {
+            // Split fields into sections (pages) based on section breaks
+            let sections = [];
+            let currentSection = {
+                title: '',
+                description: '',
+                fields: []
+            };
+            
+            formData.fields.forEach(field => {
+                if (field.fieldType === 'section') {
+                    // Start a new section
+                    if (currentSection.fields.length > 0) {
+                        sections.push(currentSection);
+                    }
+                    currentSection = {
+                        title: field.fieldLabel || 'Untitled Section',
+                        description: field.description || '',
+                        fields: []
+                    };
+                } else {
+                    currentSection.fields.push(field);
+                }
+            });
+            
+            // Add the last section
+            if (currentSection.fields.length > 0) {
+                sections.push(currentSection);
+            }
+            
+            // If no sections (no section breaks), treat all as one section
+            if (sections.length === 0) {
+                sections.push({
+                    title: '',
+                    description: '',
+                    fields: formData.fields.filter(f => f.fieldType !== 'section')
+                });
+            }
+            
+            // Generate HTML for multi-step form if there are multiple sections
+            const isMultiStep = sections.length > 1;
+            let sectionsHtml = '';
+            
+            sections.forEach((section, sectionIndex) => {
+                let fieldsHtml = '';
+                
+                // Add section header if it has a title
+                if (section.title && isMultiStep) {
+                    fieldsHtml += `
+                        <div class="section-header mb-4">
+                            <h3 class="text-primary mb-2">
+                                <i class="fa-solid fa-clipboard-list me-2"></i>${section.title}
+                            </h3>
+                            ${section.description ? `<p class="text-muted">${section.description}</p>` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Generate fields for this section
+                section.fields.forEach(field => {
+                    let fieldHtml = `
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                ${field.fieldLabel}
+                                ${field.isRequired ? '<span class="text-danger">*</span>' : ''}
+                            </label>
+                    `;
+                    
+                    switch(field.fieldType) {
+                        case 'text':
+                        case 'email':
+                        case 'tel':
+                        case 'number':
+                            fieldHtml += `<input type="${field.fieldType}" class="form-control" ${field.isRequired ? 'required' : ''}>`;
+                            break;
+                            
+                        case 'textarea':
+                            fieldHtml += `<textarea class="form-control" rows="3" ${field.isRequired ? 'required' : ''}></textarea>`;
+                            break;
+                            
+                        case 'radio':
+                            field.options.forEach((opt, idx) => {
+                                fieldHtml += `
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="${field.fieldName}" id="${field.fieldName}_${idx}" value="${opt.optionValue}" ${field.isRequired ? 'required' : ''}>
+                                        <label class="form-check-label" for="${field.fieldName}_${idx}">${opt.optionLabel}</label>
+                                    </div>
+                                `;
+                            });
+                            break;
+                            
+                        case 'checkbox':
+                            field.options.forEach((opt, idx) => {
+                                fieldHtml += `
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="${field.fieldName}[]" id="${field.fieldName}_${idx}" value="${opt.optionValue}">
+                                        <label class="form-check-label" for="${field.fieldName}_${idx}">${opt.optionLabel}</label>
+                                    </div>
+                                `;
+                            });
+                            break;
+                            
+                        case 'select':
+                            fieldHtml += `<select class="form-select" ${field.isRequired ? 'required' : ''}>
+                                <option value="">Choose...</option>`;
+                            field.options.forEach(opt => {
+                                fieldHtml += `<option value="${opt.optionValue}">${opt.optionLabel}</option>`;
+                            });
+                            fieldHtml += `</select>`;
+                            break;
+                            
+                        case 'date':
+                            fieldHtml += `<input type="date" class="form-control" ${field.isRequired ? 'required' : ''}>`;
+                            break;
+                            
+                        case 'time':
+                            fieldHtml += `<input type="time" class="form-control" ${field.isRequired ? 'required' : ''}>`;
+                            break;
+                            
+                        case 'datetime-local':
+                            fieldHtml += `<input type="datetime-local" class="form-control" ${field.isRequired ? 'required' : ''}>`;
+                            break;
+                            
+                        case 'file':
+                            fieldHtml += `<input type="file" class="form-control" ${field.isRequired ? 'required' : ''}>`;
+                            break;
+                    }
+                    
+                    fieldHtml += `</div>`;
+                    fieldsHtml += fieldHtml;
+                });
+                
+                // Wrap section in a page div
+                sectionsHtml += `
+                    <div class="form-page" data-page="${sectionIndex}" style="display: ${sectionIndex === 0 ? 'block' : 'none'};">
+                        ${fieldsHtml}
+                    </div>
+                `;
+            });
+            
+            // Generate progress indicator HTML for multi-step
+            let progressHtml = '';
+            if (isMultiStep) {
+                progressHtml = '<div class="progress-indicator mb-4"><div class="d-flex justify-content-between align-items-center">';
+                sections.forEach((section, idx) => {
+                    const isActive = idx === 0 ? 'active' : '';
+                    const stepTitle = section.title || `Step ${idx + 1}`;
+                    progressHtml += `
+                        <div class="step ${isActive}" data-step="${idx}">
+                            <div class="step-number">${idx + 1}</div>
+                            <div class="step-title">${stepTitle}</div>
+                        </div>
+                    `;
+                    if (idx < sections.length - 1) {
+                        progressHtml += '<div class="step-line"></div>';
+                    }
+                });
+                progressHtml += '</div></div>';
+            }
+            
+            // Generate navigation buttons HTML
+            let navigationHtml = '';
+            if (isMultiStep) {
+                navigationHtml = `
+                    <div class="form-navigation mt-4 d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" id="prevBtn" onclick="changeStep(-1)" style="display: none;">
+                            <i class="fa-solid fa-arrow-left me-2"></i>Previous
+                        </button>
+                        <div></div>
+                        <button type="button" class="btn btn-primary" id="nextBtn" onclick="changeStep(1)" style="background: #ff8c42; border-color: #ff8c42;">
+                            Next<i class="fa-solid fa-arrow-right ms-2"></i>
+                        </button>
+                        <button type="submit" class="btn btn-success" id="submitBtn" style="display: none;">
+                            <i class="fa-solid fa-check me-2"></i>Submit
+                        </button>
+                    </div>
+                `;
+            } else {
+                navigationHtml = `
+                    <button type="submit" class="btn btn-primary mt-4" style="background: #ff8c42; border-color: #ff8c42;">
+                        <i class="fa-solid fa-check me-2"></i>Submit
+                    </button>
+                `;
+            }
+            
+            const htmlContent = '<!DOCTYPE html>' +
+                '<html>' +
+                '<head>' +
+                    '<title>' + formData.formName + ' - Preview</title>' +
+                    '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">' +
+                    '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">' +
+                    '<style>' +
+                        'body { background: #f8f9fa; padding: 40px 20px; }' +
+                        '.form-container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-top: 10px solid #ff8c42; }' +
+                        '.progress-indicator { margin-bottom: 30px; }' +
+                        '.step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }' +
+                        '.step-number { width: 40px; height: 40px; border-radius: 50%; background: #e9ecef; color: #6c757d; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 8px; border: 2px solid #dee2e6; transition: all 0.3s; }' +
+                        '.step.active .step-number { background: #ff8c42; color: white; border-color: #ff8c42; }' +
+                        '.step.completed .step-number { background: #10b981; color: white; border-color: #10b981; }' +
+                        '.step-title { font-size: 0.85rem; color: #6c757d; text-align: center; }' +
+                        '.step.active .step-title { color: #ff8c42; font-weight: 600; }' +
+                        '.step-line { flex: 1; height: 2px; background: #dee2e6; margin: 0 10px; align-self: flex-start; margin-top: 20px; }' +
+                        '.step.completed ~ .step .step-line { background: #10b981; }' +
+                        '.form-page { animation: fadeIn 0.3s; }' +
+                        '@@keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }' +
+                        '.section-header { padding: 20px; background: linear-gradient(135deg, #fff5f0 0%, #ffe8db 100%); border-left: 4px solid #ff8c42; border-radius: 8px; margin-bottom: 30px; }' +
+                        '.section-header h3 { color: #ff8c42; margin: 0 0 8px 0; }' +
+                        '.section-header p { margin: 0; color: #6c757d; }' +
+                    '</style>' +
+                '</head>' +
+                '<body>' +
+                    '<div class="form-container">' +
+                        '<h2 class="mb-3">' + formData.formName + '</h2>' +
+                        (formData.formDescription ? '<p class="text-muted mb-4">' + formData.formDescription + '</p>' : '') +
+                        '<hr class="mb-4">' +
+                        progressHtml +
+                        '<form id="multiStepForm">' +
+                            sectionsHtml +
+                            navigationHtml +
+                        '</form>' +
+                    '</div>' +
+                    '<script>' +
+                        'let currentStep = 0;' +
+                        'const totalSteps = ' + sections.length + ';' +
+                        'function showStep(step) {' +
+                            'const pages = document.querySelectorAll(".form-page");' +
+                            'const steps = document.querySelectorAll(".step");' +
+                            'pages.forEach((page, index) => { page.style.display = index === step ? "block" : "none"; });' +
+                            'steps.forEach((stepEl, index) => {' +
+                                'stepEl.classList.remove("active", "completed");' +
+                                'if (index < step) { stepEl.classList.add("completed"); }' +
+                                'else if (index === step) { stepEl.classList.add("active"); }' +
+                            '});' +
+                            'const prevBtn = document.getElementById("prevBtn");' +
+                            'const nextBtn = document.getElementById("nextBtn");' +
+                            'const submitBtn = document.getElementById("submitBtn");' +
+                            'if (prevBtn) prevBtn.style.display = step === 0 ? "none" : "block";' +
+                            'if (nextBtn) nextBtn.style.display = step === totalSteps - 1 ? "none" : "block";' +
+                            'if (submitBtn) submitBtn.style.display = step === totalSteps - 1 ? "block" : "none";' +
+                        '}' +
+                        'function changeStep(direction) {' +
+                            'currentStep += direction;' +
+                            'if (currentStep < 0) currentStep = 0;' +
+                            'if (currentStep >= totalSteps) currentStep = totalSteps - 1;' +
+                            'showStep(currentStep);' +
+                        '}' +
+                        'document.getElementById("multiStepForm")?.addEventListener("submit", function(e) {' +
+                            'e.preventDefault();' +
+                            'alert("Form submitted! (This is a preview)");' +
+                        '});' +
+                        (isMultiStep ? 'showStep(0);' : '') +
+                    '<' + '/script>' +
+                '<' + '/body>' +
+                '<' + '/html>';
+            
+            return htmlContent;
+        }
+        
+        async function saveForm() {
+            const formData = collectFormData();
+            
+            // Validate
+            if (!formData.formName) {
+                alert('Please enter a form name');
+                return;
+            }
+            
+            if (!formData.formKey) {
+                alert('Please enter a form key');
+                return;
+            }
+            
+            if (formData.fields.length === 0) {
+                alert('Please add at least one field to the form');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/Admin/FormBuilder?handler=SaveForm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    alert('Form saved successfully!');
+                    window.location.href = '/Admin/FormManagement';
+                } else {
+                    const error = await response.text();
+                    alert('Error saving form: ' + error);
+                }
+            } catch (error) {
+                alert('Error saving form: ' + error.message);
+            }
+        }
+        
+        // Auto-generate form key from form name
+        document.getElementById('formName').addEventListener('input', function(e) {
+            const formKeyInput = document.getElementById('formKey');
+            if (!formTemplateId && (!formKeyInput.value || formKeyInput.dataset.autoGenerated === 'true')) {
+                const key = e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-+|-+$/g, '');
+                formKeyInput.value = key;
+                formKeyInput.dataset.autoGenerated = 'true';
+            }
+        });
+        
+        document.getElementById('formKey').addEventListener('input', function() {
+            this.dataset.autoGenerated = 'false';
+        });
+    </script>
+}
+
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+

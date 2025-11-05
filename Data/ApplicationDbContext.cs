@@ -67,6 +67,12 @@ namespace Barangay.Data
         public DbSet<UserSuspension> UserSuspensions { get; set; }
         public DbSet<FamilyNumberCounter> FamilyNumberCounters { get; set; }
         public DbSet<AuditTrail> AuditTrails { get; set; }
+        
+        // Form CMS models
+        public DbSet<FormTemplate> FormTemplates { get; set; }
+        public DbSet<FormField> FormFields { get; set; }
+        public DbSet<FormFieldOption> FormFieldOptions { get; set; }
+        public DbSet<FormSubmission> FormSubmissions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -476,6 +482,55 @@ namespace Barangay.Data
             
             builder.Entity<AuditTrail>()
                 .HasIndex(at => at.ActionType);
+
+            // Configure Form CMS relationships
+            builder.Entity<FormField>()
+                .HasOne(ff => ff.FormTemplate)
+                .WithMany(ft => ft.FormFields)
+                .HasForeignKey(ff => ff.FormTemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<FormFieldOption>()
+                .HasOne(ffo => ffo.FormField)
+                .WithMany(ff => ff.FormFieldOptions)
+                .HasForeignKey(ffo => ffo.FormFieldId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<FormSubmission>()
+                .HasOne(fs => fs.FormTemplate)
+                .WithMany(ft => ft.FormSubmissions)
+                .HasForeignKey(fs => fs.FormTemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<FormSubmission>()
+                .HasOne(fs => fs.User)
+                .WithMany()
+                .HasForeignKey(fs => fs.UserId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            // Configure indexes for Form CMS
+            builder.Entity<FormTemplate>()
+                .HasIndex(ft => ft.FormKey)
+                .IsUnique();
+
+            builder.Entity<FormTemplate>()
+                .HasIndex(ft => ft.IsActive);
+
+            builder.Entity<FormField>()
+                .HasIndex(ff => ff.FormTemplateId);
+
+            builder.Entity<FormFieldOption>()
+                .HasIndex(ffo => ffo.FormFieldId);
+
+            builder.Entity<FormSubmission>()
+                .HasIndex(fs => fs.FormTemplateId);
+
+            builder.Entity<FormSubmission>()
+                .HasIndex(fs => fs.UserId);
+
+            builder.Entity<FormSubmission>()
+                .HasIndex(fs => fs.SubmittedAt);
         }
     }
 }

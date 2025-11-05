@@ -75,6 +75,17 @@ namespace Barangay.Pages
 
         // Default doctor used when there's no doctor selection on the UI
         public string DefaultDoctorId { get; set; } = string.Empty;
+        
+        // Dynamic Forms for this patient
+        public List<DynamicFormInfo> AvailableDynamicForms { get; set; } = new();
+        
+        public class DynamicFormInfo
+        {
+            public string FormName { get; set; }
+            public string IconClass { get; set; }
+            public int? MinAge { get; set; }
+            public int? MaxAge { get; set; }
+        }
 
         [BindProperty]
         public bool BookingSuccess { get; set; }
@@ -206,6 +217,9 @@ namespace Barangay.Pages
                 DefaultDoctorId = Doctors.FirstOrDefault()?.UserId ?? string.Empty;
                 
                 _logger.LogInformation($"BookAppointment OnGetAsync - Found {Doctors.Count} doctors, DefaultDoctorId: {DefaultDoctorId}");
+
+                // Load dynamic forms that will be shown in appointment workflow
+                await LoadAvailableDynamicFormsAsync();
 
                 return Page();
             }
@@ -379,6 +393,10 @@ namespace Barangay.Pages
                     relationship = relationshipValue.ToString();
                 }
                 
+                _logger.LogInformation("===== BOOKING FOR OTHER SERVER-SIDE DEBUG =====");
+                _logger.LogInformation("BookingForOther detected: {BookingForOther}", bookingForOther);
+                _logger.LogInformation("Relationship received: {Relationship}", relationship ?? "NULL");
+                
                 // Extract form data
                 var bookingModel = new AppointmentBookingViewModel();
 
@@ -461,12 +479,15 @@ namespace Barangay.Pages
                     bookingModel.DoctorId = doctorIdValue;
                 }
                 
-                // Extract family number from form
-                string familyNumber = null;
-                if (Request.Form.TryGetValue("familyNumber", out var familyNumberValue))
+                // Extract family number from model
+                string familyNumber = BookingModel.FamilyNumber;
+                _logger.LogInformation("Received family number from model: {FamilyNumber}", familyNumber);
+                
+                // Also try from form as fallback for compatibility
+                if (string.IsNullOrEmpty(familyNumber) && Request.Form.TryGetValue("familyNumber", out var familyNumberValue))
                 {
                     familyNumber = familyNumberValue.ToString();
-                    _logger.LogInformation("Received family number from form: {FamilyNumber}", familyNumber);
+                    _logger.LogInformation("Received family number from form (fallback): {FamilyNumber}", familyNumber);
                 }
                 
                 if (bookingForOther)
@@ -671,16 +692,27 @@ namespace Barangay.Pages
                 }
 
                 DateTime appointmentDate = DateTime.Parse(bookingModel.AppointmentDate);
-                // Convert from 12-hour format (e.g. "8:00 AM") to TimeSpan
+                
+                // Convert from 12-hour format to TimeSpan
+                // Handle both single time ("8:00 AM") and time range ("8:00 AM - 8:06 AM")
                 TimeSpan selectedApptTime;
-                if (DateTime.TryParse(bookingModel.TimeSlot, out DateTime parsedTime))
+                string timeSlotToParse = bookingModel.TimeSlot;
+                
+                // If it's a time range (contains " - "), extract the start time
+                if (timeSlotToParse.Contains(" - "))
+                {
+                    timeSlotToParse = timeSlotToParse.Split(new[] { " - " }, StringSplitOptions.None)[0].Trim();
+                    _logger.LogInformation($"Extracted start time from range: {bookingModel.TimeSlot} -> {timeSlotToParse}");
+                }
+                
+                if (DateTime.TryParse(timeSlotToParse, out DateTime parsedTime))
                 {
                     selectedApptTime = parsedTime.TimeOfDay;
-                    _logger.LogInformation($"Successfully parsed time: {bookingModel.TimeSlot} to {selectedApptTime}");
+                    _logger.LogInformation($"Successfully parsed time: {timeSlotToParse} to {selectedApptTime}");
                 }
                 else
                 {
-                    _logger.LogError($"Failed to parse time string: {bookingModel.TimeSlot}");
+                    _logger.LogError($"Failed to parse time string: {timeSlotToParse} (original: {bookingModel.TimeSlot})");
                     return -1; // Indicate failure with a negative value
                 }
                 string selectedConsultationType = bookingModel.ConsultationType ?? "medical";
@@ -692,15 +724,42 @@ namespace Barangay.Pages
                     throw new InvalidOperationException("Time slot conflict.");
                 }
 
-                var patientName = bookingForOther ? bookingModel.FullName : user.FullName;
+                // FIXED: Store patient data differently based on who the appointment is for
+                string patientName;
+                string? dependentFullName = null;
+                int? dependentAge = null;
+                DateTime? dependentBirthday = null;
+                
+                if (bookingForOther)
+                {
+                    // For dependent bookings: store booker's name in PatientName, dependent's info in Dependent* fields
+                    patientName = user.FullName; // Booker's name
+                    dependentFullName = bookingModel.FullName; // Dependent's name
+                    dependentAge = bookingModel.Age;
+                    dependentBirthday = bookingModel.Birthday;
+                }
+                else
+                {
+                    // For self bookings: only PatientName is used
+                    patientName = user.FullName;
+                }
+                
                 // Use the age from the form if available, otherwise calculate from birth date
                 var userBirthDate = user.BirthDate ?? DateTime.MinValue;
                 var patientAge = bookingForOther ? bookingModel.Age : 
                     (bookingModel.Age > 0 ? bookingModel.Age : CalculateAge(userBirthDate));
                 var patientBirthday = bookingForOther ? bookingModel.Birthday : userBirthDate;
 
-                _logger.LogInformation("Appointment creation - bookingForOther: {BookingForOther}, patientName: {PatientName}, patientAge: {PatientAge}, patientBirthday: {PatientBirthday}", 
-                    bookingForOther, patientName, patientAge, patientBirthday);
+                _logger.LogInformation("===== APPOINTMENT CREATION DEBUG =====");
+                _logger.LogInformation("BookingForOther: {BookingForOther}", bookingForOther);
+                _logger.LogInformation("PatientName (Booker): {PatientName}", patientName);
+                _logger.LogInformation("DependentFullName: {DependentFullName}", dependentFullName ?? "NULL");
+                _logger.LogInformation("DependentAge: {DependentAge}", dependentAge?.ToString() ?? "NULL");
+                _logger.LogInformation("AgeValue (Person receiving care): {AgeValue}", patientAge);
+                _logger.LogInformation("Birthday: {Birthday}", patientBirthday);
+                _logger.LogInformation("Relationship: {Relationship}", bookingModel.Relationship ?? "NULL");
+                _logger.LogInformation("FamilyNumber: {FamilyNumber}", familyNumber ?? "NULL");
+                _logger.LogInformation("===== END APPOINTMENT CREATION DEBUG =====");
 
                 // Use the selected doctor from the booking model
                 var doctor = await _context.Users.FindAsync(bookingModel.DoctorId);
@@ -715,12 +774,14 @@ namespace Barangay.Pages
                 {
                     ApplicationUserId = userId, // Link to the user who booked the appointment
                     // PatientId always points to the logged-in user (booker) to satisfy FK constraint
-                    // The actual patient details (name, age, DOB) are stored in PatientName, AgeValue, DateOfBirth fields
-                    // BookingForOther flag indicates if this appointment is for someone else
+                    // PatientName = booker's name (logged-in user)
+                    // DependentFullName = dependent's name (if booking for someone else)
                     PatientId = userId,
-                    PatientName = patientName,
-                    AgeValue = patientAge,
-                    DateOfBirth = patientBirthday,
+                    PatientName = patientName, // Always the booker's name
+                    DependentFullName = dependentFullName, // Dependent's name (null if booking for self)
+                    DependentAge = dependentAge, // Dependent's age (null if booking for self)
+                    AgeValue = patientAge, // Age of the person receiving care (dependent or self)
+                    DateOfBirth = patientBirthday, // DOB of the person receiving care
                     Gender = bookingModel.Gender,
                     ContactNumber = bookingModel.PhoneNumber,
                     AppointmentDate = appointmentDate,
@@ -737,10 +798,62 @@ namespace Barangay.Pages
                 _context.Appointments.Add(newAppointment);
                 await _context.SaveChangesAsync();
                 
+                _logger.LogInformation("===== APPOINTMENT SAVED TO DATABASE =====");
+                _logger.LogInformation("Appointment ID: {AppointmentId}", newAppointment.Id);
+                _logger.LogInformation("SAVED - PatientName: {PatientName}", newAppointment.PatientName);
+                _logger.LogInformation("SAVED - DependentFullName: {DependentFullName}", newAppointment.DependentFullName ?? "NULL");
+                _logger.LogInformation("SAVED - DependentAge: {DependentAge}", newAppointment.DependentAge?.ToString() ?? "NULL");
+                _logger.LogInformation("SAVED - BookingForOther: {BookingForOther}", newAppointment.BookingForOther);
+                _logger.LogInformation("SAVED - Relationship: {Relationship}", newAppointment.Relationship ?? "NULL");
+                _logger.LogInformation("SAVED - FamilyNumber: {FamilyNumber}", newAppointment.FamilyNumber ?? "NULL");
+                _logger.LogInformation("===== END DATABASE SAVE =====");
+                
+                // Save family number to ApplicationUser record as well
                 if (!string.IsNullOrEmpty(familyNumber))
                 {
+                    if (string.IsNullOrEmpty(user.FamilyNumber))
+                    {
+                        user.FamilyNumber = familyNumber;
+                        await _userManager.UpdateAsync(user);
+                        _logger.LogInformation("Updated ApplicationUser {UserId} with family number: {FamilyNumber}", userId, familyNumber);
+                    }
+                    
                     _logger.LogInformation("Appointment created with FamilyNumber: {FamilyNumber} for {PatientName} (BookingForOther: {BookingForOther})", 
                         familyNumber, patientName, bookingForOther);
+                    
+                    // If booking for someone else, create/update FamilyMember record
+                    if (bookingForOther && !string.IsNullOrEmpty(bookingModel.Relationship))
+                    {
+                        var existingFamilyMember = await _context.FamilyMembers
+                            .FirstOrDefaultAsync(fm => fm.PatientId == userId && 
+                                                      fm.Name == patientName &&
+                                                      fm.FamilyNumber == familyNumber);
+                        
+                        if (existingFamilyMember == null)
+                        {
+                            var familyMember = new FamilyMember
+                            {
+                                PatientId = userId,
+                                UserId = userId,
+                                Name = patientName,
+                                Relationship = bookingModel.Relationship,
+                                Age = patientAge,
+                                ContactNumber = bookingModel.PhoneNumber,
+                                FamilyNumber = familyNumber,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            
+                            _context.FamilyMembers.Add(familyMember);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation("Created FamilyMember record for {Name} with family number {FamilyNumber}", 
+                                patientName, familyNumber);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("FamilyMember record already exists for {Name} with family number {FamilyNumber}", 
+                                patientName, familyNumber);
+                        }
+                    }
                 }
 
                 // AUDIT: Log appointment booking
@@ -1457,16 +1570,27 @@ namespace Barangay.Pages
                 try
                 {
                     DateTime selectedApptDate = DateTime.Parse(bookingModel.AppointmentDate);
-                    // Convert from 12-hour format (e.g. "8:00 AM") to TimeSpan
+                    
+                    // Convert from 12-hour format to TimeSpan
+                    // Handle both single time ("8:00 AM") and time range ("8:00 AM - 8:06 AM")
                     TimeSpan selectedApptTime;
-                    if (DateTime.TryParse(bookingModel.TimeSlot, out DateTime parsedTime))
+                    string timeSlotToParse = bookingModel.TimeSlot;
+                    
+                    // If it's a time range (contains " - "), extract the start time
+                    if (timeSlotToParse.Contains(" - "))
+                    {
+                        timeSlotToParse = timeSlotToParse.Split(new[] { " - " }, StringSplitOptions.None)[0].Trim();
+                        _logger.LogInformation($"[ValidateTimeSlot] Extracted start time from range: {bookingModel.TimeSlot} -> {timeSlotToParse}");
+                    }
+                    
+                    if (DateTime.TryParse(timeSlotToParse, out DateTime parsedTime))
                     {
                         selectedApptTime = parsedTime.TimeOfDay;
-                        _logger.LogInformation($"Successfully parsed time: {bookingModel.TimeSlot} to {selectedApptTime}");
+                        _logger.LogInformation($"[ValidateTimeSlot] Successfully parsed time: {timeSlotToParse} to {selectedApptTime}");
                     }
                     else
                     {
-                        _logger.LogError($"Failed to parse time string: {bookingModel.TimeSlot}");
+                        _logger.LogError($"[ValidateTimeSlot] Failed to parse time string: {timeSlotToParse} (original: {bookingModel.TimeSlot})");
                         return new JsonResult(new 
                         { 
                             success = false, 
@@ -1474,52 +1598,92 @@ namespace Barangay.Pages
                             errorType = "ValidationError" 
                         });
                     }
-                    string selectedConsultationType = bookingModel.ConsultationType ?? "medical";
 
-                    // Check for conflicts with existing appointments
-                    var existingAppointments = await _context.Appointments
-                        .Where(a => a.AppointmentDate.Date == selectedApptDate.Date &&
-                                        a.Status != AppointmentStatus.Cancelled)
-                        .Select(a => new { a.AppointmentTime, a.Type })
-                        .ToListAsync();
-
-                    foreach (var existing in existingAppointments)
+                    // Get doctor ID (use default doctor if not specified)
+                    var doctorId = bookingModel.DoctorId;
+                    if (string.IsNullOrEmpty(doctorId))
                     {
-                        int existingBuffer = GetConsultationTypeDuration(existing.Type);
-                        int newAppointmentBuffer = GetConsultationTypeDuration(selectedConsultationType);
-                        double timeDifference = Math.Abs((existing.AppointmentTime - selectedApptTime).TotalMinutes);
-
-                        if (timeDifference < (existingBuffer + newAppointmentBuffer) / 2 &&
-                            (existing.Type.Equals(selectedConsultationType, StringComparison.OrdinalIgnoreCase) ||
-                             existingBuffer + newAppointmentBuffer >= 30))
+                        // Get default doctor
+                        var defaultDoctor = await _userManager.GetUsersInRoleAsync("Doctor");
+                        if (defaultDoctor.Any())
                         {
-                            _logger.LogWarning($"Time slot conflict detected: {selectedApptTime} conflicts with existing appointment at {existing.AppointmentTime}");
-                            return new JsonResult(new
-                            {
-                                success = false,
-                                error = "This time slot has already been booked. Please select a different time.",
-                                errorType = "TimeSlotConflict"
-                            });
+                            doctorId = defaultDoctor.First().Id;
                         }
                     }
 
-                    // Also check ConsultationTimeSlots table
-                    var bookedTimeSlots = await _context.ConsultationTimeSlots
-                        .Where(cts => cts.StartTime.Date == selectedApptDate.Date && cts.IsBooked)
-                        .Select(cts => new { Time = cts.StartTime.TimeOfDay, cts.ConsultationType })
-                        .ToListAsync();
-
-                    foreach (var booked in bookedTimeSlots)
+                    if (string.IsNullOrEmpty(doctorId))
                     {
-                        int bookedBuffer = GetConsultationTypeDuration(booked.ConsultationType);
-                        int newAppointmentBuffer = GetConsultationTypeDuration(selectedConsultationType);
-                        double timeDifference = Math.Abs((booked.Time - selectedApptTime).TotalMinutes);
-
-                        if (timeDifference < (bookedBuffer + newAppointmentBuffer) / 2 &&
-                            (booked.ConsultationType.Equals(selectedConsultationType, StringComparison.OrdinalIgnoreCase) ||
-                             bookedBuffer + newAppointmentBuffer >= 30))
+                        return new JsonResult(new
                         {
-                            _logger.LogWarning($"Time slot conflict detected: {selectedApptTime} conflicts with booked time slot at {booked.Time}");
+                            success = false,
+                            error = "No doctor available for this appointment.",
+                            errorType = "ValidationError"
+                        });
+                    }
+
+                    // Use transaction to prevent race conditions
+                    using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        // Check if date is weekend and if doctor works on weekends
+                        var availability = await _context.DoctorAvailabilities
+                            .FirstOrDefaultAsync(da => da.DoctorId == doctorId);
+
+                        if (availability == null)
+                        {
+                            await transaction.RollbackAsync();
+                            return new JsonResult(new
+                            {
+                                success = false,
+                                error = "Doctor availability not configured. Please contact support.",
+                                errorType = "ValidationError"
+                            });
+                        }
+
+                        // Check if doctor is available on the selected date
+                        if (!availability.IsAvailableOnDate(selectedApptDate))
+                        {
+                            await transaction.RollbackAsync();
+                            var dayName = selectedApptDate.DayOfWeek.ToString();
+                            return new JsonResult(new
+                            {
+                                success = false,
+                                error = $"Doctor is not available on {dayName}s. Please select a different date.",
+                                errorType = "DayNotAvailable"
+                            });
+                        }
+
+                        // Check daily appointment slot cap WITH ROW LOCKING
+                        var bookedCount = await _context.Appointments
+                            .Where(a => a.DoctorId == doctorId &&
+                                       a.AppointmentDate.Date == selectedApptDate.Date &&
+                                       a.Status != AppointmentStatus.Cancelled)
+                            .CountAsync();
+
+                        _logger.LogInformation($"Checking slot availability: {bookedCount}/{availability.MaxAppointmentsPerDay} slots used");
+
+                        if (bookedCount >= availability.MaxAppointmentsPerDay)
+                        {
+                            await transaction.RollbackAsync();
+                            return new JsonResult(new
+                            {
+                                success = false,
+                                error = $"All appointment slots ({availability.MaxAppointmentsPerDay}) are fully booked for {selectedApptDate:MMM dd, yyyy}. Please select a different date.",
+                                errorType = "FullyBooked"
+                            });
+                        }
+
+                        // Check for exact time slot conflict
+                        var existingAtSameTime = await _context.Appointments
+                            .AnyAsync(a => a.DoctorId == doctorId &&
+                                          a.AppointmentDate.Date == selectedApptDate.Date &&
+                                          a.AppointmentTime == selectedApptTime &&
+                                          a.Status != AppointmentStatus.Cancelled);
+
+                        if (existingAtSameTime)
+                        {
+                            await transaction.RollbackAsync();
+                            _logger.LogWarning($"Time slot conflict detected: {selectedApptTime} already booked");
                             return new JsonResult(new
                             {
                                 success = false,
@@ -1527,6 +1691,16 @@ namespace Barangay.Pages
                                 errorType = "TimeSlotConflict"
                             });
                         }
+
+                        // Commit transaction - slot is valid
+                        await transaction.CommitAsync();
+                        _logger.LogInformation($"Slot validation passed: {selectedApptDate:MMM dd, yyyy} at {selectedApptTime}");
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        _logger.LogError(ex, "Error during transaction-safe slot validation");
+                        throw;
                     }
                 }
                 catch (Exception ex)
@@ -1541,6 +1715,210 @@ namespace Barangay.Pages
                 }
             }
             return null;
+        }
+        
+        private async Task LoadAvailableDynamicFormsAsync()
+        {
+            try
+            {
+                // Get all active dynamic forms that should appear in appointment workflow
+                var dynamicForms = await _context.FormTemplates
+                    .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                    .OrderBy(f => f.DisplayOrder)
+                    .Select(f => new DynamicFormInfo
+                    {
+                        FormName = f.FormName,
+                        IconClass = f.IconClass ?? "fa-solid fa-file-medical",
+                        MinAge = f.MinAge,
+                        MaxAge = f.MaxAge
+                    })
+                    .ToListAsync();
+
+                AvailableDynamicForms = dynamicForms;
+                _logger.LogInformation($"Loaded {AvailableDynamicForms.Count} dynamic forms for booking page");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading dynamic forms for booking page");
+                AvailableDynamicForms = new List<DynamicFormInfo>();
+            }
+        }
+        
+        // API endpoint to get available forms for a specific age
+        public async Task<JsonResult> OnGetGetAvailableFormsForAgeAsync(int age)
+        {
+            try
+            {
+                _logger.LogInformation($"Getting available forms for age: {age}");
+                
+                // Get all active dynamic forms that should appear in appointment workflow
+                var forms = await _context.FormTemplates
+                    .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                    .OrderBy(f => f.DisplayOrder)
+                    .ToListAsync();
+                
+                // Filter by age restrictions
+                var availableForms = forms.Where(f => 
+                {
+                    bool isAgeAppropriate = true;
+                    
+                    if (f.MinAge.HasValue && age < f.MinAge.Value)
+                        isAgeAppropriate = false;
+                    
+                    if (f.MaxAge.HasValue && age > f.MaxAge.Value)
+                        isAgeAppropriate = false;
+                    
+                    return isAgeAppropriate;
+                })
+                .Select(f => new 
+                {
+                    formKey = f.FormKey,
+                    formName = f.FormName,
+                    iconClass = f.IconClass ?? "fa-solid fa-file-medical",
+                    minAge = f.MinAge,
+                    maxAge = f.MaxAge
+                })
+                .ToList();
+                
+                _logger.LogInformation($"Found {availableForms.Count} available forms for age {age}");
+                
+                return new JsonResult(new 
+                { 
+                    success = true, 
+                    forms = availableForms,
+                    message = availableForms.Any() 
+                        ? $"Found {availableForms.Count} form(s)"
+                        : "No forms available for this age"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting available forms for age {age}");
+                return new JsonResult(new { success = false, error = ex.Message });
+            }
+        }
+
+        // NEW: Search for family members by name
+        public async Task<JsonResult> OnGetSearchFamilyMembersAsync(string searchTerm)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
+                {
+                    return new JsonResult(new { success = true, members = new List<object>() });
+                }
+
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return new JsonResult(new { success = false, error = "User not found" });
+                }
+
+                // Search in ApplicationUsers (AspNetUsers table)
+                var searchTermLower = searchTerm.ToLower();
+                var matchingUsers = await _context.Users
+                    .Where(u => !string.IsNullOrEmpty(u.FamilyNumber) &&
+                               (u.FirstName.ToLower().Contains(searchTermLower) ||
+                                u.LastName.ToLower().Contains(searchTermLower) ||
+                                (u.FirstName + " " + u.LastName).ToLower().Contains(searchTermLower)))
+                    .Select(u => new
+                    {
+                        fullName = u.FirstName + " " + u.LastName,
+                        familyNumber = u.FamilyNumber,
+                        relationship = u.Id == user.Id ? "You" : "Family Member"
+                    })
+                    .Take(10)
+                    .ToListAsync();
+
+                // Also search in Patients table (for dependents/family members)
+                var matchingPatients = await _context.Patients
+                    .Where(p => !string.IsNullOrEmpty(p.FamilyNumber) &&
+                                p.FullName.ToLower().Contains(searchTermLower))
+                    .Select(p => new
+                    {
+                        fullName = p.FullName,
+                        familyNumber = p.FamilyNumber,
+                        relationship = "Family Member"
+                    })
+                    .Take(10)
+                    .ToListAsync();
+
+                // Combine and deduplicate results
+                var allMembers = matchingUsers
+                    .Concat(matchingPatients)
+                    .GroupBy(m => new { m.fullName, m.familyNumber })
+                    .Select(g => g.First())
+                    .OrderBy(m => m.fullName)
+                    .Take(10)
+                    .ToList();
+
+                _logger.LogInformation("Found {Count} family members matching '{SearchTerm}'", allMembers.Count, searchTerm);
+
+                return new JsonResult(new { success = true, members = allMembers });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching family members for term: {SearchTerm}", searchTerm);
+                return new JsonResult(new { success = false, error = "An error occurred while searching" });
+            }
+        }
+
+        // NEW: Generate a brand new family number
+        public async Task<JsonResult> OnPostGenerateNewFamilyNumberAsync([FromBody] GenerateNewFamilyNumberRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("=== GENERATE NEW FAMILY NUMBER REQUEST ===");
+                _logger.LogInformation("LastName: {LastName}, FirstName: {FirstName}", request.LastName, request.FirstName);
+
+                if (string.IsNullOrWhiteSpace(request.LastName))
+                {
+                    return new JsonResult(new { success = false, error = "Last name is required" });
+                }
+
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return new JsonResult(new { success = false, error = "User not found" });
+                }
+
+                // Generate a completely new family number (never reuse)
+                var newFamilyNumber = await _familyNumberService.GenerateNewFamilyNumberAsync(request.LastName);
+
+                if (string.IsNullOrWhiteSpace(newFamilyNumber))
+                {
+                    return new JsonResult(new { success = false, error = "Failed to generate family number" });
+                }
+
+                // Save to user profile
+                user.FamilyNumber = newFamilyNumber;
+                await _userManager.UpdateAsync(user);
+                _logger.LogInformation("Assigned new family number {FamilyNumber} to user {UserId}", newFamilyNumber, user.Id);
+
+                // Also update Patient record if exists
+                var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == user.Id);
+                if (patient != null)
+                {
+                    patient.FamilyNumber = newFamilyNumber;
+                    patient.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Updated Patient record with family number {FamilyNumber}", newFamilyNumber);
+                }
+
+                _logger.LogInformation("Successfully generated and assigned family number: {FamilyNumber}", newFamilyNumber);
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    familyNumber = newFamilyNumber,
+                    message = $"New family number {newFamilyNumber} has been generated."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating new family number");
+                return new JsonResult(new { success = false, error = "An error occurred while generating family number" });
+            }
         }
     }
 
@@ -1582,5 +1960,9 @@ namespace Barangay.Pages
         public List<ConsultationTimeSlot> AvailableTimeSlots { get; set; } = new List<ConsultationTimeSlot>();
     }
 
-
+    public class GenerateNewFamilyNumberRequest
+    {
+        public string LastName { get; set; }
+        public string FirstName { get; set; }
+    }
 }

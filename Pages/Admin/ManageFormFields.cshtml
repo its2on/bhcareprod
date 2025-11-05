@@ -1,0 +1,375 @@
+@page
+@model Barangay.Pages.Admin.ManageFormFieldsModel
+@{
+    ViewData["Title"] = "Manage Form Fields";
+    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fa-solid fa-list-check me-2"></i>Manage Form Fields
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a asp-page="./FormManagement">Form Management</a></li>
+                    <li class="breadcrumb-item active">@Model.FormTemplate?.FormName</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a asp-page="./FormManagement" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Forms
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.FormTemplate == null)
+    {
+        <div class="alert alert-danger">Form not found.</div>
+        return;
+    }
+
+    <!-- Form Info Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="mb-1">
+                        @if (!string.IsNullOrEmpty(Model.FormTemplate.IconClass))
+                        {
+                            <i class="@Model.FormTemplate.IconClass me-2"></i>
+                        }
+                        @Model.FormTemplate.FormName
+                    </h5>
+                    <p class="text-muted mb-0">@Model.FormTemplate.Description</p>
+                    <small class="text-muted">Form Key: <code>@Model.FormTemplate.FormKey</code></small>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFieldModal">
+                        <i class="fa-solid fa-plus me-2"></i>Add Field
+                    </button>
+                    <a asp-page="./EditForm" asp-route-id="@Model.FormTemplate.FormTemplateId" class="btn btn-outline-secondary">
+                        <i class="fa-solid fa-edit me-2"></i>Edit Form
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fields List -->
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Form Fields</h6>
+            <span class="badge bg-secondary">@Model.FormFields.Count fields</span>
+        </div>
+        <div class="card-body">
+            @if (!Model.FormFields.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fa-solid fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No fields added yet. Add your first field to get started.</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFieldModal">
+                        <i class="fa-solid fa-plus me-2"></i>Add Field
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="fieldsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="30"><i class="fa-solid fa-grip-vertical"></i></th>
+                                <th>Field Label</th>
+                                <th>Field Name</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Options</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sortableFields">
+                            @foreach (var field in Model.FormFields.OrderBy(f => f.DisplayOrder))
+                            {
+                                <tr data-field-id="@field.FormFieldId">
+                                    <td class="drag-handle" style="cursor: move;">
+                                        <i class="fa-solid fa-grip-vertical text-muted"></i>
+                                    </td>
+                                    <td>
+                                        <strong>@field.FieldLabel</strong>
+                                        @if (!string.IsNullOrEmpty(field.HelpText))
+                                        {
+                                            <br><small class="text-muted">@field.HelpText</small>
+                                        }
+                                    </td>
+                                    <td><code>@field.FieldName</code></td>
+                                    <td>
+                                        <span class="badge bg-info">@field.FieldType</span>
+                                    </td>
+                                    <td>
+                                        @if (field.IsRequired)
+                                        {
+                                            <span class="badge bg-danger">Required</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Optional</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (field.FieldType == "select" || field.FieldType == "radio" || field.FieldType == "checkbox")
+                                        {
+                                            <span class="badge bg-success">@field.FormFieldOptions.Count options</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    onclick="editField(@field.FormFieldId)"
+                                                    title="Edit Field">
+                                                <i class="fa-solid fa-edit"></i>
+                                            </button>
+                                            @if (field.FieldType == "select" || field.FieldType == "radio" || field.FieldType == "checkbox")
+                                            {
+                                                <a asp-page="./ManageFieldOptions" 
+                                                   asp-route-fieldId="@field.FormFieldId"
+                                                   class="btn btn-sm btn-outline-info" 
+                                                   title="Manage Options">
+                                                    <i class="fa-solid fa-list"></i>
+                                                </a>
+                                            }
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    onclick="deleteField(@field.FormFieldId, '@field.FieldLabel')"
+                                                    title="Delete Field">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Field Modal -->
+<div class="modal fade" id="addFieldModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="SaveField" id="fieldForm">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fa-solid fa-plus-circle me-2"></i>
+                        <span id="modalTitle">Add Field</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="FormFieldId" id="FormFieldId" value="0" />
+                    <input type="hidden" name="FormTemplateId" value="@Model.FormTemplate.FormTemplateId" />
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Field Label <span class="text-danger">*</span></label>
+                            <input type="text" name="FieldLabel" id="FieldLabel" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Field Name <span class="text-danger">*</span></label>
+                            <input type="text" name="FieldName" id="FieldName" class="form-control" 
+                                   pattern="[a-zA-Z0-9_]+" 
+                                   title="Only letters, numbers, and underscores"
+                                   required />
+                            <small class="text-muted">Used for data storage (no spaces)</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Field Type <span class="text-danger">*</span></label>
+                            <select name="FieldType" id="FieldType" class="form-select" required>
+                                <option value="">Select Type</option>
+                                <option value="text">Text Input</option>
+                                <option value="email">Email</option>
+                                <option value="tel">Phone</option>
+                                <option value="number">Number</option>
+                                <option value="date">Date</option>
+                                <option value="time">Time</option>
+                                <option value="datetime-local">Date & Time</option>
+                                <option value="textarea">Textarea</option>
+                                <option value="select">Dropdown (Select)</option>
+                                <option value="radio">Radio Buttons</option>
+                                <option value="checkbox">Checkboxes</option>
+                                <option value="file">File Upload</option>
+                                <option value="hidden">Hidden</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Field Width</label>
+                            <select name="FieldWidth" id="FieldWidth" class="form-select">
+                                <option value="col-12">Full Width (100%)</option>
+                                <option value="col-md-6">Half Width (50%)</option>
+                                <option value="col-md-4">One Third (33%)</option>
+                                <option value="col-md-3">One Quarter (25%)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">Placeholder</label>
+                            <input type="text" name="Placeholder" id="Placeholder" class="form-control" />
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">Help Text</label>
+                            <input type="text" name="HelpText" id="HelpText" class="form-control" />
+                            <small class="text-muted">Additional guidance for users</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Default Value</label>
+                            <input type="text" name="DefaultValue" id="DefaultValue" class="form-control" />
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">CSS Classes</label>
+                            <input type="text" name="CssClasses" id="CssClasses" class="form-control" />
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="IsRequired" id="IsRequired" class="form-check-input" />
+                                <label class="form-check-label" for="IsRequired">Required Field</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="IsReadOnly" id="IsReadOnly" class="form-check-input" />
+                                <label class="form-check-label" for="IsReadOnly">Read Only</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-save me-2"></i>Save Field
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Field Modal -->
+<div class="modal fade" id="deleteFieldModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the field "<strong id="fieldLabelToDelete"></strong>"?</p>
+                <p class="text-danger mb-0">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" asp-page-handler="DeleteField" id="deleteFieldForm">
+                    <input type="hidden" name="fieldId" id="fieldIdToDelete" />
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-trash me-2"></i>Delete Field
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-generate field name from label
+        document.getElementById('FieldLabel').addEventListener('input', function(e) {
+            const fieldNameInput = document.getElementById('FieldName');
+            if (!fieldNameInput.value || fieldNameInput.value === '' || fieldNameInput.dataset.autoGenerated === 'true') {
+                const name = e.target.value
+                    .replace(/[^a-zA-Z0-9\s]/g, '')
+                    .replace(/\s+/g, '_')
+                    .toLowerCase();
+                fieldNameInput.value = name;
+                fieldNameInput.dataset.autoGenerated = 'true';
+            }
+        });
+
+        document.getElementById('FieldName').addEventListener('input', function() {
+            this.dataset.autoGenerated = 'false';
+        });
+
+        // Reset modal on close
+        document.getElementById('addFieldModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('fieldForm').reset();
+            document.getElementById('FormFieldId').value = '0';
+            document.getElementById('modalTitle').textContent = 'Add Field';
+        });
+
+        // Edit field function
+        function editField(fieldId) {
+            fetch(`/Admin/ManageFormFields?handler=GetField&fieldId=${fieldId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('FormFieldId').value = data.formFieldId;
+                    document.getElementById('FieldLabel').value = data.fieldLabel;
+                    document.getElementById('FieldName').value = data.fieldName;
+                    document.getElementById('FieldType').value = data.fieldType;
+                    document.getElementById('FieldWidth').value = data.fieldWidth || 'col-12';
+                    document.getElementById('Placeholder').value = data.placeholder || '';
+                    document.getElementById('HelpText').value = data.helpText || '';
+                    document.getElementById('DefaultValue').value = data.defaultValue || '';
+                    document.getElementById('CssClasses').value = data.cssClasses || '';
+                    document.getElementById('IsRequired').checked = data.isRequired;
+                    document.getElementById('IsReadOnly').checked = data.isReadOnly;
+                    document.getElementById('modalTitle').textContent = 'Edit Field';
+                    
+                    new bootstrap.Modal(document.getElementById('addFieldModal')).show();
+                })
+                .catch(error => {
+                    alert('Error loading field data: ' + error);
+                });
+        }
+
+        // Delete field function
+        function deleteField(fieldId, fieldLabel) {
+            document.getElementById('fieldIdToDelete').value = fieldId;
+            document.getElementById('fieldLabelToDelete').textContent = fieldLabel;
+            new bootstrap.Modal(document.getElementById('deleteFieldModal')).show();
+        }
+
+        // Drag and drop reordering (basic implementation)
+        // For production, consider using a library like SortableJS
+    </script>
+}

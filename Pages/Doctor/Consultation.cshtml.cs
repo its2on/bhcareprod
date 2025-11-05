@@ -115,6 +115,11 @@ namespace Barangay.Pages.Doctor
         // Patient age for assessment type determination
         public int PatientAge { get; set; }
         
+        // Daily slot tracking properties
+        public int TotalAppointments { get; set; } = 30; // Default to 30 slots
+        public int MaxAppointmentsPerDay { get; set; } = 30;
+        public int AvailableSlots => MaxAppointmentsPerDay - (ConsultationQueue?.Count ?? 0);
+        
         // Flags to track assessment availability
         public bool HasHEEADSSSAssessment { get; set; } = false;
         public bool HasNCDAssessment { get; set; } = false;
@@ -135,7 +140,7 @@ namespace Barangay.Pages.Doctor
                 {
                     _logger.LogWarning("No authenticated user found");
                     TempData["ErrorMessage"] = "Authentication error. Please log in again.";
-                    return RedirectToPage("/Doctor/Appointments");
+                    return RedirectToPage("/Index");
                 }
 
                 _logger.LogInformation("Current user: {UserId}, Email: {Email}", currentUser.Id, currentUser.Email);
@@ -215,6 +220,25 @@ namespace Barangay.Pages.Doctor
                         .ToListAsync();
 
                     _logger.LogInformation("Found {Count} appointments for {SelectedDate}", ConsultationQueue.Count, SelectedDate);
+
+                    // Load MaxAppointmentsPerDay from doctor availability settings
+                    // currentUser is already declared at the beginning of this method (line 138)
+                    if (currentUser != null)
+                    {
+                        var availability = await _context.DoctorAvailabilities
+                            .FirstOrDefaultAsync(da => da.DoctorId == currentUser.Id);
+                        
+                        if (availability != null)
+                        {
+                            MaxAppointmentsPerDay = availability.MaxAppointmentsPerDay;
+                            TotalAppointments = availability.MaxAppointmentsPerDay;
+                            _logger.LogInformation("Loaded MaxAppointmentsPerDay: {MaxSlots} for doctor {DoctorId}", MaxAppointmentsPerDay, currentUser.Id);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No availability configuration found for doctor {DoctorId}, using default 30 slots", currentUser.Id);
+                        }
+                    }
 
                     // Decrypt patient names and doctor names for all appointments
                     foreach (var appointment in ConsultationQueue)
@@ -321,7 +345,7 @@ namespace Barangay.Pages.Doctor
                 {
                      _logger.LogWarning("Appointment with ID {AppointmentId} not found.", AppointmentId);
                      TempData["ErrorMessage"] = "The selected appointment could not be found.";
-                     return RedirectToPage("/Doctor/Appointments");
+                     return RedirectToPage("/Doctor/Consultation");
                 }
 
                 _logger.LogInformation("Appointment found: DoctorId={DoctorId}, PatientId={PatientId}, Status={Status}", 
@@ -341,7 +365,7 @@ namespace Barangay.Pages.Doctor
                 {
                     _logger.LogWarning("Attempting to access cancelled appointment");
                     TempData["WarningMessage"] = "This appointment has been cancelled and cannot be consulted.";
-                     return RedirectToPage("/Doctor/Appointments");
+                     return RedirectToPage("/Doctor/Consultation");
                 }
 
                 var patientId = Appointment.PatientId;
@@ -354,7 +378,7 @@ namespace Barangay.Pages.Doctor
                 {
                     _logger.LogWarning("Patient with ID {PatientId} not found", patientId);
                     TempData["ErrorMessage"] = "Patient not found.";
-                    return RedirectToPage("/Doctor/Appointments");
+                    return RedirectToPage("/Doctor/Consultation");
                 }
 
                 // Decrypt patient data for display
@@ -416,7 +440,7 @@ namespace Barangay.Pages.Doctor
                     else
                 {
                     TempData["ErrorMessage"] = "You do not have permission to view this appointment.";
-                    return RedirectToPage("/Doctor/Appointments");
+                    return RedirectToPage("/Doctor/Consultation");
                     }
                 }
 
@@ -711,7 +735,7 @@ namespace Barangay.Pages.Doctor
                 _logger.LogError(ex, "Error loading consultation data for appointment {AppointmentId}. Exception details: {Message}", 
                     AppointmentId, ex.Message);
                 TempData["ErrorMessage"] = "An unexpected error occurred while loading patient consultation data.";
-                return RedirectToPage("/Doctor/Appointments");
+                return RedirectToPage("/Doctor/Consultation");
             }
         }
 
@@ -753,7 +777,7 @@ namespace Barangay.Pages.Doctor
             {
                 _logger.LogWarning("Appointment with ID {id} not found.", id);
                 TempData["ErrorMessage"] = "Appointment not found.";
-                return RedirectToPage("/Doctor/Appointments");
+                return RedirectToPage("/Doctor/Consultation");
             }
 
             // Use the appointment from the database to ensure data integrity
@@ -788,7 +812,7 @@ namespace Barangay.Pages.Doctor
                 if (appointment == null)
                 {
                     TempData["ErrorMessage"] = "The appointment could not be found. It may have been cancelled.";
-                    return RedirectToPage("/Doctor/Appointments");
+                    return RedirectToPage("/Doctor/Consultation");
                 }
 
                 // Explicitly set PatientId for the form's hidden field

@@ -1,0 +1,1635 @@
+@page "{formKey}"
+@model Barangay.Pages.Forms.SubmitFormModel
+@{
+    ViewData["Title"] = Model.FormTemplate.FormName;
+    Layout = "~/Pages/Shared/_UserLayout.cshtml";
+    ViewData["ShowDashboardNav"] = true; // Hide the top header
+}
+
+<style>
+    body {
+        background: #f4f4f9;
+        min-height: 100vh;
+        padding: 20px;
+    }
+    
+    /* Main Form Container */
+    .form-container {
+        max-width: 770px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+        overflow: hidden;
+    }
+    
+    /* Compact Header - Google Forms Style */
+    .form-header {
+        background: white;
+        border-top: 10px solid #ff8c42;
+        padding: 24px;
+        border-bottom: 1px solid #dadce0;
+    }
+    
+    .form-header h1 {
+        font-size: 32px;
+        font-weight: 400;
+        color: #202124;
+        margin: 0 0 8px 0;
+        line-height: 40px;
+    }
+    
+    .form-header p {
+        font-size: 14px;
+        color: #5f6368;
+        margin: 0;
+        line-height: 20px;
+    }
+    
+    /* Compact Body */
+    .form-body {
+        padding: 12px;
+    }
+    
+    /* Appointment Context - More Compact */
+    .appointment-context {
+        background: #e8f0fe;
+        border-left: 4px solid #1a73e8;
+        padding: 16px 20px;
+        margin: 12px;
+        border-radius: 4px;
+    }
+    
+    .appointment-context h6 {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1967d2;
+        margin: 0 0 8px 0;
+    }
+    
+    .appointment-context p {
+        font-size: 13px;
+        color: #3c4043;
+        margin: 4px 0;
+    }
+    
+    /* Question Card - Google Forms Style */
+    .form-question {
+        background: white;
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 12px;
+        transition: box-shadow 0.2s;
+    }
+    
+    .form-question:hover {
+        box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 2px 6px 2px rgba(60,64,67,0.15);
+    }
+    
+    .question-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #5f6368;
+        margin-bottom: 8px;
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .question-label {
+        font-size: 16px;
+        font-weight: 400;
+        color: #202124;
+        margin-bottom: 16px;
+        line-height: 24px;
+    }
+    
+    .question-label .required {
+        color: #d93025;
+        margin-left: 2px;
+    }
+    
+    .question-help {
+        color: #5f6368;
+        font-size: 12px;
+        margin: -8px 0 16px 0;
+        line-height: 16px;
+        font-style: italic;
+    }
+    
+    /* Form Controls - Google Style */
+    .form-control, .form-select {
+        border: none;
+        border-bottom: 1px solid #dadce0;
+        border-radius: 4px 4px 0 0;
+        padding: 12px 12px;
+        font-size: 16px;
+        background: #f8f9fa;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background: #fff;
+        border-bottom: 2px solid #ff8c42;
+        box-shadow: none;
+        outline: none;
+    }
+    
+    .form-check {
+        padding: 8px 0;
+        margin-bottom: 4px;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+        border: 2px solid #5f6368;
+    }
+    
+    .form-check-input:checked {
+        background-color: #ff8c42;
+        border-color: #ff8c42;
+    }
+    
+    .form-check-label {
+        margin-left: 12px;
+        font-size: 14px;
+        color: #202124;
+        cursor: pointer;
+    }
+    
+    /* Submit Button - Google Style */
+    .btn-submit {
+        background: #ff8c42;
+        border: none;
+        color: white;
+        padding: 10px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 4px;
+        transition: all 0.2s;
+        margin: 12px;
+        letter-spacing: 0.25px;
+    }
+    
+    .btn-submit:hover {
+        background: #e67e22;
+        box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+        color: white;
+    }
+    
+    /* Success Modal */
+    .success-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+        animation: fadeIn 0.3s;
+    }
+    
+    .success-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        max-width: 480px;
+        width: 90%;
+        z-index: 10000;
+        animation: slideUp 0.3s;
+        padding: 40px 32px 32px;
+        text-align: center;
+    }
+    
+    .success-modal-icon {
+        width: 72px;
+        height: 72px;
+        background: #10b981;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+        animation: checkBounce 0.6s;
+    }
+    
+    .success-modal-icon i {
+        font-size: 40px;
+        color: white;
+    }
+    
+    .success-modal h2 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1a202c;
+        margin: 0 0 12px 0;
+    }
+    
+    .success-modal p {
+        font-size: 14px;
+        color: #6c757d;
+        line-height: 1.6;
+        margin: 0 0 24px 0;
+    }
+    
+    .success-modal-timer {
+        font-size: 13px;
+        color: #9ca3af;
+        margin-bottom: 24px;
+        font-weight: 500;
+    }
+    
+    .success-modal-timer .countdown {
+        color: #ff8c42;
+        font-weight: 600;
+        font-size: 18px;
+    }
+    
+    .success-modal-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+    
+    .btn-modal {
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-modal-primary {
+        background: #ff8c42;
+        color: white;
+    }
+    
+    .btn-modal-primary:hover {
+        background: #e67e22;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.4);
+    }
+    
+    .btn-modal-secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    .btn-modal-secondary:hover {
+        background: #e5e7eb;
+    }
+    
+    /* Animations */
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -40%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+    
+    @@keyframes checkBounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+    
+    /* Simple Footer */
+    .simple-footer {
+        text-align: center;
+        padding: 30px 20px;
+        color: #6c757d;
+        font-size: 14px;
+        margin-top: 40px;
+    }
+    
+    .footer-content {
+        max-width: 770px;
+        margin: 0 auto;
+    }
+    
+    /* Wizard/Stepper Styling (matching FormBuilder preview) */
+    .progress-indicator {
+        margin-bottom: 30px;
+    }
+    
+    .progress-indicator .d-flex {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+    
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        position: relative;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-bottom: 8px;
+        border: 2px solid #dee2e6;
+        transition: all 0.3s;
+    }
+    
+    .step.active .step-number {
+        background: #ff8c42;
+        color: white;
+        border-color: #ff8c42;
+    }
+    
+    .step.completed .step-number {
+        background: #10b981;
+        color: white;
+        border-color: #10b981;
+    }
+    
+    .step-title {
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-align: center;
+    }
+    
+    .step.active .step-title {
+        color: #ff8c42;
+        font-weight: 600;
+    }
+    
+    .step-line {
+        flex: 1;
+        height: 2px;
+        background: #dee2e6;
+        margin: 0 10px;
+        align-self: flex-start;
+        margin-top: 20px;
+    }
+    
+    .step.completed ~ .step .step-line {
+        background: #10b981;
+    }
+    
+    .form-page {
+        animation: fadeIn 0.3s;
+    }
+    
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .section-header {
+        padding: 20px;
+        background: linear-gradient(135deg, #fff5f0 0%, #ffe8db 100%);
+        border-left: 4px solid #ff8c42;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+    
+    .section-header h3 {
+        color: #ff8c42;
+        margin: 0 0 8px 0;
+    }
+    
+    .section-header p {
+        margin: 0;
+        color: #6c757d;
+    }
+    
+    .form-navigation {
+        margin-top: 30px;
+        display: flex;
+        justify-content: space-between;
+        padding-top: 20px;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+</style>
+
+<!-- Success Modal (shown after submission) -->
+@if (Model.IsSubmitted)
+{
+    <div class="success-modal-overlay" id="successModal" style="display: block;">
+        <div class="success-modal">
+            <div class="success-modal-icon">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h2>Form Submitted Successfully!</h2>
+            <p id="successMessage">@(Model.FormTemplate?.SuccessMessage ?? "Your response has been recorded successfully.")</p>
+            <div class="success-modal-timer">
+                Redirecting in <span class="countdown" id="countdown">5</span> seconds...
+            </div>
+            <div class="success-modal-buttons">
+                <button type="button" class="btn-modal btn-modal-primary" id="continueBtn">
+                    <i class="fa-solid fa-arrow-right me-2"></i>Continue to Dashboard
+                </button>
+                <button type="button" class="btn-modal btn-modal-secondary" id="reviewBtn">
+                    <i class="fa-solid fa-eye me-2"></i>Review Form
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="success-modal-overlay" id="successModal" style="display: none;">
+        <div class="success-modal">
+            <div class="success-modal-icon">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h2>Form Submitted Successfully!</h2>
+            <p id="successMessage">@(Model.FormTemplate?.SuccessMessage ?? "Your response has been recorded successfully.")</p>
+            <div class="success-modal-timer">
+                Redirecting in <span class="countdown" id="countdown">5</span> seconds...
+            </div>
+            <div class="success-modal-buttons">
+                <button type="button" class="btn-modal btn-modal-primary" id="continueBtn">
+                    <i class="fa-solid fa-arrow-right me-2"></i>Continue to Dashboard
+                </button>
+                <button type="button" class="btn-modal btn-modal-secondary" id="reviewBtn">
+                    <i class="fa-solid fa-eye me-2"></i>Review Form
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Main Form (Always shown, read-only when submitted) -->
+<div class="form-container">
+    <div class="form-header">
+        <h1>@Model.FormTemplate.FormName</h1>
+        @if (!string.IsNullOrEmpty(Model.FormTemplate.Description))
+        {
+            <p>@Model.FormTemplate.Description</p>
+        }
+        @if (Model.IsSubmitted)
+        {
+            <div class="alert alert-success m-3">
+                <i class="fa-solid fa-check-circle me-2"></i>This form has been submitted successfully. You are viewing your submitted answers.
+            </div>
+        }
+    </div>
+
+    <div class="form-body">
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger m-3">
+                <i class="fa-solid fa-exclamation-triangle me-2"></i>@Model.ErrorMessage
+            </div>
+        }
+
+        @if (Model.Appointment != null)
+        {
+            // Determine correct patient information based on booking type
+            var displayName = !string.IsNullOrEmpty(Model.Appointment.DependentFullName) 
+                ? Model.Appointment.DependentFullName 
+                : Model.Appointment.Patient?.FullName ?? Model.Appointment.PatientName;
+            
+            var displayAge = Model.Appointment.DependentAge ?? Model.Appointment.AgeValue;
+            
+            var bookedBy = Model.Appointment.PatientName;
+            var relationship = Model.Appointment.Relationship;
+            var familyNumber = Model.Appointment.FamilyNumber;
+            var isBookingForOther = Model.Appointment.BookingForOther;
+            
+            <div class="appointment-context">
+                <h6><i class="fa-solid fa-calendar-check me-2"></i>Appointment Context</h6>
+                <p><strong>Patient:</strong> @displayName</p>
+                <p><strong>Age:</strong> @displayAge years old</p>
+                <p><strong>Appointment Date:</strong> @Model.Appointment.AppointmentDate.ToString("MMM dd, yyyy")</p>
+                
+                @if (!string.IsNullOrEmpty(familyNumber))
+                {
+                    <p><strong>Family Number:</strong> @familyNumber</p>
+                }
+                
+                @if (isBookingForOther && !string.IsNullOrEmpty(relationship))
+                {
+                    <p><strong>Booked by:</strong> @bookedBy (@relationship)</p>
+                }
+            </div>
+        }
+
+        <form method="post" id="dynamicForm">
+            @if (Model.AppointmentId.HasValue)
+            {
+                <input type="hidden" name="appointmentId" value="@Model.AppointmentId.Value" />
+            }
+            @{
+                        // Split fields into sections based on section breaks
+                        var allFields = Model.FormTemplate.FormFields.OrderBy(f => f.DisplayOrder).ToList();
+                        var sections = new List<dynamic>();
+                        var currentSectionFields = new List<dynamic>();
+                        string currentSectionTitle = "";
+                        string currentSectionDescription = "";
+                        
+                        foreach (var field in allFields)
+                        {
+                            if (field.FieldType == "section" || field.FieldType == "divider" || field.FieldType == "heading")
+                            {
+                                // Save previous section if it has fields
+                                if (currentSectionFields.Count > 0)
+                                {
+                                    sections.Add(new { Title = currentSectionTitle, Description = currentSectionDescription, Fields = currentSectionFields.ToList() });
+                                }
+                                // Start new section
+                                currentSectionTitle = field.Title ?? field.FieldLabel ?? "";
+                                currentSectionDescription = field.FieldLabel ?? "";
+                                currentSectionFields = new List<dynamic>();
+                            }
+                            else
+                            {
+                                currentSectionFields.Add(field);
+                            }
+                        }
+                        
+                        // Add the last section
+                        if (currentSectionFields.Count > 0)
+                        {
+                            sections.Add(new { Title = currentSectionTitle, Description = currentSectionDescription, Fields = currentSectionFields.ToList() });
+                        }
+                        
+                        // If no sections (no section breaks), treat all fields as one section
+                        if (sections.Count == 0)
+                        {
+                            sections.Add(new { Title = "", Description = "", Fields = allFields.Where(f => f.FieldType != "section" && f.FieldType != "divider" && f.FieldType != "heading").ToList() });
+                        }
+                        
+                        var isMultiStep = sections.Count > 1;
+                    }
+                    
+                    @* Progress Indicator (Wizard Stepper) *@
+                    @if (isMultiStep)
+                    {
+                        <div class="progress-indicator mb-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                @for (int i = 0; i < sections.Count; i++)
+                                {
+                                    var section = sections[i];
+                                    var isActive = i == 0 ? "active" : "";
+                                    var stepTitle = !string.IsNullOrEmpty(section.Title) ? section.Title : $"Step {i + 1}";
+                                    
+                                    <div class="step @isActive" data-step="@i">
+                                        <div class="step-number">@(i + 1)</div>
+                                        <div class="step-title">@stepTitle</div>
+                                    </div>
+                                    
+                                    @if (i < sections.Count - 1)
+                                    {
+                                        <div class="step-line"></div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                    
+                    @* Render each section *@
+                    @{
+                        int qNum = 1;
+                    }
+                    @for (int sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
+                    {
+                        var section = sections[sectionIndex];
+                        var pageDisplay = sectionIndex == 0 ? "block" : "none";
+                        
+                        <div class="form-page" data-page="@sectionIndex" style="display: @pageDisplay;">
+                                @* Section Header *@
+                                @if (!string.IsNullOrEmpty(section.Title) && isMultiStep)
+                                {
+                                    var sectionTitle = section.Title;
+                                    var sectionDescription = section.Description;
+                                    <div class="section-header mb-4">
+                                        <h3 class="text-primary mb-2">
+                                            <i class="fa-solid fa-clipboard-list me-2"></i>@sectionTitle
+                                        </h3>
+                                        @if (!string.IsNullOrEmpty(sectionDescription) && sectionDescription != sectionTitle)
+                                        {
+                                            <p class="text-muted">@sectionDescription</p>
+                                        }
+                                    </div>
+                                }
+                                
+                                @* Render fields for this section *@
+                                @foreach (var field in section.Fields)
+                                {
+                            
+                            // Check if there's a prefilled value for this field
+                            var fieldNameLower = field.FieldName.ToLower();
+                            // Normalize field name: remove spaces, parentheses, and special characters for better matching
+                            var normalizedFieldName = System.Text.RegularExpressions.Regex.Replace(fieldNameLower, "[^a-z0-9]", "");
+                            var prefilledValue = field.DefaultValue ?? "";
+                            var isPrefilledReadonly = field.IsReadOnly;
+                            
+                            // Try exact match first
+                            if (Model.PrefilledValues.TryGetValue(fieldNameLower, out string prefilledVal))
+                            {
+                                prefilledValue = prefilledVal;
+                            }
+                            // Try normalized match (no spaces/parentheses)
+                            else if (Model.PrefilledValues.TryGetValue(normalizedFieldName, out string prefilledValNormalized))
+                            {
+                                prefilledValue = prefilledValNormalized;
+                            }
+                            
+                            // Check if this field should be readonly due to prefilling
+                            if (Model.ReadonlyFields.Contains(fieldNameLower) || Model.ReadonlyFields.Contains(normalizedFieldName))
+                            {
+                                isPrefilledReadonly = true;
+                            }
+                            
+                            <div class="form-question" id="question-@qNum" data-question="@qNum">
+                                @if (!string.IsNullOrEmpty(field.Title))
+                                {
+                                    <div class="question-title">@field.Title</div>
+                                }
+                                
+                                <label class="question-label">
+                                    @field.FieldLabel
+                                    @if (field.IsRequired)
+                                    {
+                                        <span class="required">*</span>
+                                    }
+                                </label>
+
+                                @if (!string.IsNullOrEmpty(field.HelpText))
+                                {
+                                    <div class="question-help">@field.HelpText</div>
+                                }
+
+                                @{
+                                    var validationPattern = "";
+                                    var validationTitle = "";
+                                    var validationOnInput = "";
+                                    
+                                    if (!string.IsNullOrEmpty(field.ValidationPattern))
+                                    {
+                                        switch (field.ValidationPattern)
+                                        {
+                                            case "text-only":
+                                                validationPattern = "[A-Za-z\\s]+";
+                                                validationTitle = "Only letters and spaces allowed";
+                                                validationOnInput = "this.value = this.value.replace(/[^A-Za-z\\s]/g, '')";
+                                                break;
+                                            case "letters-only":
+                                                validationPattern = "[A-Za-z]+";
+                                                validationTitle = "Only letters allowed (no spaces)";
+                                                validationOnInput = "this.value = this.value.replace(/[^A-Za-z]/g, '')";
+                                                break;
+                                            case "alphanumeric":
+                                                validationPattern = "[A-Za-z0-9\\s]+";
+                                                validationTitle = "Only letters, numbers, and spaces allowed";
+                                                validationOnInput = "this.value = this.value.replace(/[^A-Za-z0-9\\s]/g, '')";
+                                                break;
+                                            case "number":
+                                            case "integer":
+                                                validationPattern = "[0-9]+";
+                                                validationTitle = "Only numbers allowed";
+                                                validationOnInput = "this.value = this.value.replace(/[^0-9]/g, '')";
+                                                break;
+                                            case "decimal":
+                                                validationPattern = "[0-9.]+";
+                                                validationTitle = "Only numbers and decimal point allowed";
+                                                validationOnInput = "this.value = this.value.replace(/[^0-9.]/g, '')";
+                                                break;
+                                        }
+                                    }
+                                }
+
+                                @switch (field.FieldType)
+                                {
+                                    case "text":
+                                        @if (!string.IsNullOrEmpty(validationPattern))
+                                        {
+                                            <input type="text" 
+                                                   name="@field.FieldName" 
+                                                   class="form-control" 
+                                                   placeholder="@(field.Placeholder ?? "Your answer")"
+                                                   value="@prefilledValue"
+                                                   required="@field.IsRequired"
+                                                   readonly="@(isPrefilledReadonly || Model.IsSubmitted)"
+                                                   pattern="@validationPattern"
+                                                   title="@validationTitle"
+                                                   oninput="@Html.Raw(validationOnInput)" />
+                                        }
+                                        else
+                                        {
+                                            <input type="text" 
+                                                   name="@field.FieldName" 
+                                                   class="form-control" 
+                                                   placeholder="@(field.Placeholder ?? "Your answer")"
+                                                   value="@prefilledValue"
+                                                   required="@field.IsRequired"
+                                                   readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        }
+                                        break;
+                                    case "email":
+                                    case "tel":
+                                        <input type="@field.FieldType" 
+                                               name="@field.FieldName" 
+                                               class="form-control" 
+                                               placeholder="@(field.Placeholder ?? "Your answer")"
+                                               value="@prefilledValue"
+                                               required="@field.IsRequired"
+                                               readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        break;
+                                    case "number":
+                                        @if (!string.IsNullOrEmpty(validationPattern))
+                                        {
+                                            <input type="text" 
+                                                   name="@field.FieldName" 
+                                                   class="form-control" 
+                                                   placeholder="@(field.Placeholder ?? "Your answer")"
+                                                   value="@prefilledValue"
+                                                   required="@field.IsRequired"
+                                                   readonly="@(isPrefilledReadonly || Model.IsSubmitted)"
+                                                   pattern="@validationPattern"
+                                                   title="@validationTitle"
+                                                   oninput="@Html.Raw(validationOnInput)" />
+                                        }
+                                        else
+                                        {
+                                            <input type="number" 
+                                                   name="@field.FieldName" 
+                                                   class="form-control" 
+                                                   placeholder="@(field.Placeholder ?? "Your answer")"
+                                                   value="@prefilledValue"
+                                                   required="@field.IsRequired"
+                                                   readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        }
+                                        break;
+
+                                    case "textarea":
+                                        <textarea name="@field.FieldName" 
+                                                  class="form-control" 
+                                                  rows="3" 
+                                                  placeholder="@(field.Placeholder ?? "Your answer")"
+                                                  required="@field.IsRequired"
+                                                  readonly="@(isPrefilledReadonly || Model.IsSubmitted)">@prefilledValue</textarea>
+                                        break;
+
+                                    case "date":
+                                        <input type="date" 
+                                               name="@field.FieldName" 
+                                               class="form-control" 
+                                               value="@prefilledValue"
+                                               required="@field.IsRequired"
+                                               readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        break;
+
+                                    case "time":
+                                        <input type="time" 
+                                               name="@field.FieldName" 
+                                               class="form-control" 
+                                               value="@prefilledValue"
+                                               required="@field.IsRequired"
+                                               readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        break;
+
+                                    case "datetime-local":
+                                        <input type="datetime-local" 
+                                               name="@field.FieldName" 
+                                               class="form-control" 
+                                               value="@prefilledValue"
+                                               required="@field.IsRequired"
+                                               readonly="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        break;
+
+                                    case "radio":
+                                        @foreach (var option in ((IEnumerable<dynamic>)field.FormFieldOptions).Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                        {
+                                            var radioId = field.FieldName + "_" + option.FormFieldOptionId;
+                                            // Improved matching: check exact match, case-insensitive match, or partial match
+                                            var isChecked = option.IsDefault || 
+                                                option.OptionValue.Equals(prefilledValue, StringComparison.OrdinalIgnoreCase) ||
+                                                option.OptionLabel.Equals(prefilledValue, StringComparison.OrdinalIgnoreCase) ||
+                                                (!string.IsNullOrEmpty(prefilledValue) && 
+                                                 (option.OptionValue.Contains(prefilledValue, StringComparison.OrdinalIgnoreCase) ||
+                                                  option.OptionLabel.Contains(prefilledValue, StringComparison.OrdinalIgnoreCase)));
+                                            <div class="form-check">
+                                                <input class="form-check-input" 
+                                                       type="radio" 
+                                                       name="@field.FieldName" 
+                                                       id="@radioId" 
+                                                       value="@option.OptionValue"
+                                                       checked="@isChecked"
+                                                       required="@field.IsRequired"
+                                                       disabled="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                                <label class="form-check-label" for="@radioId">
+                                                    @if (!string.IsNullOrEmpty(option.IconClass))
+                                                    {
+                                                        <i class="@option.IconClass me-2"></i>
+                                                    }
+                                                    @option.OptionLabel
+                                                </label>
+                                            </div>
+                                        }
+                                        break;
+
+                                    case "checkbox":
+                                        @foreach (var option in ((IEnumerable<object>)field.FormFieldOptions).Cast<dynamic>().Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                        {
+                                            var checkboxId = field.FieldName + "_" + option.FormFieldOptionId;
+                                            <div class="form-check">
+                                                <input class="form-check-input" 
+                                                       type="checkbox" 
+                                                       name="@field.FieldName" 
+                                                       id="@checkboxId" 
+                                                       value="@option.OptionValue"
+                                                       checked="@option.IsDefault"
+                                                       disabled="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                                <label class="form-check-label" for="@checkboxId">
+                                                    @if (!string.IsNullOrEmpty(option.IconClass))
+                                                    {
+                                                        <i class="@option.IconClass me-2"></i>
+                                                    }
+                                                    @option.OptionLabel
+                                                </label>
+                                            </div>
+                                        }
+                                        break;
+
+                                    case "select":
+                                        <select name="@field.FieldName" 
+                                                class="form-select" 
+                                                required="@field.IsRequired"
+                                                disabled="@(isPrefilledReadonly || Model.IsSubmitted)">
+                                            <option value="">@(field.Placeholder ?? "Choose...")</option>
+                                            @foreach (var option in ((IEnumerable<dynamic>)field.FormFieldOptions).Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                            {
+                                                var isSelected = option.IsDefault || option.OptionValue.Equals(prefilledValue, StringComparison.OrdinalIgnoreCase);
+                                                <option value="@option.OptionValue" selected="@isSelected">
+                                                    @option.OptionLabel
+                                                </option>
+                                            }
+                                        </select>
+                                        break;
+
+                                    case "file":
+                                        <input type="file" 
+                                               name="@field.FieldName" 
+                                               class="form-control" 
+                                               required="@field.IsRequired"
+                                               disabled="@(isPrefilledReadonly || Model.IsSubmitted)" />
+                                        break;
+                                }
+                            </div>
+                            qNum++;
+                        }
+                    </div>
+            }
+
+            @* Navigation Buttons for Multi-Step Forms *@
+            @if (isMultiStep && !Model.IsSubmitted)
+            {
+                <div class="form-navigation">
+                    <button type="button" class="btn btn-secondary" id="prevBtn" onclick="changeStep(-1)" style="display: none;">
+                        <i class="fa-solid fa-arrow-left me-2"></i>Previous
+                    </button>
+                    <div></div>
+                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="changeStep(1)" style="background: #ff8c42; border-color: #ff8c42;">
+                        Next<i class="fa-solid fa-arrow-right ms-2"></i>
+                    </button>
+                    <button type="submit" class="btn btn-submit" id="submitBtn" style="display: none;">
+                        <i class="fa-solid fa-check me-2"></i>Submit
+                    </button>
+                </div>
+            }
+            else if (!Model.IsSubmitted)
+            {
+                <button type="submit" class="btn btn-submit">
+                    <i class="fa-solid fa-paper-plane me-2"></i>Submit
+                </button>
+            }
+        </form>
+        </div>
+    </div>
+    
+    <!-- Simple Footer -->
+    <div class="simple-footer">
+        <div class="footer-content">
+            &copy; 2024 - BHCARE System
+        </div>
+    </div>
+
+@section Scripts {
+    <script>
+        let countdownInterval;
+        let secondsLeft = 5;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('dynamicForm');
+            const modal = document.getElementById('successModal');
+            
+            // If modal is visible (form was submitted), start countdown
+            if (modal && modal.style.display === 'block') {
+                startCountdown();
+            }
+            
+            // Warn before leaving if form is not submitted
+            if (form) {
+                // Track if form has been modified
+                let formModified = false;
+                const formInputs = form.querySelectorAll('input, textarea, select');
+                
+                formInputs.forEach(input => {
+                    input.addEventListener('change', function() {
+                        formModified = true;
+                    });
+                });
+                
+                // Warn before leaving page if form is modified
+                window.addEventListener('beforeunload', function(e) {
+                    if (formModified) {
+                        e.preventDefault();
+                        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                        return e.returnValue;
+                    }
+                });
+                
+                // Handle form submission - show spinner
+                form.addEventListener('submit', function(e) {
+                    formModified = false; // Reset to avoid warning
+                    const submitBtn = form.querySelector('.btn-submit');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting...';
+                });
+            }
+        });
+        
+        function startCountdown() {
+            const countdownElement = document.getElementById('countdown');
+            if (!countdownElement) return;
+            
+            countdownInterval = setInterval(function() {
+                secondsLeft--;
+                countdownElement.textContent = secondsLeft;
+                
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    redirectToDashboard();
+                }
+            }, 1000);
+        }
+        
+        function redirectToDashboard() {
+            window.location.href = '/User/UserDashboard';
+        }
+        
+        // Continue button - redirect immediately
+        const continueBtn = document.getElementById('continueBtn');
+        if (continueBtn) {
+            continueBtn.addEventListener('click', function() {
+                if (countdownInterval) clearInterval(countdownInterval);
+                redirectToDashboard();
+            });
+        }
+        
+        // Review button - close modal and scroll to top
+        const reviewBtn = document.getElementById('reviewBtn');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', function() {
+                if (countdownInterval) clearInterval(countdownInterval);
+                const modal = document.getElementById('successModal');
+                if (modal) modal.style.display = 'none';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Show a small notification
+                const notification = document.createElement('div');
+                notification.className = 'alert alert-info m-3';
+                notification.innerHTML = '<i class="fa-solid fa-info-circle me-2"></i>Form submitted successfully! You can review your answers below.';
+                notification.style.position = 'fixed';
+                notification.style.top = '20px';
+                notification.style.right = '20px';
+                notification.style.zIndex = '9999';
+                notification.style.maxWidth = '400px';
+                notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                document.body.appendChild(notification);
+                
+                // Add a floating Continue button
+                const floatingBtn = document.createElement('button');
+                floatingBtn.className = 'btn btn-submit';
+                floatingBtn.innerHTML = '<i class="fa-solid fa-arrow-right me-2"></i>Continue to Dashboard';
+                floatingBtn.style.position = 'fixed';
+                floatingBtn.style.bottom = '20px';
+                floatingBtn.style.right = '20px';
+                floatingBtn.style.zIndex = '9999';
+                floatingBtn.style.boxShadow = '0 4px 12px rgba(255, 140, 66, 0.4)';
+                floatingBtn.onclick = redirectToDashboard;
+                document.body.appendChild(floatingBtn);
+                
+                // Remove notification after 5 seconds
+                setTimeout(() => {
+                    notification.style.transition = 'opacity 0.3s';
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 5000);
+            });
+
+            // Family Number Search and Auto-population
+            initializeFamilyNumberSearch();
+            
+            // Auto-populate from appointment if available (delay to ensure form is ready)
+            setTimeout(() => {
+                if (typeof autoPopulateFromAppointment === 'function') {
+                    autoPopulateFromAppointment();
+                }
+            }, 500);
+            
+            // Initialize BMI Calculator
+            initializeBMICalculator();
+        });
+
+        // Global function to select family member and populate fields (accessible from anywhere)
+        let globalSelectFamilyMember = null;
+
+        function initializeFamilyNumberSearch() {
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+
+            // Find the Family Number field (look for various possible field names)
+            const familyNumberFields = form.querySelectorAll('input[name*="Family"], input[name*="family"], input[name*="FamilyNo"], input[name*="family_no"], input[name*="Family_No"]');
+            
+            if (familyNumberFields.length === 0) return;
+
+            // Helper functions (defined before selectFamilyMember so they can be used)
+            const formatDateForInput = function(dateString) {
+                if (!dateString) return '';
+                try {
+                    const date = new Date(dateString);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                } catch {
+                    return dateString;
+                }
+            };
+
+            const showNotification = function(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info'}`;
+                notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+                notification.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>${message}`;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.transition = 'opacity 0.3s';
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            };
+
+            // Helper function to populate a field
+            const populateField = function(input, mapping, fieldValue, familyField, form) {
+                try {
+                    // Handle gender/sex fields (radio buttons or select)
+                    if (mapping.isRadio && (mapping.search.includes('Gender') || mapping.search.includes('Kasarian') || mapping.search.includes('Sex'))) {
+                        const genderValue = fieldValue.toLowerCase();
+                        let matched = false;
+                        
+                        // Try all radio buttons in the form with similar names
+                        const allRadios = form.querySelectorAll('input[type="radio"]');
+                        allRadios.forEach(radio => {
+                            const radioValue = (radio.value || '').toLowerCase();
+                            const radioLabel = (radio.parentElement?.textContent || radio.nextElementSibling?.textContent || '').toLowerCase();
+                            
+                            if ((genderValue.includes('male') || genderValue.includes('lalaki')) && 
+                                (radioValue.includes('male') || radioValue.includes('lalaki') || radioLabel.includes('male') || radioLabel.includes('lalaki'))) {
+                                radio.checked = true;
+                                radio.dispatchEvent(new Event('change', { bubbles: true }));
+                                matched = true;
+                            } else if ((genderValue.includes('female') || genderValue.includes('babae')) && 
+                                      (radioValue.includes('female') || radioValue.includes('babae') || radioLabel.includes('female') || radioLabel.includes('babae'))) {
+                                radio.checked = true;
+                                radio.dispatchEvent(new Event('change', { bubbles: true }));
+                                matched = true;
+                            }
+                        });
+                        
+                        // Try select dropdowns
+                        if (!matched) {
+                            const allSelects = form.querySelectorAll('select');
+                            allSelects.forEach(select => {
+                                if (matched) return;
+                                const options = Array.from(select.options);
+                                options.forEach(option => {
+                                    const optionValue = (option.value || option.text || '').toLowerCase();
+                                    if ((genderValue.includes('male') || genderValue.includes('lalaki')) && 
+                                        (optionValue.includes('male') || optionValue.includes('lalaki'))) {
+                                        select.value = option.value;
+                                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                                        matched = true;
+                                    } else if ((genderValue.includes('female') || genderValue.includes('babae')) && 
+                                              (optionValue.includes('female') || optionValue.includes('babae'))) {
+                                        select.value = option.value;
+                                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                                        matched = true;
+                                    }
+                                });
+                            });
+                        }
+                        
+                        return matched;
+                    }
+                    
+                    // Handle date fields
+                    if (input.type === 'date') {
+                        input.value = fieldValue;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                    
+                    // Handle text inputs and textareas
+                    if (input.type === 'text' || input.type === 'number' || input.tagName === 'TEXTAREA' || input.type === 'tel') {
+                        input.value = fieldValue;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                    
+                    // Handle select dropdowns
+                    if (input.tagName === 'SELECT') {
+                        // Try exact match first
+                        if (Array.from(input.options).some(opt => opt.value.toLowerCase() === fieldValue.toLowerCase())) {
+                            input.value = Array.from(input.options).find(opt => opt.value.toLowerCase() === fieldValue.toLowerCase()).value;
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        // Try partial match
+                        const matchingOption = Array.from(input.options).find(opt => 
+                            (opt.value || opt.text || '').toLowerCase().includes(fieldValue.toLowerCase()) ||
+                            fieldValue.toLowerCase().includes((opt.value || opt.text || '').toLowerCase())
+                        );
+                        if (matchingOption) {
+                            input.value = matchingOption.value;
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error populating field:', error);
+                    return false;
+                }
+                
+                return false;
+            };
+
+            // Define selectFamilyMember function once for all fields (outside forEach)
+            const selectFamilyMember = function(member, familyField) {
+                // Set family number
+                familyField.value = member.familyNumber;
+
+                // Map fields with multiple search strategies (name, label, placeholder)
+                const fieldMappings = [
+                    { 
+                        search: ['Last', 'Apelyido', 'Surname', 'LastName', 'lastname'], 
+                        labelText: ['Last', 'Apelyido', 'Apellido'],
+                        value: member.lastName 
+                    },
+                    { 
+                        search: ['First', 'Unang', 'Given', 'FirstName', 'firstname'], 
+                        labelText: ['First', 'Unang', 'Given'],
+                        value: member.firstName 
+                    },
+                    { 
+                        search: ['Middle', 'Gitnang', 'MiddleName', 'middlename'], 
+                        labelText: ['Middle', 'Gitnang'],
+                        value: member.middleName 
+                    },
+                    { 
+                        search: ['Address', 'address'], 
+                        labelText: ['Address', 'Direccion'],
+                        value: member.address 
+                    },
+                    { 
+                        search: ['Barangay', 'barangay'], 
+                        labelText: ['Barangay'],
+                        value: member.barangay 
+                    },
+                    { 
+                        search: ['Telepono', 'Phone', 'Contact', 'telephone', 'phone'], 
+                        labelText: ['Telepono', 'Phone', 'Contact', 'Telephone'],
+                        value: member.phoneNumber 
+                    },
+                    { 
+                        search: ['Birthday', 'Birth', 'DateOfBirth', 'birthday', 'birth'], 
+                        labelText: ['Birthday', 'Birth', 'Date of Birth'],
+                        value: member.birthDate ? formatDateForInput(member.birthDate) : '' 
+                    },
+                    { 
+                        search: ['Age', 'Edad', 'age', 'edad'], 
+                        labelText: ['Age', 'Edad'],
+                        value: member.age ? member.age.toString() : '' 
+                    },
+                    { 
+                        search: ['Gender', 'Kasarian', 'Sex', 'gender', 'kasarian'], 
+                        labelText: ['Gender', 'Kasarian', 'Sex'],
+                        value: member.gender || '',
+                        isRadio: true
+                    }
+                ];
+
+                let populatedCount = 0;
+
+                // Find and populate fields
+                fieldMappings.forEach(mapping => {
+                    const fieldValue = mapping.value;
+                    if (!fieldValue || fieldValue === '') return;
+
+                    let foundField = false;
+
+                    // Strategy 1: Search by name attribute (case-insensitive)
+                    mapping.search.forEach(term => {
+                        if (foundField) return;
+                        
+                        const allInputs = form.querySelectorAll('input, textarea, select');
+                        allInputs.forEach(input => {
+                            if (foundField || input === familyField || input.disabled || input.readOnly) return;
+                            
+                            const inputName = (input.name || '').toLowerCase();
+                            if (inputName.includes(term.toLowerCase())) {
+                                foundField = populateField(input, mapping, fieldValue, familyField, form);
+                                if (foundField) populatedCount++;
+                            }
+                        });
+                    });
+
+                    // Strategy 2: Search by label text (if not found by name)
+                    if (!foundField && mapping.labelText) {
+                        mapping.labelText.forEach(labelTerm => {
+                            if (foundField) return;
+                            
+                            // Find label containing the term
+                            const labels = Array.from(form.querySelectorAll('label'));
+                            labels.forEach(label => {
+                                if (foundField) return;
+                                
+                                const labelText = label.textContent || '';
+                                if (labelText.toLowerCase().includes(labelTerm.toLowerCase())) {
+                                    // Try to find associated input
+                                    const labelFor = label.getAttribute('for');
+                                    if (labelFor) {
+                                        const input = form.querySelector(`#${labelFor}`);
+                                        if (input && input !== familyField && !input.disabled && !input.readOnly) {
+                                            foundField = populateField(input, mapping, fieldValue, familyField, form);
+                                            if (foundField) populatedCount++;
+                                        }
+                                    }
+                                    
+                                    // Also check if label wraps the input
+                                    const inputInLabel = label.querySelector('input, textarea, select');
+                                    if (inputInLabel && inputInLabel !== familyField && !inputInLabel.disabled && !inputInLabel.readOnly) {
+                                        foundField = populateField(inputInLabel, mapping, fieldValue, familyField, form);
+                                        if (foundField) populatedCount++;
+                                    }
+                                }
+                            });
+                        });
+                    }
+
+                    // Strategy 3: Search by placeholder (if still not found)
+                    if (!foundField) {
+                        mapping.search.forEach(term => {
+                            if (foundField) return;
+                            
+                            const allInputs = form.querySelectorAll('input, textarea');
+                            allInputs.forEach(input => {
+                                if (foundField || input === familyField || input.disabled || input.readOnly) return;
+                                
+                                const placeholder = (input.placeholder || '').toLowerCase();
+                                if (placeholder.includes(term.toLowerCase())) {
+                                    foundField = populateField(input, mapping, fieldValue, familyField, form);
+                                    if (foundField) populatedCount++;
+                                }
+                            });
+                        });
+                    }
+                });
+
+                // Show success message
+                if (populatedCount > 0) {
+                    showNotification(`Family member "${member.fullName}" selected. ${populatedCount} field(s) populated.`, 'success');
+                } else {
+                    showNotification(`Family member "${member.fullName}" selected, but no matching fields found.`, 'warning');
+                    console.log('Debug: Member data:', member);
+                    console.log('Debug: Available form fields:', Array.from(form.querySelectorAll('input, textarea, select')).map(el => ({ name: el.name, label: el.closest('.form-question')?.querySelector('label')?.textContent })));
+                }
+            };
+
+            // Store selectFamilyMember globally so it can be accessed from autoPopulateFromAppointment
+            globalSelectFamilyMember = selectFamilyMember;
+
+            familyNumberFields.forEach(familyField => {
+                let searchTimeout = null;
+                let familyDropdown = null;
+
+                // Create dropdown for family member selection
+                const createDropdown = () => {
+                    if (familyDropdown) return;
+                    
+                    familyDropdown = document.createElement('div');
+                    familyDropdown.className = 'family-member-dropdown';
+                    familyDropdown.style.cssText = 'position: absolute; z-index: 1000; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;';
+                    familyField.parentElement.style.position = 'relative';
+                    familyField.parentElement.appendChild(familyDropdown);
+                };
+
+                // Handle family number input with debounce
+                familyField.addEventListener('input', function() {
+                    const familyNumber = this.value.trim();
+                    
+                    clearTimeout(searchTimeout);
+
+                    if (familyNumber.length < 2) {
+                        if (familyDropdown) familyDropdown.style.display = 'none';
+                        return;
+                    }
+
+                    searchTimeout = setTimeout(async () => {
+                        try {
+                            const response = await fetch(`?handler=SearchFamilyByNumber&familyNumber=${encodeURIComponent(familyNumber)}`);
+                            const data = await response.json();
+
+                            if (data.success && data.members && data.members.length > 0) {
+                                createDropdown();
+                                displayFamilyMembers(data.members, familyField);
+                            } else {
+                                if (familyDropdown) familyDropdown.style.display = 'none';
+                            }
+                        } catch (error) {
+                            console.error('Error searching family members:', error);
+                            if (familyDropdown) familyDropdown.style.display = 'none';
+                        }
+                    }, 500);
+                });
+
+                // Display family members in dropdown
+                function displayFamilyMembers(members, familyField) {
+                    if (!familyDropdown) createDropdown();
+                    
+                    familyDropdown.innerHTML = '';
+                    familyDropdown.style.display = 'block';
+
+                    members.forEach((member, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'family-member-item';
+                        item.style.cssText = 'padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;';
+                        item.innerHTML = `<strong>${member.fullName}</strong><br><small style="color: #666;">${member.familyNumber}</small>`;
+                        
+                        item.addEventListener('mouseenter', () => {
+                            item.style.background = '#f0f0f0';
+                        });
+                        item.addEventListener('mouseleave', () => {
+                            item.style.background = 'white';
+                        });
+                        
+                        item.addEventListener('click', () => {
+                            selectFamilyMember(member, familyField);
+                            familyDropdown.style.display = 'none';
+                        });
+                        
+                        familyDropdown.appendChild(item);
+                    });
+                }
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (familyDropdown && !familyDropdown.contains(e.target) && e.target !== familyField) {
+                        familyDropdown.style.display = 'none';
+                    }
+                });
+            });
+        }
+        
+        // BMI Calculator Function - Auto-calculates BMI from Height and Weight
+        function initializeBMICalculator() {
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            // Find Height, Weight, BMI, and BMI Status fields
+            // Support various field name patterns (Height, height, Height_cm, etc.)
+            const heightField = findFieldByKeywords(form, ['Height', 'height', 'altura']);
+            const weightField = findFieldByKeywords(form, ['Weight', 'weight', 'peso', 'timbang']);
+            const bmiField = findFieldByKeywords(form, ['BMI', 'bmi', 'body mass index']);
+            const bmiStatusField = findFieldByKeywords(form, ['BMI Status', 'bmi status', 'BMI_Status', 'bmi_status', 'BMIStatus']);
+            
+            if (!heightField || !weightField || !bmiField) {
+                console.log('BMI Calculator: Required fields not found (Height, Weight, or BMI)');
+                return;
+            }
+            
+            console.log('BMI Calculator initialized:', {
+                height: heightField.name,
+                weight: weightField.name,
+                bmi: bmiField.name,
+                bmiStatus: bmiStatusField ? bmiStatusField.name : 'Not found'
+            });
+            
+            // Make BMI field readonly
+            bmiField.setAttribute('readonly', 'readonly');
+            bmiField.style.backgroundColor = '#f8f9fa';
+            bmiField.style.cursor = 'not-allowed';
+            
+            // Function to calculate and update BMI
+            function calculateBMI() {
+                const height = parseFloat(heightField.value);
+                const weight = parseFloat(weightField.value);
+                
+                // Validate inputs
+                if (!height || !weight || height <= 0 || weight <= 0) {
+                    bmiField.value = '';
+                    if (bmiStatusField) {
+                        bmiStatusField.value = '';
+                    }
+                    return;
+                }
+                
+                // Calculate BMI: weight (kg) / (height (m))²
+                const heightInMeters = height / 100; // Convert cm to meters
+                const bmi = weight / (heightInMeters * heightInMeters);
+                const bmiRounded = bmi.toFixed(2); // 2 decimal precision
+                
+                // Update BMI field
+                bmiField.value = bmiRounded;
+                
+                // Determine BMI classification
+                let bmiClassification = '';
+                if (bmi < 18.5) {
+                    bmiClassification = 'Underweight';
+                } else if (bmi >= 18.5 && bmi < 25) {
+                    bmiClassification = 'Normal';
+                } else if (bmi >= 25 && bmi < 30) {
+                    bmiClassification = 'Overweight';
+                } else if (bmi >= 30) {
+                    bmiClassification = 'Obese';
+                }
+                
+                // Update BMI Status field if it exists
+                if (bmiStatusField) {
+                    bmiStatusField.value = bmiClassification;
+                    
+                    // Make BMI Status field readonly too
+                    bmiStatusField.setAttribute('readonly', 'readonly');
+                    bmiStatusField.style.backgroundColor = '#f8f9fa';
+                    bmiStatusField.style.cursor = 'not-allowed';
+                    
+                    // Add color indicator for BMI status
+                    let statusColor = '';
+                    if (bmiClassification === 'Underweight') {
+                        statusColor = '#ffc107'; // Yellow/Warning
+                    } else if (bmiClassification === 'Normal') {
+                        statusColor = '#28a745'; // Green/Success
+                    } else if (bmiClassification === 'Overweight') {
+                        statusColor = '#fd7e14'; // Orange
+                    } else if (bmiClassification === 'Obese') {
+                        statusColor = '#dc3545'; // Red/Danger
+                    }
+                    
+                    if (statusColor) {
+                        bmiStatusField.style.color = statusColor;
+                        bmiStatusField.style.fontWeight = 'bold';
+                    }
+                }
+                
+                // Dispatch change event to trigger form validation
+                bmiField.dispatchEvent(new Event('input', { bubbles: true }));
+                bmiField.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                console.log(`BMI Calculated: Height=${height}cm, Weight=${weight}kg, BMI=${bmiRounded}, Status=${bmiClassification}`);
+            }
+            
+            // Attach event listeners to Height and Weight fields
+            heightField.addEventListener('input', calculateBMI);
+            heightField.addEventListener('change', calculateBMI);
+            weightField.addEventListener('input', calculateBMI);
+            weightField.addEventListener('change', calculateBMI);
+            
+            // Calculate BMI on page load if values already exist
+            if (heightField.value && weightField.value) {
+                calculateBMI();
+            }
+        }
+        
+        // Helper function to find form fields by keywords
+        function findFieldByKeywords(form, keywords) {
+            const allInputs = form.querySelectorAll('input, textarea, select');
+            
+            for (let input of allInputs) {
+                const name = (input.name || '').toLowerCase();
+                const placeholder = (input.placeholder || '').toLowerCase();
+                const label = input.closest('.form-question')?.querySelector('label')?.textContent?.toLowerCase() || '';
+                
+                for (let keyword of keywords) {
+                    const lowerKeyword = keyword.toLowerCase();
+                    if (name.includes(lowerKeyword) || placeholder.includes(lowerKeyword) || label.includes(lowerKeyword)) {
+                        return input;
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
+        // ===== Wizard/Multi-Step Form Navigation =====
+        let currentStep = 0;
+        const formPages = document.querySelectorAll('.form-page');
+        const totalSteps = formPages.length;
+        
+        function showStep(step) {
+            const pages = document.querySelectorAll('.form-page');
+            const steps = document.querySelectorAll('.step');
+            
+            // Hide all pages
+            pages.forEach((page, index) => {
+                page.style.display = index === step ? 'block' : 'none';
+            });
+            
+            // Update step indicators
+            steps.forEach((stepEl, index) => {
+                stepEl.classList.remove('active', 'completed');
+                if (index < step) {
+                    stepEl.classList.add('completed');
+                } else if (index === step) {
+                    stepEl.classList.add('active');
+                }
+            });
+            
+            // Update navigation buttons
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (prevBtn) prevBtn.style.display = step === 0 ? 'none' : 'block';
+            if (nextBtn) nextBtn.style.display = step === totalSteps - 1 ? 'none' : 'block';
+            if (submitBtn) submitBtn.style.display = step === totalSteps - 1 ? 'block' : 'none';
+            
+            // Scroll to top of form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function changeStep(direction) {
+            // Validate current step before moving forward
+            if (direction > 0) {
+                const currentPage = document.querySelector(`.form-page[data-page="${currentStep}"]`);
+                const requiredFields = currentPage.querySelectorAll('[required]');
+                let isValid = true;
+                
+                requiredFields.forEach(field => {
+                    if (!field.value || (field.type === 'radio' && !currentPage.querySelector(`input[name="${field.name}"]:checked`))) {
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                    }
+                });
+                
+                if (!isValid) {
+                    alert('Please fill in all required fields before proceeding.');
+                    return;
+                }
+            }
+            
+            currentStep += direction;
+            if (currentStep < 0) currentStep = 0;
+            if (currentStep >= totalSteps) currentStep = totalSteps - 1;
+            showStep(currentStep);
+        }
+        
+        // Initialize wizard on page load
+        if (totalSteps > 1) {
+            showStep(0);
+        }
+    </script>
+}

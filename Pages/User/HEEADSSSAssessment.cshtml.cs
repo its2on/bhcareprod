@@ -28,6 +28,7 @@ namespace Barangay.Pages.User
         private readonly IAuditTrailService _auditTrail;
         private readonly INotificationService _notificationService;
         private readonly IFamilyNumberService _familyNumberService;
+        private readonly IDynamicFormService _dynamicFormService;
 
         public HEEADSSSAssessmentModel(
             EncryptedDbContext context,
@@ -36,7 +37,8 @@ namespace Barangay.Pages.User
             IDataEncryptionService encryptionService,
             IAuditTrailService auditTrail,
             INotificationService notificationService,
-            IFamilyNumberService familyNumberService)
+            IFamilyNumberService familyNumberService,
+            IDynamicFormService dynamicFormService)
         {
             _context = context;
             _logger = logger;
@@ -45,6 +47,7 @@ namespace Barangay.Pages.User
             _auditTrail = auditTrail;
             _notificationService = notificationService;
             _familyNumberService = familyNumberService;
+            _dynamicFormService = dynamicFormService;
         }
 
         [BindProperty]
@@ -73,6 +76,57 @@ namespace Barangay.Pages.User
 
             // Check if appointmentId is provided in the query string
             string? appointmentIdStr = Request.Query["appointmentId"];
+            
+            // Check if dynamic HEEADSSS form exists first (admin-editable form)
+            // Try multiple possible form keys for flexibility
+            FormTemplate? dynamicHEEADSSSForm = null;
+            var possibleFormKeys = new[] { "heeadsss-assessment", "heeadsss", "heeadsss-health-assessment" };
+            
+            foreach (var formKey in possibleFormKeys)
+            {
+                dynamicHEEADSSSForm = await _dynamicFormService.GetFormByKeyAsync(formKey);
+                if (dynamicHEEADSSSForm != null && dynamicHEEADSSSForm.IsActive)
+                {
+                    _logger.LogInformation("Dynamic HEEADSSS form found with key '{FormKey}', redirecting to dynamic form", formKey);
+                    break;
+                }
+            }
+            
+            // Also check for active forms in the Assessment category with MinAge 10-19
+            if (dynamicHEEADSSSForm == null)
+            {
+                var ageRestrictedForms = await _context.FormTemplates
+                    .Where(f => f.IsActive && 
+                                f.Category == "Assessment" && 
+                                f.MinAge.HasValue && 
+                                f.MinAge >= 10 && 
+                                f.MinAge <= 19 &&
+                                (!f.MaxAge.HasValue || f.MaxAge >= 19) &&
+                                f.ShowInAppointmentFlow)
+                    .OrderByDescending(f => f.DisplayOrder)
+                    .FirstOrDefaultAsync();
+                
+                if (ageRestrictedForms != null)
+                {
+                    dynamicHEEADSSSForm = ageRestrictedForms;
+                    _logger.LogInformation("Found dynamic HEEADSSS form by age restriction (MinAge 10-19): {FormKey}", dynamicHEEADSSSForm.FormKey);
+                }
+            }
+            
+            if (dynamicHEEADSSSForm != null && dynamicHEEADSSSForm.IsActive)
+            {
+                _logger.LogInformation("Redirecting to dynamic HEEADSSS form: {FormKey}", dynamicHEEADSSSForm.FormKey);
+                // Redirect to dynamic form instead of hard-coded form
+                if (!string.IsNullOrEmpty(appointmentIdStr))
+                {
+                    return Redirect($"/Forms/SubmitForm/{dynamicHEEADSSSForm.FormKey}?appointmentId={appointmentIdStr}");
+                }
+                return Redirect($"/Forms/SubmitForm/{dynamicHEEADSSSForm.FormKey}");
+            }
+            
+            // If no dynamic form exists, use hard-coded form (backward compatibility)
+            _logger.LogInformation("No dynamic HEEADSSS form found, using hard-coded form");
+            
             if (string.IsNullOrEmpty(appointmentIdStr))
             {
                 TempData["StatusMessage"] = "Error: Assessment not found. Please access this form through your appointment details.";
@@ -161,6 +215,29 @@ namespace Barangay.Pages.User
                     ViewData["PatientAge"] = calculatedAge;
                     ViewData["PatientPhone"] = appointment.ContactNumber ?? user.PhoneNumber ?? string.Empty;
                     ViewData["PatientBirthdate"] = appointment.DateOfBirth?.ToString("yyyy-MM-dd") ?? DateTime.Today.AddYears(-calculatedAge).ToString("yyyy-MM-dd");
+                    
+                    // Store appointment context data for display in the view
+                    var contextDisplayName = !string.IsNullOrEmpty(appointment.DependentFullName) ? appointment.DependentFullName : appointment.PatientName;
+                    var contextDisplayAge = appointment.DependentAge ?? appointment.AgeValue;
+                    
+                    ViewData["AppointmentContext_DisplayName"] = contextDisplayName;
+                    ViewData["AppointmentContext_DisplayAge"] = contextDisplayAge;
+                    ViewData["AppointmentContext_BookedBy"] = appointment.PatientName;
+                    ViewData["AppointmentContext_AppointmentDate"] = appointment.AppointmentDate.ToString("MMM dd, yyyy");
+                    ViewData["AppointmentContext_FamilyNumber"] = appointment.FamilyNumber;
+                    ViewData["AppointmentContext_BookingForOther"] = appointment.BookingForOther;
+                    ViewData["AppointmentContext_Relationship"] = appointment.Relationship;
+                    
+                    _logger.LogInformation("=== APPOINTMENT CONTEXT DATA ===");
+                    _logger.LogInformation("BookingForOther: {BookingForOther}", appointment.BookingForOther);
+                    _logger.LogInformation("PatientName (Booker): {PatientName}", appointment.PatientName);
+                    _logger.LogInformation("DependentFullName: {DependentFullName}", appointment.DependentFullName ?? "NULL");
+                    _logger.LogInformation("DependentAge: {DependentAge}", appointment.DependentAge?.ToString() ?? "NULL");
+                    _logger.LogInformation("AgeValue: {AgeValue}", appointment.AgeValue);
+                    _logger.LogInformation("Context Display Name: {DisplayName}", contextDisplayName);
+                    _logger.LogInformation("Context Display Age: {DisplayAge}", contextDisplayAge);
+                    _logger.LogInformation("FamilyNumber: {FamilyNumber}", appointment.FamilyNumber ?? "NULL");
+                    _logger.LogInformation("Relationship: {Relationship}", appointment.Relationship ?? "NULL");
                     
                     _logger.LogInformation($"Using appointment patient info: Name={appointment.PatientName}, CalculatedAge={calculatedAge}, AgeValue={appointment.AgeValue}, DateOfBirth={appointment.DateOfBirth}, Phone={appointment.ContactNumber}");
                     
@@ -1373,6 +1450,111 @@ namespace Barangay.Pages.User
             {
                 _logger.LogError(ex, "Error processing family number");
                 return new JsonResult(new { success = false, error = "An error occurred while processing the family number" });
+            }
+        }
+
+        public async Task<IActionResult> OnGetSearchFamiliesAsync(string searchTerm)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    return new JsonResult(new { success = false, error = "Search term is required" });
+                }
+
+                // Get user to decrypt patient data
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return new JsonResult(new { success = false, error = "User not found" });
+                }
+
+                currentUser = currentUser.DecryptSensitiveData(_encryptionService, User);
+
+                // Search for families by surname or family number
+                var searchLower = searchTerm.ToLower();
+
+                // Search by family number first
+                var familyByNumber = await _context.Patients
+                    .Where(p => p.FamilyNumber != null && p.FamilyNumber.Contains(searchTerm))
+                    .ToListAsync();
+
+                // If no results by family number, search by surname
+                if (!familyByNumber.Any())
+                {
+                    // Get all patients and decrypt their names for searching
+                    var allPatients = await _context.Patients
+                        .ToListAsync();
+
+                    // Decrypt patient names in memory
+                    foreach (var patient in allPatients)
+                    {
+                        try
+                        {
+                            var decryptedName = patient.FullName;
+                            if (_encryptionService.IsEncrypted(decryptedName))
+                            {
+                                decryptedName = patient.FullName.DecryptForUser(_encryptionService, User);
+                            }
+                            patient.FullName = decryptedName;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to decrypt name for patient {PatientId}", patient.UserId);
+                        }
+                    }
+
+                    // Search by surname (last name)
+                    familyByNumber = allPatients
+                        .Where(p => 
+                            p.FamilyNumber != null && 
+                            !string.IsNullOrWhiteSpace(p.FullName) &&
+                            p.FullName.ToLower().Contains(searchLower))
+                        .ToList();
+                }
+                else
+                {
+                    // Decrypt names for patients found by family number
+                    foreach (var patient in familyByNumber)
+                    {
+                        try
+                        {
+                            var decryptedName = patient.FullName;
+                            if (_encryptionService.IsEncrypted(decryptedName))
+                            {
+                                decryptedName = patient.FullName.DecryptForUser(_encryptionService, User);
+                            }
+                            patient.FullName = decryptedName;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to decrypt name for patient {PatientId}", patient.UserId);
+                        }
+                    }
+                }
+
+                // Group by family number and format results
+                var families = familyByNumber
+                    .Where(p => !string.IsNullOrWhiteSpace(p.FamilyNumber))
+                    .GroupBy(p => p.FamilyNumber)
+                    .Select(g => new
+                    {
+                        familyNumber = g.Key,
+                        members = g.Select(p => new
+                        {
+                            name = p.FullName,
+                            familyNumber = p.FamilyNumber
+                        }).Distinct().Take(5).ToList() // Limit to 5 members per family
+                    })
+                    .Take(10) // Limit to 10 families
+                    .ToList();
+
+                return new JsonResult(new { success = true, families = families });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching for families");
+                return new JsonResult(new { success = false, error = "An error occurred while searching for families" });
             }
         }
 

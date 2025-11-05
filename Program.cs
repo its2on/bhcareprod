@@ -479,12 +479,25 @@ builder.Services.AddScoped<IProtectedUrlService, ProtectedUrlService>();
 // Register Family Number Service
 builder.Services.AddScoped<IFamilyNumberService, FamilyNumberService>();
 
+// Register HTTP client factory for OCR services
+builder.Services.AddHttpClient("GoogleVision", client =>
+{
+    client.BaseAddress = new Uri("https://vision.googleapis.com/v1/images:annotate");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
 // Register Device Info Parser
 builder.Services.AddSingleton<IDeviceInfoParser, DeviceInfoParser>();
 
 // Register Audit Trail Service
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IFormDataExtractionService, FormDataExtractionService>();
+
+// Register Dynamic Form CMS Service
+builder.Services.AddScoped<IDynamicFormService, DynamicFormService>();
+
+// Register Appointment Slot Service
+builder.Services.AddScoped<IAppointmentSlotService, AppointmentSlotService>();
 
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();
