@@ -68,7 +68,8 @@ az webapp config connection-string set --name %APP_SERVICE_NAME% --resource-grou
 
 REM Configure app settings
 echo Configuring app settings...
-az webapp config appsettings set --name %APP_SERVICE_NAME% --resource-group %RESOURCE_GROUP% --settings "ASPNETCORE_ENVIRONMENT=Production" "EncryptionKey=BHCARE_Production_Encryption_Key_2024_Secure_32Chars" "DataEncryption__Key=BHCARE_Production_DataEncryption_Key_2024_Secure_32Chars"
+REM NOTE: Replace YOUR_AZURE_OCR_KEY with your actual Azure Computer Vision key
+az webapp config appsettings set --name %APP_SERVICE_NAME% --resource-group %RESOURCE_GROUP% --settings "ASPNETCORE_ENVIRONMENT=Production" "EncryptionKey=BHCARE_Production_Encryption_Key_2024_Secure_32Chars" "DataEncryption__Key=BHCARE_Production_DataEncryption_Key_2024_Secure_32Chars" "AzureOCR__Endpoint=https://bhcare-ocr.cognitiveservices.azure.com/" "AzureOCR__Key=YOUR_AZURE_OCR_KEY"
 
 echo.
 echo Deployment completed successfully!

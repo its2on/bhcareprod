@@ -23,6 +23,10 @@
 - `ADMIN_PASSWORD` - Admin user password
 - `ADMIN_FULLNAME` - Admin user full name
 
+### Azure OCR Configuration
+- `AzureOCR__Endpoint` - Azure Computer Vision endpoint URL
+- `AzureOCR__Key` - Azure Computer Vision subscription key
+
 ## Development Setup
 
 For development, use `appsettings.Development.json` which contains the development values.
@@ -46,6 +50,8 @@ $env:FROM_EMAIL="your-email@gmail.com"
 $env:ADMIN_EMAIL="admin@yourdomain.com"
 $env:ADMIN_PASSWORD="SecureAdminPassword123!"
 $env:ADMIN_FULLNAME="System Administrator"
+$env:AzureOCR__Endpoint="https://bhcare-ocr.cognitiveservices.azure.com/"
+$env:AzureOCR__Key="your-azure-computer-vision-key-here"
 ```
 
 ### Linux/macOS (Bash)
@@ -63,7 +69,51 @@ export FROM_EMAIL="your-email@gmail.com"
 export ADMIN_EMAIL="admin@yourdomain.com"
 export ADMIN_PASSWORD="SecureAdminPassword123!"
 export ADMIN_FULLNAME="System Administrator"
+export AzureOCR__Endpoint="https://bhcare-ocr.cognitiveservices.azure.com/"
+export AzureOCR__Key="your-azure-computer-vision-key-here"
 ```
+
+## Azure App Service Configuration
+
+For Azure App Service deployments, configure these as Application Settings in Azure Portal:
+
+### Via Azure Portal
+1. Go to **Azure Portal** → **App Service** → **Configuration** → **Application settings**
+2. Add the following settings:
+
+| Setting Name | Value | Description |
+|-------------|-------|-------------|
+| `AzureOCR__Endpoint` | `https://bhcare-ocr.cognitiveservices.azure.com/` | Azure Computer Vision endpoint |
+| `AzureOCR__Key` | `your-actual-key-here` | Azure Computer Vision subscription key |
+
+### Via Azure CLI
+```bash
+az webapp config appsettings set \
+  --name YOUR_APP_SERVICE_NAME \
+  --resource-group YOUR_RESOURCE_GROUP \
+  --settings \
+    "AzureOCR__Endpoint=https://bhcare-ocr.cognitiveservices.azure.com/" \
+    "AzureOCR__Key=your-actual-azure-ocr-key"
+```
+
+### Via PowerShell
+```powershell
+az webapp config appsettings set `
+  --name "YOUR_APP_SERVICE_NAME" `
+  --resource-group "YOUR_RESOURCE_GROUP" `
+  --settings `
+    "AzureOCR__Endpoint=https://bhcare-ocr.cognitiveservices.azure.com/" `
+    "AzureOCR__Key=your-actual-azure-ocr-key"
+```
+
+## GitHub Actions / CI/CD
+
+For GitHub Actions deployments, add these as repository secrets:
+
+1. Go to **GitHub Repository** → **Settings** → **Secrets and variables** → **Actions**
+2. Add secret: `AZURE_OCR_KEY` with your Azure Computer Vision key value
+
+The deployment workflow will automatically use this secret.
 
 ## Security Notes
 
@@ -72,3 +122,4 @@ export ADMIN_FULLNAME="System Administrator"
 3. **Rotate encryption keys regularly**
 4. **Use environment variables for all sensitive configuration**
 5. **Keep production configuration separate from development**
+6. **Store Azure OCR key in Azure Key Vault for enhanced security (recommended)**

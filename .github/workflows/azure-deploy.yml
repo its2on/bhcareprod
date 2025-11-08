@@ -106,7 +106,9 @@ jobs:
             "EmailSettings__SmtpUsername=barangayexample549@gmail.com" \
             "EmailSettings__SmtpPassword=${{ secrets.EMAIL_PASSWORD }}" \
             "EmailSettings__FromEmail=barangayexample549@gmail.com" \
-            "EmailSettings__EnableSsl=true"
+            "EmailSettings__EnableSsl=true" \
+            "AzureOCR__Endpoint=https://bhcare-ocr.cognitiveservices.azure.com/" \
+            "AzureOCR__Key=${{ secrets.AZURE_OCR_KEY }}"
           echo "App settings configured successfully!"
     
     # -------------------------

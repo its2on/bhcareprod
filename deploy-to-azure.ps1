@@ -65,10 +65,13 @@ $connectionString = "Server=tcp:$sqlServerName.database.windows.net,1433;Initial
 az webapp config connection-string set --name $appServiceName --resource-group $resourceGroupName --connection-string-type SQLServer --settings "DefaultConnection=$connectionString"
 
 # Configure App Settings
+# NOTE: Replace YOUR_AZURE_OCR_KEY with your actual Azure Computer Vision key
 az webapp config appsettings set --name $appServiceName --resource-group $resourceGroupName --settings `
     "ASPNETCORE_ENVIRONMENT=Production" `
     "EncryptionKey=BHCARE_Production_Encryption_Key_2024_Secure_32Chars" `
-    "DataEncryption__Key=BHCARE_Production_DataEncryption_Key_2024_Secure_32Chars"
+    "DataEncryption__Key=BHCARE_Production_DataEncryption_Key_2024_Secure_32Chars" `
+    "AzureOCR__Endpoint=https://bhcare-ocr.cognitiveservices.azure.com/" `
+    "AzureOCR__Key=YOUR_AZURE_OCR_KEY"
 
 Write-Host "Deployment completed successfully!" -ForegroundColor Green
 Write-Host "App Service URL: https://$appServiceName.azurewebsites.net" -ForegroundColor Cyan

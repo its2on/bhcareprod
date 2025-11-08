@@ -1328,6 +1328,12 @@ namespace Barangay.Pages.Account
                     return new JsonResult(new { success = false, message = "OCR service is not configured" });
                 }
 
+                // Log configuration (mask key for security)
+                _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");
+                _logger.LogInformation($"Azure OCR Key length: {azureKey?.Length ?? 0} characters");
+                _logger.LogInformation($"Azure OCR Key (first 10 chars): {azureKey?.Substring(0, Math.Min(10, azureKey.Length ?? 0))}...");
+                _logger.LogInformation($"Azure OCR Key (last 10 chars): ...{azureKey?.Substring(Math.Max(0, (azureKey?.Length ?? 0) - 10))}");
+
                 // Convert image to byte array
                 byte[] imageBytes;
                 using (var memoryStream = new MemoryStream())
