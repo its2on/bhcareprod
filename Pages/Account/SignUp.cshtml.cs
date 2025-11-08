@@ -1322,11 +1322,39 @@ namespace Barangay.Pages.Account
                 var azureEndpoint = _configuration["AzureOCR:Endpoint"];
                 var azureKey = _configuration["AzureOCR:Key"];
 
+                // Enhanced diagnostic logging
+                _logger.LogWarning("=== AZURE OCR CONFIGURATION DEBUG ===");
+                _logger.LogWarning($"AzureOCR:Endpoint value: {(string.IsNullOrEmpty(azureEndpoint) ? "NULL OR EMPTY" : azureEndpoint)}");
+                if (!string.IsNullOrEmpty(azureKey))
+                {
+                    _logger.LogWarning($"AzureOCR:Key value: Length={azureKey.Length}, First10={azureKey.Substring(0, Math.Min(10, azureKey.Length))}, Last10={azureKey.Substring(Math.Max(0, azureKey.Length - 10))}");
+                }
+                else
+                {
+                    _logger.LogWarning("AzureOCR:Key value: NULL OR EMPTY");
+                }
+                
+                // Check all possible configuration sources
+                var directEndpoint = _configuration["AzureOCR:Endpoint"];
+                var directKey = _configuration["AzureOCR:Key"];
+                _logger.LogWarning($"Direct config check - AzureOCR:Endpoint: {(string.IsNullOrEmpty(directEndpoint) ? "NULL OR EMPTY" : directEndpoint)}");
+                _logger.LogWarning($"Direct config check - AzureOCR:Key: {(string.IsNullOrEmpty(directKey) ? "NULL OR EMPTY" : $"Length={directKey.Length}")}");
+                
+                var envEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint");
+                var envKey = Environment.GetEnvironmentVariable("AzureOCR__Key");
+                _logger.LogWarning($"Environment variable check - AzureOCR__Endpoint: {(string.IsNullOrEmpty(envEndpoint) ? "NULL OR EMPTY" : envEndpoint)}");
+                _logger.LogWarning($"Environment variable check - AzureOCR__Key: {(string.IsNullOrEmpty(envKey) ? "NULL OR EMPTY" : $"Length={envKey.Length}")}");
+                _logger.LogWarning("======================================");
+
                 if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
                 {
                     _logger.LogError("Azure OCR configuration is missing");
                     return new JsonResult(new { success = false, message = "OCR service is not configured" });
                 }
+
+                // Trim whitespace from key (common issue)
+                azureKey = azureKey.Trim();
+                azureEndpoint = azureEndpoint.Trim();
 
                 // Log configuration (mask key for security)
                 _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");
