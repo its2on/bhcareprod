@@ -1356,11 +1356,20 @@ namespace Barangay.Pages.Account
                 azureKey = azureKey.Trim();
                 azureEndpoint = azureEndpoint.Trim();
 
-                // Validate key length (Azure Computer Vision keys are typically 100 characters)
-                if (azureKey.Length < 80)
+                // Validate key length (Azure Computer Vision keys are exactly 100 characters)
+                // Accept 95-105 characters to allow for minor variations, but reject anything < 95
+                if (azureKey.Length < 95)
                 {
-                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected ~100). Please update AzureOCR__Key in App Service with complete key.", azureKey.Length);
-                    return new JsonResult(new { success = false, message = "OCR service configuration error. The API key appears to be incomplete. Please contact administrator." });
+                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected 100 characters). Please update AzureOCR__Key in App Service with complete key from Computer Vision resource.", azureKey.Length);
+                    return new JsonResult(new { 
+                        success = false, 
+                        message = $"OCR service configuration error. The API key appears to be incomplete (length: {azureKey.Length}, expected: 100 characters). Please update AzureOCR__Key in Azure App Service with the complete key from Computer Vision resource." 
+                    });
+                }
+                
+                if (azureKey.Length != 100)
+                {
+                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", azureKey.Length);
                 }
 
                 // Log configuration (mask key for security)

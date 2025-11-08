@@ -35,13 +35,17 @@ namespace Barangay.Services
             }
             else
             {
-                // Validate key length (Azure Computer Vision keys are typically 100 characters)
-                if (_subscriptionKey.Length < 80)
+                // Validate key length (Azure Computer Vision keys are exactly 100 characters)
+                if (_subscriptionKey.Length < 95)
                 {
-                    _logger.LogError("Azure OCR Key appears to be truncated! Expected ~100 characters, got {Length} characters. First 10: {First10}, Last 10: {Last10}", 
+                    _logger.LogError("Azure OCR Key appears to be truncated! Expected 100 characters, got {Length} characters. First 10: {First10}, Last 10: {Last10}", 
                         _subscriptionKey.Length, 
                         _subscriptionKey.Substring(0, Math.Min(10, _subscriptionKey.Length)),
                         _subscriptionKey.Substring(Math.Max(0, _subscriptionKey.Length - 10)));
+                }
+                else if (_subscriptionKey.Length != 100)
+                {
+                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", _subscriptionKey.Length);
                 }
                 else
                 {
@@ -71,16 +75,22 @@ namespace Barangay.Services
                     };
                 }
 
-                // Validate key length before making request
+                // Validate key length before making request (Azure Computer Vision keys are exactly 100 characters)
+                // Accept 95-105 characters to allow for minor variations, but reject anything < 95
                 var trimmedKey = _subscriptionKey.Trim();
-                if (trimmedKey.Length < 80)
+                if (trimmedKey.Length < 95)
                 {
-                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected ~100). Please update AzureOCR__Key in App Service with complete key.", trimmedKey.Length);
+                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected 100 characters). Please update AzureOCR__Key in App Service with complete key from Computer Vision resource.", trimmedKey.Length);
                     return new OcrResult
                     {
                         Success = false,
-                        Message = "OCR service configuration error. The API key appears to be incomplete. Please contact administrator."
+                        Message = $"OCR service configuration error. The API key appears to be incomplete (length: {trimmedKey.Length}, expected: 100 characters). Please update AzureOCR__Key in Azure App Service with the complete key from Computer Vision resource."
                     };
+                }
+                
+                if (trimmedKey.Length != 100)
+                {
+                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", trimmedKey.Length);
                 }
 
                 // Step 1: Submit document for OCR analysis
