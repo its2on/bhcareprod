@@ -1187,10 +1187,13 @@ namespace Barangay.Pages.Admin
                 }
                 
                 // Use the same OCR logic from SignUp page - Prioritize environment variables from Azure App Service
+                // Try multiple ways to read the configuration
                 var azureEndpoint = (Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
-                    ?? _configuration["AzureOCR:Endpoint"])?.Trim();
+                    ?? _configuration["AzureOCR__Endpoint"]  // Try with double underscore
+                    ?? _configuration["AzureOCR:Endpoint"])?.Trim();  // Fallback to colon notation
                 var azureKey = (Environment.GetEnvironmentVariable("AzureOCR__Key") 
-                    ?? _configuration["AzureOCR:Key"])?.Trim();
+                    ?? _configuration["AzureOCR__Key"]       // Try with double underscore
+                    ?? _configuration["AzureOCR:Key"])?.Trim();       // Fallback to colon notation
                 
                 if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
                 {

@@ -26,10 +26,13 @@ namespace Barangay.Services
             _httpClient = httpClient;
 
             // Prioritize environment variables from Azure App Service (they take precedence)
+            // Try multiple ways to read the configuration
             _endpoint = (Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
-                ?? _configuration["AzureOCR:Endpoint"])?.Trim();
+                ?? _configuration["AzureOCR__Endpoint"]  // Try with double underscore
+                ?? _configuration["AzureOCR:Endpoint"])?.Trim();  // Fallback to colon notation
             _subscriptionKey = (Environment.GetEnvironmentVariable("AzureOCR__Key") 
-                ?? _configuration["AzureOCR:Key"])?.Trim();
+                ?? _configuration["AzureOCR__Key"]       // Try with double underscore
+                ?? _configuration["AzureOCR:Key"])?.Trim();       // Fallback to colon notation
 
             // Enhanced validation and logging
             if (string.IsNullOrEmpty(_endpoint) || string.IsNullOrEmpty(_subscriptionKey))

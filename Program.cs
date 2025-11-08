@@ -27,6 +27,10 @@ using System.IO;
 using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Note: WebApplication.CreateBuilder already loads environment variables automatically
+// Environment variables take precedence over appsettings.json by default
+// Add appsettings.json (environment variables will override if they exist)
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
 // Check for password reset command
