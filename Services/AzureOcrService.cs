@@ -25,12 +25,29 @@ namespace Barangay.Services
             _logger = logger;
             _httpClient = httpClient;
 
-            _endpoint = _configuration["AzureOCR:Endpoint"];
-            _subscriptionKey = _configuration["AzureOCR:Key"];
+            _endpoint = _configuration["AzureOCR:Endpoint"]?.Trim();
+            _subscriptionKey = _configuration["AzureOCR:Key"]?.Trim();
 
+            // Enhanced validation and logging
             if (string.IsNullOrEmpty(_endpoint) || string.IsNullOrEmpty(_subscriptionKey))
             {
                 _logger.LogWarning("Azure Computer Vision credentials not configured");
+            }
+            else
+            {
+                // Validate key length (Azure Computer Vision keys are typically 100 characters)
+                if (_subscriptionKey.Length < 80)
+                {
+                    _logger.LogError("Azure OCR Key appears to be truncated! Expected ~100 characters, got {Length} characters. First 10: {First10}, Last 10: {Last10}", 
+                        _subscriptionKey.Length, 
+                        _subscriptionKey.Substring(0, Math.Min(10, _subscriptionKey.Length)),
+                        _subscriptionKey.Substring(Math.Max(0, _subscriptionKey.Length - 10)));
+                }
+                else
+                {
+                    _logger.LogInformation("Azure OCR configured - Endpoint: {Endpoint}, Key length: {Length}", 
+                        _endpoint, _subscriptionKey.Length);
+                }
             }
         }
 
@@ -54,13 +71,27 @@ namespace Barangay.Services
                     };
                 }
 
+                // Validate key length before making request
+                var trimmedKey = _subscriptionKey.Trim();
+                if (trimmedKey.Length < 80)
+                {
+                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected ~100). Please update AzureOCR__Key in App Service with complete key.", trimmedKey.Length);
+                    return new OcrResult
+                    {
+                        Success = false,
+                        Message = "OCR service configuration error. The API key appears to be incomplete. Please contact administrator."
+                    };
+                }
+
                 // Step 1: Submit document for OCR analysis
-                var analyzeUrl = $"{_endpoint.TrimEnd('/')}/vision/v3.2/read/analyze";
+                var trimmedEndpoint = _endpoint.Trim().TrimEnd('/');
+                var analyzeUrl = $"{trimmedEndpoint}/vision/v3.2/read/analyze";
                 
                 _logger.LogInformation("Submitting to Azure OCR: {Url}", analyzeUrl);
+                _logger.LogInformation("Using key length: {Length} characters", trimmedKey.Length);
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, analyzeUrl);
-                request.Headers.Add("Ocp-Apim-Subscription-Key", _subscriptionKey);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", trimmedKey);
 
                 // Convert stream to byte array
                 using var memoryStream = new MemoryStream();
@@ -76,6 +107,18 @@ namespace Barangay.Services
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError("Azure OCR submission failed: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                    
+                    // Provide specific error messages for common issues
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogError("401 Unauthorized - Key length: {Length}. This usually means the key is invalid or truncated. Expected ~100 characters.", trimmedKey.Length);
+                        return new OcrResult
+                        {
+                            Success = false,
+                            Message = "OCR service authentication failed. The API key may be invalid or incomplete. Please contact administrator."
+                        };
+                    }
+                    
                     return new OcrResult
                     {
                         Success = false,
@@ -142,7 +185,7 @@ namespace Barangay.Services
                 _logger.LogInformation("Polling attempt {Attempt}/{MaxAttempts}", i + 1, maxAttempts);
 
                 using var request = new HttpRequestMessage(HttpMethod.Get, operationLocation);
-                request.Headers.Add("Ocp-Apim-Subscription-Key", _subscriptionKey);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", _subscriptionKey?.Trim() ?? string.Empty);
 
                 var response = await _httpClient.SendAsync(request);
                 var resultJson = await response.Content.ReadAsStringAsync();

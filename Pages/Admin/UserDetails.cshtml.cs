@@ -1187,14 +1187,24 @@ namespace Barangay.Pages.Admin
                 }
                 
                 // Use the same OCR logic from SignUp page
-                var azureEndpoint = _configuration["AzureOCR:Endpoint"];
-                var azureKey = _configuration["AzureOCR:Key"];
+                var azureEndpoint = _configuration["AzureOCR:Endpoint"]?.Trim();
+                var azureKey = _configuration["AzureOCR:Key"]?.Trim();
                 
                 if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
                 {
                     _logger.LogError("Azure OCR configuration is missing");
                     return new JsonResult(new { success = false, message = "OCR service is not configured" });
                 }
+                
+                // Validate key length (Azure Computer Vision keys are typically 100 characters)
+                if (azureKey.Length < 80)
+                {
+                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected ~100). Please update AzureOCR__Key in App Service with complete key.", azureKey.Length);
+                    return new JsonResult(new { success = false, message = "OCR service configuration error. The API key appears to be incomplete. Please contact administrator." });
+                }
+                
+                _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");
+                _logger.LogInformation($"Azure OCR Key length: {azureKey.Length} characters");
                 
                 // Convert image to byte array
                 byte[] imageBytes;
@@ -1209,7 +1219,8 @@ namespace Barangay.Pages.Admin
                 httpClient.Timeout = TimeSpan.FromSeconds(600);
                 httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", azureKey);
                 
-                var readApiUrl = $"{azureEndpoint}/vision/v3.2/read/analyze";
+                var trimmedEndpoint = azureEndpoint.TrimEnd('/');
+                var readApiUrl = $"{trimmedEndpoint}/vision/v3.2/read/analyze";
                 using var content = new ByteArrayContent(imageBytes);
                 content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
                 
@@ -1224,6 +1235,17 @@ namespace Barangay.Pages.Admin
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError("Azure OCR API error: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                    
+                    // Provide specific error messages for common issues
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogError("401 Unauthorized - Key length: {Length}. This usually means the key is invalid or truncated. Expected ~100 characters.", azureKey.Length);
+                        return new JsonResult(new { 
+                            success = false, 
+                            message = "OCR service authentication failed. The API key may be invalid or incomplete. Please contact administrator." 
+                        });
+                    }
+                    
                     return new JsonResult(new { success = false, message = "OCR processing failed. Please try again." });
                 }
                 

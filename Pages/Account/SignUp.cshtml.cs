@@ -1356,6 +1356,13 @@ namespace Barangay.Pages.Account
                 azureKey = azureKey.Trim();
                 azureEndpoint = azureEndpoint.Trim();
 
+                // Validate key length (Azure Computer Vision keys are typically 100 characters)
+                if (azureKey.Length < 80)
+                {
+                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected ~100). Please update AzureOCR__Key in App Service with complete key.", azureKey.Length);
+                    return new JsonResult(new { success = false, message = "OCR service configuration error. The API key appears to be incomplete. Please contact administrator." });
+                }
+
                 // Log configuration (mask key for security)
                 _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");
                 _logger.LogInformation($"Azure OCR Key length: {azureKey?.Length ?? 0} characters");
@@ -1395,6 +1402,17 @@ namespace Barangay.Pages.Account
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError($"Azure Read API error: {response.StatusCode} - {errorContent}");
+                    
+                    // Provide specific error messages for common issues
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogError("401 Unauthorized - Key length: {Length}. This usually means the key is invalid or truncated. Expected ~100 characters.", azureKey.Length);
+                        return new JsonResult(new { 
+                            success = false, 
+                            message = "OCR service authentication failed. The API key may be invalid or incomplete. Please contact administrator." 
+                        });
+                    }
+                    
                     return new JsonResult(new { success = false, message = $"OCR service error: {response.StatusCode}" });
                 }
 
