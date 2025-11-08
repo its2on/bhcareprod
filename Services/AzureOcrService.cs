@@ -25,8 +25,11 @@ namespace Barangay.Services
             _logger = logger;
             _httpClient = httpClient;
 
-            _endpoint = _configuration["AzureOCR:Endpoint"]?.Trim();
-            _subscriptionKey = _configuration["AzureOCR:Key"]?.Trim();
+            // Prioritize environment variables from Azure App Service (they take precedence)
+            _endpoint = (Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
+                ?? _configuration["AzureOCR:Endpoint"])?.Trim();
+            _subscriptionKey = (Environment.GetEnvironmentVariable("AzureOCR__Key") 
+                ?? _configuration["AzureOCR:Key"])?.Trim();
 
             // Enhanced validation and logging
             if (string.IsNullOrEmpty(_endpoint) || string.IsNullOrEmpty(_subscriptionKey))

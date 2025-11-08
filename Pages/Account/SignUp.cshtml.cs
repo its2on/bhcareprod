@@ -1318,9 +1318,12 @@ namespace Barangay.Pages.Account
 
                 _logger.LogInformation($"Processing ID image: {idImage.FileName}, Size: {idImage.Length} bytes");
 
-                // Get Azure OCR configuration
-                var azureEndpoint = _configuration["AzureOCR:Endpoint"];
-                var azureKey = _configuration["AzureOCR:Key"];
+                // Get Azure OCR configuration - Prioritize environment variables from Azure App Service
+                // Environment variables take precedence over appsettings.json
+                var azureEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
+                    ?? _configuration["AzureOCR:Endpoint"];
+                var azureKey = Environment.GetEnvironmentVariable("AzureOCR__Key") 
+                    ?? _configuration["AzureOCR:Key"];
 
                 // Enhanced diagnostic logging
                 _logger.LogWarning("=== AZURE OCR CONFIGURATION DEBUG ===");

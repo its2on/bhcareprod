@@ -1186,9 +1186,11 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "User not found." });
                 }
                 
-                // Use the same OCR logic from SignUp page
-                var azureEndpoint = _configuration["AzureOCR:Endpoint"]?.Trim();
-                var azureKey = _configuration["AzureOCR:Key"]?.Trim();
+                // Use the same OCR logic from SignUp page - Prioritize environment variables from Azure App Service
+                var azureEndpoint = (Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
+                    ?? _configuration["AzureOCR:Endpoint"])?.Trim();
+                var azureKey = (Environment.GetEnvironmentVariable("AzureOCR__Key") 
+                    ?? _configuration["AzureOCR:Key"])?.Trim();
                 
                 if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
                 {
