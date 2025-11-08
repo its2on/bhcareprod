@@ -46,23 +46,33 @@ namespace Barangay.Authorization
                 return;
             }
 
-            // Allow users with User role to access the User Dashboard
-            if (requirement.Permission == "Access User Dashboard" && context.User.IsInRole("User"))
+            // Allow users with User or Patient role to access the User Dashboard
+            if (requirement.Permission == "Access User Dashboard" && 
+                (context.User.IsInRole("User") || context.User.IsInRole("Patient")))
             {
-                _logger.LogInformation("User is in User role, granting access to User Dashboard");
+                _logger.LogInformation("User is in User or Patient role, granting access to User Dashboard");
                 context.Succeed(requirement);
                 return;
             }
 
-            // Special case for verified users to access User Dashboard
+            // Special case for verified or auto-approved users to access User Dashboard
             if (requirement.Permission == "Access User Dashboard" || requirement.Permission == "Access Dashboard")
             {
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-                if (user != null && user.Status == "Verified")
+                if (user != null)
                 {
-                    _logger.LogInformation("User {UserId} is verified, granting access to Dashboard", userId);
-                    context.Succeed(requirement);
-                    return;
+                    // Check if user is verified OR auto-approved (bypass approval page)
+                    // Accept both "Verified" and "Active" status for auto-approved users
+                    bool isVerified = (user.Status == "Verified" && user.IsActive) || 
+                                     (user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive) ||
+                                     (user.Status == "Active" && user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive);
+                    
+                    if (isVerified)
+                    {
+                        _logger.LogInformation("User {UserId} is verified/auto-approved, granting access to Dashboard", userId);
+                        context.Succeed(requirement);
+                        return;
+                    }
                 }
             }
 

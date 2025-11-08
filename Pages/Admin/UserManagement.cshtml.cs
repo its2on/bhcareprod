@@ -374,7 +374,7 @@ namespace Barangay.Pages.Admin
                 // Update user status
                 user.Status = "Verified";
                 user.IsActive = true;
-                user.EncryptedStatus = "Active";
+                user.EncryptedStatus = "Verified";
                 
                 _logger.LogInformation($"Attempting to update user status to: Verified");
                 var updateResult = await _userManager.UpdateAsync(user);
@@ -940,7 +940,7 @@ namespace Barangay.Pages.Admin
                     case "verified":
                         user.Status = "Verified";
                         user.IsActive = true;
-                        user.EncryptedStatus = "Active";
+                        user.EncryptedStatus = "Verified";
                         // If the user is under 18, auto-approve guardian consent
                         try
                         {

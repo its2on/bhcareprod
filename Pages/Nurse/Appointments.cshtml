@@ -92,7 +92,6 @@
                         <table class="table table-hover" id="appointmentsTable">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
                                     <th>Patient</th>
                                     <th>Date</th>
                                     <th>Time</th>
@@ -107,10 +106,9 @@
                                     @foreach (var appointment in Model.Appointments)
                                     {
                                         <tr>
-                                            <td>@appointment.Id</td>
                                             <td>@appointment.PatientName</td>
-                                            <td>@DateTimeHelper.GetFormattedDatePhilippine(appointment.AppointmentDate)</td>
-                                            <td>@appointment.AppointmentTime.Hours.ToString("00"):@appointment.AppointmentTime.Minutes.ToString("00")</td>
+                                            <td data-sort="@appointment.AppointmentDate.ToString("yyyy-MM-dd")">@DateTimeHelper.GetFormattedDatePhilippine(appointment.AppointmentDate)</td>
+                                            <td data-sort="@appointment.AppointmentTime.TotalMinutes">@appointment.AppointmentTime.Hours.ToString("00"):@appointment.AppointmentTime.Minutes.ToString("00")</td>
                                             <td>
                                                 <span class="badge @(appointment.Status == AppointmentStatus.Pending ? "bg-warning" : 
                                                                     appointment.Status == AppointmentStatus.Confirmed ? "bg-info" :
@@ -134,6 +132,7 @@
                                                     </a>
                                                 }
                                             </td>
+                                            <td style="display: none;">@(appointment.FamilyNumber ?? "")</td>
                                         </tr>
                                     }
                                 }
@@ -299,6 +298,24 @@
             margin-bottom: 1rem;
             opacity: 0.5;
         }
+        
+        /* DataTables search input styling */
+        .dataTables_filter input[type="search"] {
+            color: #212529 !important;
+            background-color: #fff !important;
+        }
+        
+        .dataTables_filter input[type="search"]::placeholder {
+            color: #6c757d !important;
+            opacity: 1;
+        }
+        
+        .dataTables_filter input[type="search"]:focus {
+            color: #212529 !important;
+            background-color: #fff !important;
+            border-color: #ff6b35 !important;
+            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+        }
     </style>
 }
 
@@ -313,13 +330,20 @@
     
     <script>
         $(document).ready(function() {
+            // Add custom sorting for data-sort attribute
+            $.fn.dataTable.ext.order['dom-data-sort'] = function(settings, col) {
+                return this.api().column(col, {order:'index'}).nodes().map(function(td, i) {
+                    return $(td).attr('data-sort') || $(td).text();
+                });
+            };
+            
             // Initialize DataTable with enhanced configuration
             const table = $('#appointmentsTable').DataTable({
-                "order": [[2, "desc"], [3, "desc"]], // Sort by Date desc, then Time desc
+                "order": [[1, "desc"], [2, "desc"]], // Sort by Date desc, then Time desc
                 "pageLength": 25,
                 "responsive": true,
                 "language": {
-                    "search": "Search appointments:",
+                    "search": "Search by patient name, date, time, or family number:",
                     "lengthMenu": "Show _MENU_ appointments per page",
                     "info": "Showing _START_ to _END_ of _TOTAL_ appointments",
                     "infoEmpty": "No appointments found",
@@ -329,9 +353,31 @@
                 },
                 "columnDefs": [
                     {
-                        "targets": [6], // Actions column
+                        "targets": [3, 4], // Status, Type columns - not searchable
+                        "searchable": false
+                    },
+                    {
+                        "targets": [0, 1, 2, 6], // Patient, Date, Time, and FamilyNumber columns - searchable
+                        "searchable": true
+                    },
+                    {
+                        "targets": [1], // Date column - use data-sort attribute for accurate sorting
+                        "type": "date",
+                        "orderDataType": "dom-data-sort"
+                    },
+                    {
+                        "targets": [2], // Time column - use data-sort attribute for accurate sorting
+                        "type": "num",
+                        "orderDataType": "dom-data-sort"
+                    },
+                    {
+                        "targets": [5], // Actions column
                         "orderable": false,
                         "searchable": false
+                    },
+                    {
+                        "targets": [6], // FamilyNumber column - hidden but searchable
+                        "visible": false
                     }
                 ],
                 "drawCallback": function(settings) {
@@ -341,6 +387,34 @@
                     }
                 }
             });
+            
+            // Custom search function to search in Patient column (index 0), Date column (index 1), Time column (index 2), and FamilyNumber (index 6)
+            var customSearchFunction = function(settings, data, dataIndex) {
+                // Only apply custom search to appointmentsTable
+                var tableId = $(settings.nTable).attr('id');
+                if (tableId !== 'appointmentsTable') {
+                    return true;
+                }
+                
+                // Get the search value from the DataTable instance
+                var api = new $.fn.dataTable.Api(settings);
+                var searchValue = api.search().toLowerCase().trim();
+                if (searchValue === '') {
+                    return true; // Show all if search is empty
+                }
+                // Search in Patient column (index 0), Date column (index 1), Time column (index 2), and FamilyNumber (index 6)
+                var patientName = (data[0] || '').toLowerCase();
+                var appointmentDate = (data[1] || '').toLowerCase();
+                var appointmentTime = (data[2] || '').toLowerCase();
+                var familyNumber = (data[6] || '').toLowerCase(); // FamilyNumber is now in the data array at index 6
+                
+                return patientName.indexOf(searchValue) !== -1 || 
+                       appointmentDate.indexOf(searchValue) !== -1 || 
+                       appointmentTime.indexOf(searchValue) !== -1 ||
+                       familyNumber.indexOf(searchValue) !== -1;
+            };
+            
+            $.fn.dataTable.ext.search.push(customSearchFunction);
             
             // Add keyboard navigation support
             $('#appointmentsTable tbody').on('keydown', 'tr', function(e) {

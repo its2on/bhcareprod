@@ -204,6 +204,111 @@
                                         @Model.GetUserTypeDisplay()
                                     </dd>
                                     
+                                    <dt class="col-sm-4 detail-label">Roles</dt>
+                                    <dd class="col-sm-8 detail-value">
+                                        @if (Model.UserRoles != null && Model.UserRoles.Any())
+                                        {
+                                            @foreach (var role in Model.UserRoles)
+                                            {
+                                                <span class="badge bg-warning text-dark me-1">@role</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No roles assigned</span>
+                                        }
+                                    </dd>
+                                    
+                                    <dt class="col-sm-4 detail-label">Verification Status</dt>
+                                    <dd class="col-sm-8 detail-value">
+                                        @if (Model.UserDetails.VerificationStatus == "Auto Verified" && Model.UserDetails.IsApproved)
+                                        {
+                                            <span class="badge bg-success" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
+                                                @if (Model.UserDetails.ApprovedBy != null && (Model.UserDetails.ApprovedBy.Contains("OCR") || Model.UserDetails.ApprovedBy.Contains("Barangay Match")))
+                                                {
+                                                    <i class="fa-solid fa-robot me-1"></i>
+                                                    <text>Auto-Approved</text>
+                                                }
+                                                else
+                                                {
+                                                    <i class="fa-solid fa-robot me-1"></i>
+                                                    <text>Auto Verified</text>
+                                                }
+                                            </span>
+                                            @if (!string.IsNullOrEmpty(Model.UserDetails.VerifiedBarangay))
+                                            {
+                                                <small class="text-muted d-block mt-1">
+                                                    <i class="fa-solid fa-map-marker-alt me-1"></i>
+                                                    Barangay @Model.UserDetails.VerifiedBarangay detected via OCR
+                                                </small>
+                                            }
+                                        }
+                                        else if (Model.UserDetails.VerificationStatus == "Manual Verified" && Model.UserDetails.IsApproved)
+                                        {
+                                            <span class="badge bg-success" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
+                                                <i class="fa-solid fa-user-check me-1"></i> Manual Verified
+                                            </span>
+                                        }
+                                        else if (Model.UserDetails.VerificationStatus == "Pending Review" || !Model.UserDetails.IsApproved)
+                                        {
+                                            <span class="badge bg-danger" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
+                                                <i class="fa-solid fa-exclamation-triangle me-1"></i> 
+                                                @if (string.IsNullOrEmpty(Model.UserDetails.VerifiedBarangay))
+                                                {
+                                                    <text>Manual Review Needed</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>Pending</text>
+                                                }
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">Unknown</span>
+                                        }
+                                    </dd>
+                                    
+                                    @if (!string.IsNullOrEmpty(Model.UserDetails.ApprovedBy))
+                                    {
+                                        <dt class="col-sm-4 detail-label">Approved By</dt>
+                                        <dd class="col-sm-8 detail-value">
+                                            @if (Model.UserDetails.ApprovedBy != null && (Model.UserDetails.ApprovedBy.Contains("OCR") || Model.UserDetails.ApprovedBy.Contains("Barangay Match")))
+                                            {
+                                                <span class="text-success">
+                                                    <i class="fa-solid fa-robot me-1"></i> @Model.UserDetails.ApprovedBy
+                                                </span>
+                                            }
+                                            else if (Model.UserDetails.ApprovedBy == "System (Auto)")
+                                            {
+                                                <span class="text-success">
+                                                    <i class="fa-solid fa-robot me-1"></i> System (Automatic)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span>@Model.UserDetails.ApprovedBy</span>
+                                            }
+                                        </dd>
+                                        
+                                        <dt class="col-sm-4 detail-label">Approved Date</dt>
+                                        <dd class="col-sm-8 detail-value">
+                                            @if (Model.UserDetails.ApprovedDate.HasValue)
+                                            {
+                                                @Model.UserDetails.ApprovedDate.Value.ToString("MMM dd, yyyy hh:mm tt")
+                                            }
+                                        </dd>
+                                    }
+                                    
+                                    @if (!string.IsNullOrEmpty(Model.UserDetails.VerifiedBarangay))
+                                    {
+                                        <dt class="col-sm-4 detail-label">Verified Barangay</dt>
+                                        <dd class="col-sm-8 detail-value">
+                                            <span class="badge bg-info">Barangay @Model.UserDetails.VerifiedBarangay</span>
+                                            <small class="text-muted d-block mt-1">(Auto-detected via OCR)</small>
+                                        </dd>
+                                    }
+                                    
                                     @if (Model.UserRoles.Any())
                                     {
                                         <dt class="col-sm-4 detail-label">Roles</dt>
@@ -330,15 +435,63 @@
                 </div>
             </div>
             <div class="card-footer">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <a href="/Admin/UserManagement" class="btn btn-secondary">
                         <i class="fa-solid fa-arrow-left"></i> Back
                     </a>
                     <div>
-                        @if (Model.UserDetails.Status == "Pending")
+                        @if (Model.UserDetails.IsApproved && Model.UserDetails.VerificationStatus == "Auto Verified")
                         {
+                            <!-- Already auto-approved - show read-only status with green badge -->
+                            <div class="alert alert-success mb-0 py-2 px-3">
+                                <i class="fa-solid fa-robot me-2"></i>
+                                <strong>Auto-Approved</strong>
+                                @if (!string.IsNullOrEmpty(Model.UserDetails.VerifiedBarangay))
+                                {
+                                    <small class="d-block">Barangay @Model.UserDetails.VerifiedBarangay detected via OCR on @Model.UserDetails.ApprovedDate?.ToString("MMM dd, yyyy hh:mm tt")</small>
+                                }
+                                else
+                                {
+                                    <small class="d-block">Verified automatically by OCR on @Model.UserDetails.ApprovedDate?.ToString("MMM dd, yyyy hh:mm tt")</small>
+                                }
+                            </div>
+                        }
+                        else if (Model.UserDetails.IsApproved)
+                        {
+                            <!-- Already manually approved - show read-only status -->
+                            <div class="alert alert-success mb-0 py-2 px-3">
+                                <i class="fa-solid fa-user-check me-2"></i>
+                                <strong>Manually Approved</strong>
+                                <small class="d-block">Approved by @Model.UserDetails.ApprovedBy on @Model.UserDetails.ApprovedDate?.ToString("MMM dd, yyyy hh:mm tt")</small>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Pending review - show scan ID, manual approve/reject buttons -->
+                            <div class="alert alert-warning mb-0 py-2 px-3 me-2 d-inline-block">
+                                <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                                <strong>Requires Manual Review</strong>
+                                <small class="d-block">
+                                    @if (string.IsNullOrEmpty(Model.UserDetails.Barangay))
+                                    {
+                                        <text>Barangay not specified. Upload ID to auto-verify or approve manually.</text>
+                                    }
+                                    else if (Model.UserDetails.Barangay.Contains("158") || Model.UserDetails.Barangay.Contains("159") || 
+                                             Model.UserDetails.Barangay.Contains("160") || Model.UserDetails.Barangay.Contains("161"))
+                                    {
+                                        <text>Auto-verification may have failed. Scan ID to retry or approve manually.</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Barangay @Model.UserDetails.Barangay.Replace("Barangay", "").Trim() not in service area (158-161). Manual approval required.</text>
+                                    }
+                                </small>
+                            </div>
+                            <button type="button" class="btn btn-info me-2" onclick="scanIdForApproval('@Model.UserDetails.Id')" id="btnScanId">
+                                <i class="fa-solid fa-id-card me-1"></i> Scan ID for Auto-Approval
+                            </button>
                             <button type="button" class="btn btn-approve-minimal me-2" onclick="approveUser('@Model.UserDetails.Id')">
-                                <i class="fa-solid fa-check"></i> Approve
+                                <i class="fa-solid fa-check"></i> Approve Manually
                             </button>
                             <button type="button" class="btn btn-reject-minimal" onclick="rejectUser('@Model.UserDetails.Id')">
                                 <i class="fa-solid fa-xmark"></i> Reject
@@ -474,6 +627,67 @@
         function rejectUser(userId) {
             showConfirmModal('reject', userId);
         }
+        
+        // Re-Verify with OCR function
+        function reVerifyWithOCR() {
+            const btn = document.getElementById('btnReVerifyOCR');
+            if (!btn) {
+                alert('Button not found');
+                return;
+            }
+            
+            const userId = btn.getAttribute('data-user-id');
+            console.log('Re-Verify OCR - User ID:', userId);
+            
+            if (!userId) {
+                alert('User ID not found. Please refresh the page and try again.');
+                return;
+            }
+            
+            if (!confirm('Auto-verify this user based on their Barangay field in their profile? If they are from Barangay 158-161, they will be automatically approved.')) {
+                return;
+            }
+            
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const originalHtml = btn.innerHTML;
+            
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+            
+            console.log('Sending OCR request for user:', userId);
+            
+            fetch('/Admin/UserDetails?handler=ReVerifyWithOCR', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify({ id: userId })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                
+                if (data.success) {
+                    alert(`✅ ${data.message}\n\nBarangay: ${data.barangay}\n\nThe page will reload to show updated status.`);
+                    location.reload();
+                } else {
+                    alert(`❌ ${data.message}`);
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                console.error('Error:', error);
+                alert('An error occurred during OCR re-verification. Please check the console and try again.');
+            });
+        }
 
         function showConfirmModal(action, userId) {
             const modal = document.getElementById('confirmActionModal');
@@ -552,6 +766,100 @@
             // Show modal
             const bsModal = new bootstrap.Modal(modal);
             bsModal.show();
+        }
+        
+        // Scan ID for Auto-Approval function
+        function scanIdForApproval(userId) {
+            const btn = document.getElementById('btnScanId');
+            if (!btn) {
+                alert('Button not found');
+                return;
+            }
+            
+            // Create file input
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/jpeg,image/jpg,image/png';
+            fileInput.style.display = 'none';
+            
+            fileInput.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    return;
+                }
+                
+                // Validate file type
+                if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+                    alert('Please select a JPG or PNG image file.');
+                    return;
+                }
+                
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size exceeds 5MB limit. Please select a smaller image.');
+                    return;
+                }
+                
+                // Show loading state
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Scanning ID...';
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('idImage', file);
+                formData.append('id', userId);
+                
+                // Get anti-forgery token
+                const token = document.querySelector('input[name="__RequestVerificationToken"]');
+                if (token) {
+                    formData.append('__RequestVerificationToken', token.value);
+                }
+                
+                try {
+                    const response = await fetch('/Admin/UserDetails?handler=ScanIdForApproval', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'RequestVerificationToken': token ? token.value : ''
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Show success message
+                        const alertHtml = `
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="fa-solid fa-check-circle me-2"></i>${data.message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        `;
+                        document.body.insertAdjacentHTML('afterbegin', alertHtml);
+                        
+                        // Reload page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        alert(data.message || 'Failed to scan ID. Please try again.');
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                } catch (error) {
+                    console.error('Error scanning ID:', error);
+                    alert('An error occurred while scanning the ID. Please try again.');
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+                
+                // Remove file input
+                document.body.removeChild(fileInput);
+            };
+            
+            // Trigger file input
+            document.body.appendChild(fileInput);
+            fileInput.click();
         }
     </script>
 } 

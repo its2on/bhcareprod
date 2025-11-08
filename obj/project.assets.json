@@ -14007,11 +14007,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj",
+      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\Barangay.csproj",
       "projectName": "Barangay",
-      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\Barangay.csproj",
+      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\Barangay.csproj",
       "packagesPath": "C:\\Users\\Ben\\.nuget\\packages\\",
-      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-mainigerr\\BHCARE-main\\obj\\",
+      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Ben\\AppData\\Roaming\\NuGet\\NuGet.Config"

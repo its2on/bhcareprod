@@ -25,6 +25,19 @@
         
         <form method="post" enctype="multipart/form-data" id="signupForm" novalidate>
 
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Validation Error!</strong>
+                    <p class="mb-0">@TempData["ErrorMessage"]</p>
+                    @if (TempData["ValidationErrors"] != null)
+                    {
+                        <small class="d-block mt-2">@TempData["ValidationErrors"]</small>
+                    }
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
             
             <!-- Personal Information Section -->
             <div id="section1" class="section">
@@ -183,13 +196,18 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.Barangay" class="form-label">Barangay <span class="required">*</span></label>
-                            <select asp-for="Input.Barangay" class="form-select" aria-label="Barangay selection">
+                            <!-- Hidden fields for OCR-detected data -->
+                            <input type="hidden" asp-for="Input.OcrDetectedBarangay" id="OcrDetectedBarangay" />
+                            <input type="hidden" asp-for="Input.OcrExtractedAddress" id="OcrExtractedAddress" />
+                            <input type="hidden" asp-for="Input.OcrExtractedText" id="OcrExtractedText" />
+                            <select asp-for="Input.Barangay" class="form-select" aria-label="Barangay selection" id="Input_Barangay">
                                 <option value="">Select barangay</option>
                                 <option value="158">158</option>
                                 <option value="159">159</option>
                                 <option value="160">160</option>
                                 <option value="161">161</option>
                             </select>
+                            <div class="invalid-feedback" id="barangayError">Please select a barangay</div>
                         </div>
                     </div>
                 </div>
@@ -427,6 +445,47 @@
             </div>
             
             <script>
+                console.log('🔧 SIGNUP FIX LOADED - Version 2.0');
+                
+                // CRITICAL FIX: Make all sections visible before form submission
+                // Hidden sections (d-none) don't submit their field values!
+                function prepareSignupFormForSubmission() {
+                    console.log('=== PREPARING SIGNUP FORM FOR SUBMISSION ===');
+                    const allSections = document.querySelectorAll('.section');
+                    console.log(`Found ${allSections.length} sections`);
+                    
+                    allSections.forEach((section, index) => {
+                        const sectionId = section.id;
+                        const wasHidden = section.classList.contains('d-none');
+                        
+                        console.log(`Section ${index} (${sectionId}): wasHidden=${wasHidden}`);
+                        
+                        // Remove d-none to make visible to form submission
+                        section.classList.remove('d-none');
+                        
+                        // Hide visually but keep in DOM for submission
+                        if (wasHidden) {
+                            section.style.position = 'absolute';
+                            section.style.left = '-9999px';
+                            section.style.visibility = 'hidden';
+                            section.style.pointerEvents = 'none';
+                        }
+                    });
+                    
+                    console.log('All sections prepared for submission');
+                    
+                    // Log all form fields being submitted
+                    const formData = new FormData(document.getElementById('signupForm'));
+                    console.log('Form data entries:');
+                    for (let [key, value] of formData.entries()) {
+                        if (typeof value === 'string') {
+                            console.log(`  ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+                        } else {
+                            console.log(`  ${key}: [File: ${value.name}]`);
+                        }
+                    }
+                }
+                
                 // Show loading indicator on form submit
                 document.addEventListener('DOMContentLoaded', function() {
                     const form = document.getElementById('signupForm');
@@ -434,8 +493,36 @@
                     const submitButton = document.getElementById('signupButton');
                     
                     if (form && loadingIndicator && submitButton) {
-                        form.addEventListener('submit', function() {
-                            console.log('Form submitted, showing loading indicator');
+                        // Intercept form submission
+                        form.addEventListener('submit', function(e) {
+                            console.log('🚀 Form submit event triggered');
+                            
+                            // Check if a non-eligible barangay was detected from ID
+                            const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
+                            if (nonEligibleBarangayDetected && nonEligibleBarangayDetected.value) {
+                                e.preventDefault();
+                                console.error('❌ FORM SUBMISSION BLOCKED: Non-eligible barangay detected:', nonEligibleBarangayDetected.value);
+                                alert(`Registration is disabled. The ID shows Barangay ${nonEligibleBarangayDetected.value}, which is not eligible. Please upload a valid ID showing Barangay 158, 159, 160, or 161.`);
+                                return false;
+                            }
+                            
+                            // CRITICAL: Prepare form BEFORE submission
+                            // This ensures all sections (1, 2, 3) are visible for form submission
+                            prepareSignupFormForSubmission();
+                            
+                            // Check for validation errors
+                            const invalidFields = form.querySelectorAll(':invalid');
+                            if (invalidFields.length > 0) {
+                                console.error('❌ VALIDATION ERRORS FOUND:', invalidFields.length);
+                                invalidFields.forEach((field, index) => {
+                                    console.error(`  ${index + 1}. ${field.name || field.id}: ${field.validationMessage}`);
+                                });
+                                // Don't prevent default - let browser show validation
+                                return;
+                            }
+                            
+                            console.log('✅ All validations passed, submitting form...');
+                            console.log('Showing loading indicator');
                             loadingIndicator.classList.remove('d-none');
                             submitButton.disabled = true;
                             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
@@ -622,6 +709,19 @@
                             fileInput.addEventListener('change', () => {
                                 this.validateFile();
                                 this.updateRegisterButtonState();
+                                // Automatically verify residency proof when file is uploaded
+                                this.verifyResidencyProof(fileInput.files[0]);
+                            });
+                        }
+                        
+                        // Also listen to residencyProofFile if it exists (alternative ID)
+                        const residencyProofFile = document.getElementById('residencyProofFile');
+                        if (residencyProofFile) {
+                            residencyProofFile.addEventListener('change', () => {
+                                this.validateFile();
+                                this.updateRegisterButtonState();
+                                // Automatically verify residency proof when file is uploaded
+                                this.verifyResidencyProof(residencyProofFile.files[0]);
                             });
                         }
 
@@ -697,12 +797,28 @@
                                                contactNumber && address && birthDate && 
                                                genderSelected && barangay;
                         
-                        // Check if any field has is-invalid class
-                        const invalidFields = document.querySelectorAll('#section1 .form-control.is-invalid, #section1 .form-select.is-invalid');
+                        // Check if any VISIBLE field has is-invalid class (exclude hidden guardian section)
+                        const invalidFieldsList = document.querySelectorAll('#section1 .form-control.is-invalid, #section1 .form-select.is-invalid');
+                        const invalidFields = Array.from(invalidFieldsList).filter(field => {
+                            // Exclude fields inside hidden guardian section
+                            const guardianSection = field.closest('#guardianInfoSection');
+                            if (guardianSection && guardianSection.style.display === 'none') {
+                                return false;
+                            }
+                            return true;
+                        });
                         const hasInvalidFields = invalidFields.length > 0;
                         
-                        // Check for visible error messages
-                        const visibleErrors = document.querySelectorAll('#section1 .invalid-feedback[style*="display: block"]');
+                        // Check for visible error messages (exclude hidden guardian section)
+                        const visibleErrorsList = document.querySelectorAll('#section1 .invalid-feedback[style*="display: block"]');
+                        const visibleErrors = Array.from(visibleErrorsList).filter(error => {
+                            // Exclude errors inside hidden guardian section
+                            const guardianSection = error.closest('#guardianInfoSection');
+                            if (guardianSection && guardianSection.style.display === 'none') {
+                                return false;
+                            }
+                            return true;
+                        });
                         const hasVisibleErrors = visibleErrors.length > 0;
                         
                         console.log('DEBUG Step1 Button State:', {
@@ -1031,18 +1147,30 @@
                         const termsChecked = document.getElementById('privacyTerms')?.checked;
                         const residencyChecked = document.getElementById('residencyConfirm')?.checked;
                         
-                        const allValid = fileValid && termsChecked && residencyChecked;
+                        // Check if a non-eligible barangay was detected from ID
+                        const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
+                        const hasNonEligibleBarangay = nonEligibleBarangayDetected && nonEligibleBarangayDetected.value;
+                        
+                        const allValid = fileValid && termsChecked && residencyChecked && !hasNonEligibleBarangay;
                         
                         if (allValid) {
                             registerButton.disabled = false;
                             registerButton.classList.remove('btn-secondary');
                             registerButton.classList.add('btn-primary');
                             registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                            registerButton.title = '';
                         } else {
                             registerButton.disabled = true;
                             registerButton.classList.remove('btn-primary');
                             registerButton.classList.add('btn-secondary');
-                            registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                            
+                            if (hasNonEligibleBarangay) {
+                                registerButton.innerHTML = '<i class="fas fa-ban me-2"></i> Registration Disabled (Invalid Barangay)';
+                                registerButton.title = 'The ID shows a non-eligible barangay. Please upload a valid ID showing Barangay 158, 159, 160, or 161.';
+                            } else {
+                                registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                                registerButton.title = '';
+                            }
                         }
                     }
 
@@ -1152,6 +1280,145 @@
                         
                         this.clearError('checkboxes');
                         return true;
+                    }
+
+                    async verifyResidencyProof(file) {
+                        if (!file) return;
+                        
+                        // Validate file type
+                        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+                        if (!allowedTypes.includes(file.type)) {
+                            return; // Already handled by validateFile
+                        }
+                        
+                        // Validate file size (5MB max)
+                        const maxSize = 5 * 1024 * 1024;
+                        if (file.size > maxSize) {
+                            return; // Already handled by validateFile
+                        }
+                        
+                        // Show verification status
+                        const fileNameDisplay = document.getElementById('fileNameDisplay');
+                        if (fileNameDisplay) {
+                            fileNameDisplay.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Verifying residency proof...</div>';
+                            fileNameDisplay.classList.remove('d-none');
+                        }
+                        
+                        try {
+                            // Create form data
+                            const formData = new FormData();
+                            formData.append('residencyProof', file);
+                            
+                            // Add anti-forgery token
+                            const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]');
+                            if (antiForgeryToken) {
+                                formData.append('__RequestVerificationToken', antiForgeryToken.value);
+                            }
+                            
+                            // Call verification endpoint
+                            const response = await fetch('/Account/SignUp?handler=VerifyResidency', {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'RequestVerificationToken': antiForgeryToken ? antiForgeryToken.value : ''
+                                }
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`Server error: ${response.status}`);
+                            }
+                            
+                            const result = await response.json();
+                            
+                            // Display result
+                            if (fileNameDisplay) {
+                                // Check if a non-eligible barangay was detected (e.g., 168, 162, etc.)
+                                if (result.detectedBarangay && !result.autoApproved && result.success === false) {
+                                    // Non-eligible barangay detected - show warning and disable submit button
+                                    fileNameDisplay.innerHTML = `<div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Barangay Not Eligible</strong>
+                                        <div class="mt-2">${result.message || `The document shows Barangay ${result.detectedBarangay}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Your account will require manual review by an administrator.`}</div>
+                                        <div class="mt-2"><strong>Registration is disabled. Please upload a valid ID showing Barangay 158, 159, 160, or 161.</strong></div>
+                                    </div>`;
+                                    
+                                    // Clear any stored barangay to prevent auto-approval
+                                    const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                    if (ocrBarangayInput) {
+                                        ocrBarangayInput.value = '';
+                                    }
+                                    
+                                    // Store non-eligible barangay flag to prevent form submission
+                                    const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                    if (!nonEligibleBarangayInput) {
+                                        const hiddenInput = document.createElement('input');
+                                        hiddenInput.type = 'hidden';
+                                        hiddenInput.id = 'NonEligibleBarangayDetected';
+                                        hiddenInput.name = 'NonEligibleBarangayDetected';
+                                        hiddenInput.value = result.detectedBarangay;
+                                        document.getElementById('signupForm')?.appendChild(hiddenInput);
+                                    } else {
+                                        nonEligibleBarangayInput.value = result.detectedBarangay;
+                                    }
+                                    
+                                    // Disable submit button
+                                    this.updateRegisterButtonState();
+                                } else if (result.success && result.autoApproved && result.barangay) {
+                                    // Eligible barangay detected (158, 159, 160, or 161)
+                                    fileNameDisplay.innerHTML = `<div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Residency Verified!</strong>
+                                        <div class="mt-2">Barangay ${result.barangay} detected - Your account will be automatically approved!</div>
+                                    </div>`;
+                                    
+                                    // Store detected barangay in hidden field for form submission
+                                    const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                    if (ocrBarangayInput) {
+                                        ocrBarangayInput.value = result.barangay;
+                                    }
+                                    
+                                    // Remove non-eligible barangay flag if exists
+                                    const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                    if (nonEligibleBarangayInput) {
+                                        nonEligibleBarangayInput.remove();
+                                    }
+                                    
+                                    // Enable submit button
+                                    this.updateRegisterButtonState();
+                                } else {
+                                    // No barangay detected or OCR failed
+                                    fileNameDisplay.innerHTML = `<div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Verification Status</strong>
+                                        <div class="mt-2">${result.message || 'Your document will be reviewed by an administrator.'}</div>
+                                    </div>`;
+                                    
+                                    // Clear any stored barangay
+                                    const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                    if (ocrBarangayInput) {
+                                        ocrBarangayInput.value = '';
+                                    }
+                                    
+                                    // Remove non-eligible barangay flag if exists
+                                    const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                    if (nonEligibleBarangayInput) {
+                                        nonEligibleBarangayInput.remove();
+                                    }
+                                    
+                                    // Update submit button state
+                                    this.updateRegisterButtonState();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error verifying residency proof:', error);
+                            if (fileNameDisplay) {
+                                fileNameDisplay.innerHTML = `<div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Verification Error</strong>
+                                    <div class="mt-2">Could not verify residency proof automatically. Your document will be reviewed by an administrator.</div>
+                                </div>`;
+                            }
+                        }
                     }
 
                     // Step Validation Methods
@@ -1775,6 +2042,8 @@
     <script src="~/js/signup.js" asp-append-version="true"></script>
     <script src="~/js/password-validation.js" asp-append-version="true"></script>
     <script src="~/js/form-validation.js" asp-append-version="true"></script>
+    <!-- Philippine ID Parser Module -->
+    <script src="~/js/philippine-id-parser.js" asp-append-version="true"></script>
     <script>
         // Debug Console Logging
         console.log('SignUp page scripts loaded');
@@ -1857,6 +2126,21 @@
                      guardianInfoSection.style.display = 'block';
                  } else {
                      guardianInfoSection.style.display = 'none';
+                     
+                     // Clear validation errors from guardian fields when hidden
+                     const guardianFields = guardianInfoSection.querySelectorAll('.form-control');
+                     guardianFields.forEach(field => {
+                         field.classList.remove('is-invalid', 'is-valid');
+                     });
+                     const guardianErrors = guardianInfoSection.querySelectorAll('.invalid-feedback');
+                     guardianErrors.forEach(error => {
+                         error.style.display = 'none';
+                     });
+                 }
+                 
+                 // Re-check button state after toggling guardian section
+                 if (window.signupValidator) {
+                     window.signupValidator.updateStep1NextButtonState();
                  }
             }
 
@@ -2212,12 +2496,415 @@
                 }
             });
             
-
+            // ========== IMAGE QUALITY VALIDATION FUNCTIONS ==========
             
-            // Handle scan button click
+            /**
+             * Validate image quality before uploading
+             */
+            async function validateImageQuality(file) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        img.onload = function() {
+                            const results = {
+                                isValid: true,
+                                errors: [],
+                                warnings: []
+                            };
+                            
+                            // Check resolution
+                            if (img.width < 600 || img.height < 400) {
+                                results.isValid = false;
+                                results.errors.push(`Resolution too low (${img.width}x${img.height}). Minimum: 600x400 pixels.`);
+                            }
+                            
+                            // Check file size
+                            if (file.size < 50000) {
+                                results.warnings.push('Image file very small (may indicate low quality).');
+                            }
+                            
+                            resolve(results);
+                        };
+                        
+                        img.onerror = function() {
+                            reject(new Error('Failed to load image. File may be corrupted.'));
+                        };
+                        
+                        img.src = e.target.result;
+                    };
+                    
+                    reader.onerror = function() {
+                        reject(new Error('Failed to read file.'));
+                    };
+                    
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            /**
+             * 🧠 Smart Philippine ID Parser (Module Wrapper)
+             * Uses the production-ready Philippine ID Parser module
+             * Parses OCR text from any Philippine ID type with automatic ID type detection
+             * Returns: { idType, firstName, middleName, lastName, address, birthDate, gender, barangay, success, message }
+             */
+            function parsePhilippineIdText(text) {
+                // Use the Philippine ID Parser module for robust parsing
+                if (typeof PhilippineIDParser !== 'undefined' && PhilippineIDParser.parse) {
+                    return PhilippineIDParser.parse(text);
+                }
+                
+                // Fallback to basic parsing if module not loaded
+                console.warn('Philippine ID Parser module not loaded, using fallback parsing');
+                return {
+                    idType: 'Unknown',
+                    firstName: null,
+                    middleName: null,
+                    lastName: null,
+                    address: null,
+                    birthDate: null,
+                    gender: null,
+                    barangay: null,
+                    success: false,
+                    message: 'Module not loaded'
+                };
+            }
+            
+            /**
+             * Legacy inline parser (kept as fallback) - NOT USED by default
+             */
+            function parsePhilippineIdTextLegacy(text) {
+                if (!text) return {};
+                
+                console.log('Parsing Philippine ID text:', text);
+                
+                const result = {
+                    firstName: null,
+                    middleName: null,
+                    lastName: null,
+                    address: null,
+                    birthDate: null,
+                    gender: null,
+                    barangay: null
+                };
+                
+                const lines = text.split(/[\r\n]+/).map(line => line.trim()).filter(line => line.length > 0);
+                const upperText = text.toUpperCase();
+                
+                // ========== NAME DETECTION ==========
+                // Pattern 1: "Last Name, First Name Middle Name" (Driver's License format)
+                const nameCommaPattern = /^([A-Z]{2,}),\s*([A-Z\s]+?)(?:\s+([A-Z]{2,}(?:\s+[A-Z]{2,})?))?$/;
+                
+                // Pattern 2: "SURNAME: VALUE" or "LAST NAME: VALUE" or "APELYIDO: VALUE" (Filipino)
+                const surnamePattern = /(SURNAME|APELYIDO|LAST\s*NAME|FAMILY\s*NAME)[:\-\s\/]+([A-Z][A-Z\s]+?)(?:\n|$)/i;
+                
+                // Pattern 3: "GIVEN NAME: VALUE" or "FIRST NAME: VALUE" or "MGA PANGALAN: VALUE" (Filipino)
+                const givenNamePattern = /(GIVEN\s*NAME|GIVEN\s*NAMES|MGA\s*PANGALAN|FIRST\s*NAME|UNANG\s*PANGALAN)[:\-\s\/]+([A-Z][A-Z\s]+?)(?:\n|$)/i;
+                
+                // Pattern 4: "MIDDLE NAME: VALUE" or "GITNANG APELYIDO: VALUE" (Filipino)
+                const middleNamePattern = /(MIDDLE\s*NAME|GITNANG\s*APELYIDO)[:\-\s\/]+([A-Z][A-Z\s]+?)(?:\n|$)/i;
+                
+                // Pattern 5: "Last Name, First Name, Middle Name" format
+                const fullNameCommaPattern = /^([A-Z]{2,}),\s*([A-Z\s]+),\s*([A-Z\s]+)$/;
+                
+                // Helper function to validate if extracted value is not just a label
+                function isValidNameValue(value) {
+                    if (!value) return false;
+                    const upper = value.toUpperCase().trim();
+                    
+                    // Skip if it's just a label phrase
+                    const labelPhrases = [
+                        'GIVEN NAME', 'GIVEN NAMES', 'FIRST NAME', 'LAST NAME', 'MIDDLE NAME',
+                        'SURNAME', 'APELYIDO', 'MGA PANGALAN', 'GITNANG APELYIDO',
+                        'FAMILY NAME', 'UNANG PANGALAN'
+                    ];
+                    
+                    if (labelPhrases.some(phrase => upper === phrase || upper === phrase + 'S')) {
+                        return false;
+                    }
+                    
+                    // Skip if it contains a period followed by space (indicates multiple labels)
+                    if (value.includes('. ')) {
+                        return false;
+                    }
+                    
+                    // Must have at least 2 characters
+                    return value.length >= 2;
+                }
+                
+                // Try to find name from lines
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const upperLine = line.toUpperCase();
+                    
+                    // Skip lines that are just label headers (e.g., "Last Name. First Name. Middle Name")
+                    if (upperLine.match(/LAST\s*NAME.*FIRST\s*NAME.*MIDDLE\s*NAME/i) ||
+                        upperLine.match(/APELYIDO.*PANGALAN.*GITNANG/i)) {
+                        console.log('Skipping label header line:', line);
+                        continue;
+                    }
+                    
+                    // Check for labeled surname
+                    if (!result.lastName) {
+                        const surnameMatch = upperLine.match(surnamePattern);
+                        if (surnameMatch && isValidNameValue(surnameMatch[2])) {
+                            result.lastName = surnameMatch[2].trim();
+                            console.log('Found surname:', result.lastName);
+                        }
+                    }
+                    
+                    // Check for labeled given name
+                    if (!result.firstName) {
+                        const givenMatch = upperLine.match(givenNamePattern);
+                        if (givenMatch && isValidNameValue(givenMatch[2])) {
+                            result.firstName = givenMatch[2].trim();
+                            console.log('Found given name:', result.firstName);
+                        }
+                    }
+                    
+                    // Check for labeled middle name
+                    if (!result.middleName) {
+                        const middleMatch = upperLine.match(middleNamePattern);
+                        if (middleMatch && isValidNameValue(middleMatch[2])) {
+                            result.middleName = middleMatch[2].trim();
+                            console.log('Found middle name:', result.middleName);
+                        }
+                    }
+                    
+                    // Check for "Last Name, First Name Middle Name" format (Driver's License)
+                    // But skip if previous line was a label header
+                    if (!result.lastName && !result.firstName) {
+                        const commaMatch = line.match(nameCommaPattern);
+                        if (commaMatch && isValidNameValue(commaMatch[1])) {
+                            result.lastName = commaMatch[1].trim();
+                            const firstAndMiddle = commaMatch[2].trim().split(/\s+/);
+                            result.firstName = firstAndMiddle[0];
+                            if (firstAndMiddle.length > 1) {
+                                result.middleName = firstAndMiddle.slice(1).join(' ');
+                            }
+                            console.log('Found comma format name:', result);
+                        }
+                    }
+                    
+                    // Check for "Last, First, Middle" format
+                    if (!result.lastName && !result.firstName && !result.middleName) {
+                        const fullCommaMatch = line.match(fullNameCommaPattern);
+                        if (fullCommaMatch && isValidNameValue(fullCommaMatch[1])) {
+                            result.lastName = fullCommaMatch[1].trim();
+                            result.firstName = fullCommaMatch[2].trim();
+                            result.middleName = fullCommaMatch[3].trim();
+                            console.log('Found full comma format:', result);
+                        }
+                    }
+                }
+                
+                // ========== ADDRESS DETECTION ==========
+                const addressKeywords = ['BLK', 'LOT', 'HOUSE', 'ST', 'STREET', 'BARANGAY', 'BRGY', 'CITY', 'PROVINCE', 'REGION', 'ZONE', 'PHASE', 'PUROK', 'SITIO'];
+                const addressLines = [];
+                let addressStarted = false;
+                
+                // Skip fields that should NOT be treated as address
+                const skipPatterns = [
+                    /LAST\s*NAME|SURNAME|APELYIDO/i,
+                    /FIRST\s*NAME|GIVEN|PANGALAN/i,
+                    /MIDDLE\s*NAME|GITNANG/i,
+                    /NATIONALITY|NASYONALIDAD/i,
+                    /LICENSE|LISENSYA/i
+                ];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const upperLine = line.toUpperCase();
+                    
+                    // Skip if line contains name-related keywords
+                    if (skipPatterns.some(pattern => pattern.test(upperLine))) {
+                        continue;
+                    }
+                    
+                    // Skip comma-separated name format (e.g., "LOPEZ, ANTHONY JR LLONA")
+                    if (upperLine.match(/^[A-Z]{2,},\s*[A-Z\s]+$/)) {
+                        continue;
+                    }
+                    
+                    // Check if line contains address label (English or Filipino)
+                    if ((upperLine.includes('ADDRESS') || upperLine.includes('TIRAHAN')) && upperLine.includes(':')) {
+                        // Address value might be on same line or next line
+                        const parts = line.split(':');
+                        if (parts.length > 1 && parts[1].trim().length > 0) {
+                            const addrPart = parts[1].trim();
+                            // Only add if it's not a name format
+                            if (!addrPart.match(/^[A-Z]{2,},\s*[A-Z\s]+$/)) {
+                                addressLines.push(addrPart);
+                            }
+                        }
+                        addressStarted = true;
+                        continue;
+                    }
+                    
+                    // If address started or line contains address keywords
+                    if (addressStarted || addressKeywords.some(kw => upperLine.includes(kw))) {
+                        // Skip if it looks like a label line or other field
+                        if (upperLine.match(/^(BIRTH|DATE|SEX|GENDER|HEIGHT|WEIGHT|BLOOD|PETSA|KASARIAN|EXPIRATION|AGENCY|CODE|RESTRICTIONS|CONDITIONS)/i)) {
+                            addressStarted = false;
+                            break;
+                        }
+                        
+                        // Skip lines with metadata: expiration dates, codes, etc.
+                        if (upperLine.match(/EXPIRATION|AGENCY\s*CODE|RESTRICTIONS|CONDITIONS|LICENSE\s*NO/i)) {
+                            addressStarted = false;
+                            break;
+                        }
+                        
+                        // Skip lines that look like dates (YYYY/MM/DD or similar)
+                        if (line.match(/\d{4}[\/\-]\d{2}[\/\-]\d{2}/)) {
+                            addressStarted = false;
+                            break;
+                        }
+                        
+                        // Skip lines that look like agency codes (e.g., N10-22-300176)
+                        if (line.match(/[A-Z]\d{2}-\d{2}-\d{6}/)) {
+                            addressStarted = false;
+                            break;
+                        }
+                        
+                        // Skip if it's just a name (no address characteristics)
+                        if (!line.match(/\d+/) && !addressKeywords.some(kw => upperLine.includes(kw))) {
+                            if (addressStarted && line.length > 10 && line.length < 50) {
+                                // Might be second line of address (but not too long)
+                                addressLines.push(line);
+                            }
+                            continue;
+                        }
+                        
+                        // Add line if it has address characteristics
+                        if (line.match(/\d+/) || addressKeywords.some(kw => upperLine.includes(kw))) {
+                            addressLines.push(line);
+                            addressStarted = true;
+                        }
+                        
+                        // Stop if we collected enough address lines (reduced from 3 to 2)
+                        if (addressLines.length >= 2) break;
+                    }
+                }
+                
+                if (addressLines.length > 0) {
+                    // Clean up address: remove dates, codes, and extra metadata
+                    let cleanAddress = addressLines.join(', ');
+                    
+                    // Remove expiration dates and codes
+                    cleanAddress = cleanAddress.replace(/,\s*Expiration\s*Date[^,]*/gi, '');
+                    cleanAddress = cleanAddress.replace(/,\s*Agency\s*Code[^,]*/gi, '');
+                    cleanAddress = cleanAddress.replace(/,\s*[A-Z]\d{2}-\d{2}-\d{6}[^,]*/g, '');
+                    cleanAddress = cleanAddress.replace(/,?\s*\d{4}[\/\-]\d{2}[\/\-]\d{2}/g, '');
+                    
+                    // Remove trailing commas and extra spaces
+                    cleanAddress = cleanAddress.replace(/,\s*$/, '').trim();
+                    
+                    result.address = cleanAddress;
+                    console.log('Found address:', result.address);
+                }
+                
+                // ========== BIRTH DATE DETECTION ==========
+                // Pattern: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD, or labeled (English or Filipino)
+                const birthDatePatterns = [
+                    /(BIRTH\s*DATE|DATE\s*OF\s*BIRTH|BIRTHDAY|PETSA\s*NG\s*KAPANGANAKAN|KAARAWAN)[:\-\s\/]*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
+                    /\b(\d{2}[\/\-]\d{2}[\/\-]\d{4})\b/,
+                    /\b(\d{4}[\/\-]\d{2}[\/\-]\d{2})\b/
+                ];
+                
+                for (const pattern of birthDatePatterns) {
+                    const match = text.match(pattern);
+                    if (match) {
+                        let dateStr = match[match.length - 1]; // Get the last capture group
+                        
+                        // Convert to YYYY-MM-DD format for HTML5 date input
+                        if (dateStr.includes('/')) {
+                            const parts = dateStr.split('/');
+                            if (parts[0].length === 4) {
+                                // YYYY/MM/DD
+                                result.birthDate = dateStr.replace(/\//g, '-');
+                            } else if (parts[2].length === 4) {
+                                // MM/DD/YYYY or DD/MM/YYYY
+                                // Assume MM/DD/YYYY (US format common in PH IDs)
+                                result.birthDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                            }
+                        } else if (dateStr.includes('-')) {
+                            const parts = dateStr.split('-');
+                            if (parts[0].length === 4) {
+                                result.birthDate = dateStr;
+                            } else {
+                                // DD-MM-YYYY
+                                result.birthDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            }
+                        }
+                        
+                        console.log('Found birth date:', result.birthDate);
+                        break;
+                    }
+                }
+                
+                // ========== GENDER DETECTION ==========
+                const genderPatterns = [
+                    /(SEX|GENDER|KASARIAN)[:\-\s\/]*(M|F|MALE|FEMALE|LALAKI|BABAE)/i,
+                    /\b(MALE|FEMALE|LALAKI|BABAE)\b/i
+                ];
+                
+                for (const pattern of genderPatterns) {
+                    const match = upperText.match(pattern);
+                    if (match) {
+                        const genderText = match[match.length - 1];
+                        if (genderText.startsWith('M') || genderText.startsWith('L')) {
+                            result.gender = 'Male';
+                        } else if (genderText.startsWith('F') || genderText.startsWith('B')) {
+                            result.gender = 'Female';
+                        }
+                        console.log('Found gender:', result.gender);
+                        break;
+                    }
+                }
+                
+                // ========== BARANGAY DETECTION (158, 159, 160, 161) ==========
+                const barangayPattern = /BARANGAY\s*(158|159|160|161)/i;
+                const barangayMatch = upperText.match(barangayPattern);
+                if (barangayMatch) {
+                    result.barangay = barangayMatch[1];
+                    console.log('Found barangay:', result.barangay);
+                }
+                
+                console.log('Final parsed result:', result);
+                return result;
+            }
+            
+            // Handle scan button click with Azure OCR
             scanIdButton.addEventListener('click', async function() {
                 if (!idScannerInput.files || !idScannerInput.files[0]) {
                     idScannerInput.click();
+                    return;
+                }
+                
+                const file = idScannerInput.files[0];
+                
+                // Basic file type validation (JPG and PNG only for Azure OCR)
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+                if (!validTypes.includes(file.type.toLowerCase())) {
+                    scannerResult.innerHTML = `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i> 
+                        <strong>Invalid file type: ${file.type}</strong>
+                        <p class="mb-0 mt-2">Please upload JPG or PNG images only.</p>
+                    </div>`;
+                    scannerResult.classList.remove('d-none');
+                    return;
+                }
+                
+                // File size validation (max 5MB for Azure OCR)
+                if (file.size > 5 * 1024 * 1024) {
+                    scannerResult.innerHTML = `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i> 
+                        <strong>File too large (${(file.size / 1024 / 1024).toFixed(1)}MB)</strong>
+                        <p class="mb-0 mt-2">Maximum file size is 5MB. Please use a smaller image.</p>
+                    </div>`;
+                    scannerResult.classList.remove('d-none');
                     return;
                 }
                 
@@ -2225,122 +2912,221 @@
                 scannerResult.classList.add('d-none');
                 scanIdButton.disabled = true;
                 
-                const file = idScannerInput.files[0];
-                const enhancedMode = document.getElementById('enhancedModeCheckbox')?.checked || false;
-                const idType = 'NationalID'; // Default to PhilID
                 const progressBar = document.getElementById('scanProgressBar');
                 const scanStatusText = document.getElementById('scanStatusText');
                 
                 try {
-                    scanStatusText.textContent = 'Preparing image...';
+                    // Step 1: Validate image quality
+                    scanStatusText.textContent = 'Validating image quality...';
                     progressBar.style.width = '10%';
                     
-                    // Log image info for debugging
-                    console.log('Processing image:', file.name, file.type, file.size);
-                    console.log('Selected ID type:', idType);
+                    const validation = await validateImageQuality(file);
                     
-                    // Create form data for the API call
-                    const formData = new FormData();
-                    formData.append('file', file);
+                    if (!validation.isValid) {
+                        let errorHtml = '<div class="alert alert-danger"><strong><i class="fas fa-exclamation-circle"></i> Image Quality Issues:</strong><ul class="mb-0 mt-2">';
+                        validation.errors.forEach(error => {
+                            errorHtml += `<li>${error}</li>`;
+                        });
+                        errorHtml += '</ul><div class="mt-2"><button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById(\'idScannerInput\').click()"><i class="fas fa-camera me-1"></i> Retake Photo</button></div></div>';
+                        
+                        scannerResult.innerHTML = errorHtml;
+                        scannerResult.classList.remove('d-none');
+                        throw new Error('Image quality validation failed');
+                    }
                     
-                    // Add enhancement options and ID type
-                    const options = {
-                        enhancedMode: enhancedMode,
-                        brightness: 0,
-                        contrast: 0,
-                        sharpness: 0,
-                        idType: idType
-                    };
-                    
-                    formData.append('options', JSON.stringify(options));
-                    
+                    // Step 2: Upload to Azure OCR
+                    scanStatusText.textContent = 'Uploading to Azure OCR...';
                     progressBar.style.width = '30%';
-                    scanStatusText.textContent = 'Processing ID (this may take up to 30 seconds)...';
                     
-                    // Call the server API
-                    const response = await fetch('/api/IdScanner/process', {
+                    console.log('Processing ID with Azure OCR:', file.name, file.type, file.size);
+                    
+                    // Create form data with the image
+                    const formData = new FormData();
+                    formData.append('idImage', file);
+                    
+                    // Add anti-forgery token for Razor Pages
+                    const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]');
+                    if (antiForgeryToken) {
+                        formData.append('__RequestVerificationToken', antiForgeryToken.value);
+                        console.log('Anti-forgery token added');
+                    } else {
+                        console.warn('Anti-forgery token not found on page');
+                    }
+                    
+                    scanStatusText.textContent = 'Uploading image to Azure Computer Vision...';
+                    progressBar.style.width = '30%';
+                    
+                    // Call the Azure OCR handler
+                    const response = await fetch('/Account/SignUp?handler=ScanId', {
                         method: 'POST',
-                        body: formData
+                        body: formData,
+                        headers: {
+                            'RequestVerificationToken': antiForgeryToken ? antiForgeryToken.value : ''
+                        }
                     });
                     
                     progressBar.style.width = '60%';
+                    scanStatusText.textContent = 'Processing with Azure Computer Vision (this may take a few minutes with enhanced recognition)...';
+                    
+                    progressBar.style.width = '80%';
                     scanStatusText.textContent = 'Analyzing results...';
                     
                     if (!response.ok) {
-                        // Handle HTTP error
-                        const errorText = await response.text();
-                        throw new Error(`API Error (${response.status}): ${errorText}`);
+                        throw new Error(`Server error: ${response.status}`);
                     }
                     
                     // Parse the response
                     const result = await response.json();
-                    console.log('API response:', result);
+                    console.log('Azure OCR response:', result);
                     
-                    progressBar.style.width = '90%';
-                    scanStatusText.textContent = 'Filling form fields...';
+                    progressBar.style.width = '100%';
                     
-                    if (result.success && result.data) {
-                        // Update image preview if available
-                        if (result.processedImageUrl) {
-                            const imagePreview = document.getElementById('imagePreview');
-                            if (imagePreview) {
-                                imagePreview.src = result.processedImageUrl;
+                    if (result.success) {
+                        // 🧠 Smart parsing with automatic ID type detection
+                        const parsedData = parsePhilippineIdText(result.text);
+                        console.log('Parsed data with ID type:', parsedData);
+                        
+                        // Store OCR-detected barangay and address in hidden fields for auto-approval
+                        if (result.detectedBarangay) {
+                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                            if (ocrBarangayInput) {
+                                ocrBarangayInput.value = result.detectedBarangay;
+                                console.log('Stored OCR-detected barangay:', result.detectedBarangay);
                             }
                         }
                         
-                        // Fill the form with extracted data
-                        fillFormFields(result.data);
-                        
-                        // Show confidence message if data might be inaccurate
-                        let confidenceMessage = '';
-                        if (result.confidence < 0.7) {
-                            confidenceMessage = '<div class="mt-1 small text-warning"><i class="fas fa-info-circle"></i> Some fields may be inaccurate. Please verify the information.</div>';
+                        if (result.address) {
+                            const ocrAddressInput = document.getElementById('OcrExtractedAddress');
+                            if (ocrAddressInput) {
+                                ocrAddressInput.value = result.address;
+                            }
                         }
                         
-                        // Show detailed success message with what was extracted
-                        let extractedFields = [];
-                        if (result.data.FirstName) extractedFields.push('First Name');
-                        if (result.data.MiddleName) extractedFields.push('Middle Name');
-                        if (result.data.LastName) extractedFields.push('Last Name');
-                        if (result.data.BirthDate) extractedFields.push('Birth Date');
-                        if (result.data.Address) extractedFields.push('Address');
-                        if (result.data.Barangay) extractedFields.push('Barangay');
-                        if (result.data.Gender) extractedFields.push('Gender');
-                        if (result.data.ContactNumber) extractedFields.push('Contact Number');
+                        if (result.text) {
+                            const ocrTextInput = document.getElementById('OcrExtractedText');
+                            if (ocrTextInput) {
+                                ocrTextInput.value = result.text;
+                            }
+                        }
                         
-                        let fieldsExtracted = extractedFields.length > 0 
-                            ? `<div class="small mt-2"><strong>Extracted:</strong> ${extractedFields.join(', ')}</div>` 
-                            : '';
+                        // Auto-fill form fields using the module's autoFill function
+                        let filledFields = [];
+                        if (typeof PhilippineIDParser !== 'undefined' && PhilippineIDParser.autoFill) {
+                            filledFields = PhilippineIDParser.autoFill(parsedData);
+                        } else {
+                            // Fallback to manual auto-fill if module not loaded
+                            console.warn('Module autoFill not available, using manual fill');
+                            
+                            if (parsedData.firstName) {
+                                const firstNameInput = document.querySelector('input[name="Input.FirstName"]');
+                                if (firstNameInput) { firstNameInput.value = parsedData.firstName; filledFields.push('First Name'); }
+                            }
+                            if (parsedData.middleName) {
+                                const middleNameInput = document.querySelector('input[name="Input.MiddleName"]');
+                                if (middleNameInput) { middleNameInput.value = parsedData.middleName; filledFields.push('Middle Name'); }
+                            }
+                            if (parsedData.lastName) {
+                                const lastNameInput = document.querySelector('input[name="Input.LastName"]');
+                                if (lastNameInput) { lastNameInput.value = parsedData.lastName; filledFields.push('Last Name'); }
+                            }
+                            if (parsedData.address) {
+                                const addressInput = document.querySelector('textarea[name="Input.Address"]');
+                                if (addressInput) { addressInput.value = parsedData.address; filledFields.push('Address'); }
+                            }
+                            if (parsedData.birthDate) {
+                                const birthDateInput = document.querySelector('input[name="Input.BirthDate"]');
+                                if (birthDateInput) { birthDateInput.value = parsedData.birthDate; filledFields.push('Birth Date'); }
+                            }
+                            if (parsedData.gender) {
+                                const genderRadio = document.querySelector(`input[name="Input.Gender"][value="${parsedData.gender}"]`);
+                                if (genderRadio) { genderRadio.checked = true; filledFields.push('Gender'); }
+                            }
+                            if (parsedData.barangay) {
+                                const barangaySelect = document.querySelector('select[name="Input.Barangay"]');
+                                if (barangaySelect) {
+                                    const option = Array.from(barangaySelect.options).find(opt => 
+                                        opt.text.includes(parsedData.barangay) || opt.value === parsedData.barangay
+                                    );
+                                    if (option) { barangaySelect.value = option.value; filledFields.push('Barangay'); }
+                                }
+                            }
+                        }
                         
-                        scannerResult.innerHTML = `<div class="alert alert-success">
-                            <i class="fas fa-check-circle me-2"></i> ID scanned successfully! Form fields have been populated.
-                            ${confidenceMessage}
-                            ${fieldsExtracted}
-                            <div class="small mt-2 text-muted">Please verify all information before submitting.</div>
-                        </div>`;
+                        // Show minimal success notification without extracted text
+                        let notificationMessage = '';
+                        if (result.detectedBarangay) {
+                            notificationMessage = `<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle me-1"></i>Eligible barangay detected (${result.detectedBarangay}) - account will be auto-approved!</small></div>`;
+                        }
+                        
+                        if (filledFields.length > 0) {
+                            let extractedHtml = '<div class="alert alert-success">';
+                            extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
+                            extractedHtml += notificationMessage;
+                            extractedHtml += '<div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>';
+                            extractedHtml += '</div>';
+                            scannerResult.innerHTML = extractedHtml;
+                        } else if (result.detectedBarangay) {
+                            // Show notification even if no fields were auto-filled but barangay was detected
+                            let extractedHtml = '<div class="alert alert-success">';
+                            extractedHtml += notificationMessage;
+                            extractedHtml += '</div>';
+                            scannerResult.innerHTML = extractedHtml;
+                        } else {
+                            // Hide result if nothing was filled
+                            scannerResult.innerHTML = '';
+                            scannerResult.classList.add('d-none');
+                        }
                     } else {
-                        // Handle API success but processing failure
-                        throw new Error(result.message || 'No useful data could be extracted from the image');
+                        throw new Error(result.message || 'OCR processing failed');
                     }
                 } catch (error) {
                     console.error('Error processing ID:', error);
                     
-                    // Provide more specific error messages when possible
-                    let errorMessage = 'Error processing ID. Please try again or fill the form manually.';
-                    let tipMessage = 'Tip: Try with a clearer image in good lighting with all text visible.';
-                    
-                    if (error.message?.includes('network') || error.message?.includes('API Error')) {
-                        errorMessage = 'Server connection error. Please check your internet connection and try again.';
-                        tipMessage = 'If the problem persists, please fill the form manually.';
-                    } else if (error.message?.includes('format')) {
-                        errorMessage = 'Unsupported image format. Please use JPG, PNG or PDF.';
-                        tipMessage = 'The system works best with high-resolution color images.';
+                    // Skip if validation failed (already showed error)
+                    if (error.message === 'Image quality validation failed') {
+                        return;
                     }
                     
+                    // Provide more specific error messages when possible
+                    let errorTitle = 'Error Processing ID';
+                    let errorMessage = error.message || 'Error processing ID. Please try again or fill the form manually.';
+                    let tipMessage = '';
+                    
+                    if (error.message?.includes('network') || error.message?.includes('Failed to fetch')) {
+                        errorTitle = 'Connection Error';
+                        errorMessage = 'Could not connect to the server.';
+                        tipMessage = 'Tips: Check your internet connection, try again in a few moments.';
+                    } else if (error.message?.includes('resolution') || error.message?.includes('blurry') || error.message?.includes('blur')) {
+                        errorTitle = 'Image Quality Issue';
+                        tipMessage = 'Tips: Use good lighting, hold camera steady, ensure entire ID is visible.';
+                    } else if (error.message?.includes('No readable text') || error.message?.includes('Common causes:')) {
+                        errorTitle = 'No Text Detected';
+                        // Use the detailed error message from server
+                        tipMessage = '';
+                    } else if (error.message?.includes('Unsupported') || error.message?.includes('file type')) {
+                        errorTitle = 'Invalid File';
+                        tipMessage = 'Please use JPG, PNG, BMP, or WebP images.';
+                    } else {
+                        tipMessage = 'Tips: Try with a clearer image in good lighting with all text visible.';
+                    }
+                    
+                    // Format error message with line breaks
+                    const formattedMessage = errorMessage.replace(/\n/g, '<br>').replace(/•/g, '&bull;');
+                    
                     scannerResult.innerHTML = `<div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i> ${errorMessage}
-                        <small class="d-block mt-1">${tipMessage}</small>
-                        <small class="d-block mt-1">Make sure the ID text is clearly readable and not blurry.</small>
+                        <strong><i class="fas fa-exclamation-circle me-2"></i> ${errorTitle}</strong>
+                        <div class="mt-2" style="white-space: pre-line;">${formattedMessage}</div>
+                        ${tipMessage ? `<div class="small mt-2 pt-2 border-top">${tipMessage}</div>` : ''}
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary me-2" 
+                                    onclick="document.getElementById('idScannerInput').click()">
+                                <i class="fas fa-redo me-1"></i> Try Different Image
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                    onclick="document.querySelector('[name=\\'Input.FirstName\\']').focus()">
+                                <i class="fas fa-edit me-1"></i> Fill Manually
+                            </button>
+                        </div>
                     </div>`;
                 } finally {
                     progressBar.style.width = '100%';
@@ -2790,18 +3576,21 @@
                         `[name="Input_${name}"]`,
                         `[name="${name}"]`,
                         `#Input_${name}`,
-                        `input[aria-label*="${name.toLowerCase()}" i]`
+                        `input[aria-label*="${name.toLowerCase()}" i]`,
+                        `select[aria-label*="${name.toLowerCase()}" i]`,
+                        `select[name="Input.${name}"]`,
+                        `select#Input_${name}`
                     ];
                     
                     for (const selector of selectors) {
                         const input = document.querySelector(selector);
                         if (input) {
-                            console.log(`Found input using selector: ${selector}`);
+                            console.log(`Found input/select using selector: ${selector}`);
                             return input;
                         }
                     }
                     
-                    console.warn(`Could not find input for ${name} with any selector`);
+                    console.warn(`Could not find input/select for ${name} with any selector`);
                     return null;
                 };
                 

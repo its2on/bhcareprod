@@ -206,6 +206,15 @@ namespace Barangay.Models
         [InverseProperty(nameof(GuardianInformation.User))]
         [JsonIgnore]
         public virtual ICollection<GuardianInformation> GuardianConsents { get; set; } = new List<GuardianInformation>();
+        
+        // Automatic Residency Verification (OCR-based)
+        public string? VerificationStatus { get; set; } = "Pending Review"; // Pending Review, Auto Verified, Manual Verified, Rejected
+        public bool IsApproved { get; set; } = false;
+        public string? ApprovedBy { get; set; } // "System (Auto)" or Admin UserID
+        public DateTime? ApprovedDate { get; set; }
+        public string? VerifiedBarangay { get; set; } // Extracted from OCR (158, 159, 160, or 161)
+        public string? OcrExtractedText { get; set; } // Full OCR text for audit
+        public DateTime? DocumentVerifiedAt { get; set; }
     }
 }
 

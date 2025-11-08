@@ -109,6 +109,12 @@ namespace Barangay.Pages.Forms
 
         public async Task<IActionResult> OnPostAsync(string formKey, int? appointmentId = null)
         {
+            _logger.LogInformation("=== FORM SUBMISSION START ===");
+            _logger.LogInformation("FormKey received: {FormKey}", formKey);
+            _logger.LogInformation("AppointmentId received: {AppointmentId}", appointmentId);
+            _logger.LogInformation("Request.Form keys count: {Count}", Request.Form.Keys.Count);
+            _logger.LogInformation("Request.Form keys: {Keys}", string.Join(", ", Request.Form.Keys));
+            
             FormTemplate = await _context.FormTemplates
                 .Include(f => f.FormFields)
                 .ThenInclude(ff => ff.FormFieldOptions)
@@ -116,8 +122,11 @@ namespace Barangay.Pages.Forms
 
             if (FormTemplate == null)
             {
+                _logger.LogError("FormTemplate not found for key: {FormKey}", formKey);
                 return NotFound("Form not found or is not active.");
             }
+            
+            _logger.LogInformation("FormTemplate found: {FormName} (ID: {FormTemplateId})", FormTemplate.FormName, FormTemplate.FormTemplateId);
 
             // Load appointment context if provided
             if (appointmentId.HasValue)
@@ -145,26 +154,95 @@ namespace Barangay.Pages.Forms
                 // Collect form data
                 var formData = new Dictionary<string, string>();
 
+                _logger.LogInformation("=== FIELD-BY-FIELD DEBUGGING ===");
+                _logger.LogInformation("Total fields in template: {Count}", FormTemplate.FormFields.Count);
+
                 foreach (var field in FormTemplate.FormFields)
                 {
-                    var value = Request.Form[field.FieldName].ToString();
+                    string value = string.Empty;
+                    bool fieldExistsInForm = Request.Form.ContainsKey(field.FieldName);
 
-                    // For checkbox fields, combine multiple values
+                    // Debug: Log field information
+                    _logger.LogInformation("--- Processing Field: {FieldName} ({FieldLabel}) ---", field.FieldName, field.FieldLabel);
+                    _logger.LogInformation("Field Type: {FieldType}, IsRequired: {IsRequired}, DisplayOrder: {DisplayOrder}", 
+                        field.FieldType, field.IsRequired, field.DisplayOrder);
+                    _logger.LogInformation("Field exists in Request.Form: {Exists}", fieldExistsInForm);
+
+                    // Handle different field types
                     if (field.FieldType == "checkbox")
                     {
+                        // For checkbox fields, combine multiple values
                         var values = Request.Form[field.FieldName];
-                        value = string.Join(", ", values);
+                        if (values.Count > 0)
+                        {
+                            value = string.Join(", ", values);
+                            _logger.LogInformation("CHECKBOX - Selected values: {Values}", value);
+                        }
+                        else
+                        {
+                            value = string.Empty; // No checkboxes selected
+                            _logger.LogInformation("CHECKBOX - No values selected (empty)");
+                        }
                     }
-
-                    // Validate required fields
-                    if (field.IsRequired && string.IsNullOrWhiteSpace(value))
+                    else if (field.FieldType == "radio")
                     {
-                        ErrorMessage = $"The field '{field.FieldLabel}' is required.";
-                        return Page();
+                        // For radio buttons, get the selected value
+                        var radioValue = Request.Form[field.FieldName].ToString();
+                        if (!string.IsNullOrWhiteSpace(radioValue))
+                        {
+                            value = radioValue;
+                            _logger.LogInformation("RADIO - Selected value: {Value}", value);
+                        }
+                        else
+                        {
+                            value = string.Empty; // No radio button selected
+                            _logger.LogInformation("RADIO - No option selected (empty)");
+                        }
+                    }
+                    else if (field.FieldType == "button" || field.FieldType == "submit")
+                    {
+                        // Buttons don't typically submit values, but check if clicked
+                        var buttonValue = Request.Form[field.FieldName].ToString();
+                        value = buttonValue;
+                        _logger.LogInformation("BUTTON - Value: {Value} (exists: {Exists})", value, fieldExistsInForm);
+                    }
+                    else
+                    {
+                        // For text, textarea, select, date, number, etc.
+                        value = Request.Form[field.FieldName].ToString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            _logger.LogInformation("TEXTBOX/SELECT - Value: {Value}", value);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("TEXTBOX/SELECT - Empty value");
+                        }
                     }
 
-                    formData[field.FieldName] = value;
+                    // NOTE: Required validation removed - all fields are now optional
+                    // Save ALL fields to database (even if empty/optional)
+                    // Empty string for optional fields that weren't filled
+                    formData[field.FieldName] = value ?? string.Empty;
+                    _logger.LogInformation("Saved to formData: {FieldName} = '{Value}' (Required: {IsRequired})", 
+                        field.FieldName, value ?? "(null)", field.IsRequired);
                 }
+
+                _logger.LogInformation("=== END FIELD-BY-FIELD DEBUGGING ===");
+                _logger.LogInformation("Total fields saved to formData: {Count}", formData.Count);
+                
+                // Log summary of all saved fields
+                _logger.LogInformation("=== FORM DATA SUMMARY ===");
+                foreach (var kvp in formData.OrderBy(f => f.Key))
+                {
+                    var field = FormTemplate.FormFields.FirstOrDefault(ff => ff.FieldName == kvp.Key);
+                    var fieldType = field?.FieldType ?? "unknown";
+                    var isRequired = field?.IsRequired ?? false;
+                    var isEmpty = string.IsNullOrWhiteSpace(kvp.Value);
+                    _logger.LogInformation("Field: {FieldName} | Type: {FieldType} | Required: {IsRequired} | Empty: {IsEmpty} | Value: '{Value}'", 
+                        kvp.Key, fieldType, isRequired, isEmpty, isEmpty ? "(empty)" : kvp.Value);
+                }
+                _logger.LogInformation("=== END FORM DATA SUMMARY ===");
 
                 // Get the current user's ID if authenticated
                 string? userId = null;
@@ -194,13 +272,52 @@ namespace Barangay.Pages.Forms
 
                 _logger.LogInformation($"Form submission {submission.FormSubmissionId} for form '{FormTemplate.FormName}' saved successfully with AppointmentId={submission.AppointmentId}");
 
+                // Update appointment status to InProgress after successful form submission
+                if (AppointmentId.HasValue)
+                {
+                    _logger.LogInformation("Updating appointment status to InProgress for AppointmentId: {AppointmentId}", AppointmentId.Value);
+                    var appointment = await _context.Appointments.FindAsync(AppointmentId.Value);
+                    if (appointment != null)
+                    {
+                        var oldStatus = appointment.Status;
+                        appointment.Status = AppointmentStatus.InProgress; // 2 = InProgress (Ongoing)
+                        appointment.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("Appointment {AppointmentId} status updated from {OldStatus} to InProgress", 
+                            AppointmentId.Value, oldStatus);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Appointment not found for ID: {AppointmentId}", AppointmentId.Value);
+                    }
+                }
+
                 IsSubmitted = true;
+                TempData["FormSubmitted"] = true;
+                
+                _logger.LogInformation("=== FORM SUBMISSION SUCCESS ===");
+                _logger.LogInformation("SubmissionId: {SubmissionId}", submission.FormSubmissionId);
+                _logger.LogInformation("FormName: {FormName}", FormTemplate.FormName);
+                _logger.LogInformation("AppointmentId: {AppointmentId}", submission.AppointmentId);
+                _logger.LogInformation("IsSubmitted: {IsSubmitted}", IsSubmitted);
+                _logger.LogInformation("TempData[FormSubmitted]: {TempData}", TempData["FormSubmitted"]);
+                
+                // Reload prefill data so page can render properly
+                await LoadPrefillDataAsync();
+                
+                _logger.LogInformation("=== RETURNING PAGE WITH SUCCESS MODAL ===");
+                
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error submitting form '{FormTemplate.FormName}'");
+                _logger.LogError("=== FORM SUBMISSION FAILED ===");
+                _logger.LogError("Exception: {Exception}", ex.Message);
+                _logger.LogError("Stack Trace: {StackTrace}", ex.StackTrace);
+                
                 ErrorMessage = "An error occurred while submitting the form. Please try again.";
+                await LoadPrefillDataAsync(); // Reload data for page display
                 return Page();
             }
         }

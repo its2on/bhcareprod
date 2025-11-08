@@ -243,12 +243,23 @@ namespace Barangay.Services
             try
             {
                 var user = await _userManager.FindByIdAsync(userId);
-                if (user == null || user.Status != "Verified")
+                if (user == null)
                 {
                     return;
                 }
 
-                // Ensure user has the 'User' role if verified
+                // Check if user is verified OR auto-approved (bypass approval page)
+                // Accept both "Verified" and "Active" status for auto-approved users
+                bool isVerified = (user.Status == "Verified" && user.IsActive) || 
+                                 (user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive) ||
+                                 (user.Status == "Active" && user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive);
+                
+                if (!isVerified)
+                {
+                    return;
+                }
+
+                // Ensure user has the 'User' role if verified or auto-approved
                 if (!await _userManager.IsInRoleAsync(user, "User"))
                 {
                     if (!await _roleManager.RoleExistsAsync("User"))
@@ -256,7 +267,7 @@ namespace Barangay.Services
                         await _roleManager.CreateAsync(new IdentityRole("User"));
                     }
                     await _userManager.AddToRoleAsync(user, "User");
-                    _logger.LogInformation($"Assigned 'User' role to verified user {user.Email}");
+                    _logger.LogInformation($"Assigned 'User' role to verified/auto-approved user {user.Email}");
                 }
             }
             catch (Exception ex)

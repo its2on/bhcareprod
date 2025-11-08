@@ -199,7 +199,13 @@ namespace Barangay.Pages.Account
             }
             if (roles.Contains("User") || roles.Contains("Patient"))
             {
-                if (user.Status == "Verified" && user.IsActive)
+                // Allow access if user is verified OR auto-approved (bypass approval page)
+                // Accept both "Verified" and "Active" status for auto-approved users
+                bool isVerified = (user.Status == "Verified" && user.IsActive) || 
+                                 (user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive) ||
+                                 (user.Status == "Active" && user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive);
+                
+                if (isVerified)
                 {
                     return RedirectToPage("/User/UserDashboard");
                 }
@@ -306,9 +312,31 @@ namespace Barangay.Pages.Account
                 }
 
                 // Check if OTP is required for this user
-                // Use EmailOrUsername (the decrypted email from login form) for OTP check
+                // Require OTP for all verified/active users (both auto-approved and manually approved)
                 var userEmail = EmailOrUsername;
-                var isOTPRequired = await _otpService.IsOTPRequiredAsync(userEmail);
+                bool isVerifiedOrActive = (user.Status == "Verified" || user.Status == "Active") && user.IsActive;
+                
+                // Require OTP for verified/active users (check email domain for exemptions)
+                bool isOTPRequired = false;
+                if (isVerifiedOrActive)
+                {
+                    // Check if account is exempt from OTP (test accounts)
+                    var emailLower = userEmail.ToLower();
+                    var exemptAccounts = new List<string> { "admin@example.com", "doctor@example.com", "nurse@example.com" };
+                    bool isExempt = exemptAccounts.Contains(emailLower);
+                    
+                    // Require OTP for all verified/active users except test accounts
+                    isOTPRequired = !isExempt;
+                    
+                    if (isOTPRequired)
+                    {
+                        _logger.LogInformation($"OTP required for verified/active user: {userEmail}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"OTP exempt for test account: {userEmail}");
+                    }
+                }
                 
                 if (isOTPRequired)
                 {

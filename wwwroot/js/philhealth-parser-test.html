@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhilHealth ID Parser Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c5f2d;
+            border-bottom: 3px solid #97ce4c;
+            padding-bottom: 10px;
+        }
+        .test-input {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+        .button {
+            background: #2c5f2d;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #1e4a1f;
+        }
+        .button.clear {
+            background: #dc3545;
+        }
+        .button.clear:hover {
+            background: #c82333;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #2c5f2d;
+        }
+        .result-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #2c5f2d;
+            display: inline-block;
+            width: 150px;
+        }
+        .value {
+            color: #333;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .example {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #0066cc;
+        }
+        .example h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        pre {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 PhilHealth ID Parser Test</h1>
+        
+        <div class="example">
+            <h3>📝 Example PhilHealth ID OCR Text</h3>
+            <p>Paste OCR text from a PhilHealth ID. Here's an example based on your ID:</p>
+            <pre>REPUBLIC OF THE PHILIPPINES
+Philippine Health Insurance Corporation
+PhilHealth
+02-027851766-8
+RANIDO, HARRY MARK PARIÑAS
+DECEMBER 29, 2002 - MALE
+228 BAESA ROAD, BARANGAY 160, CITY OF CALOOCAN, METRO MANILA - 1400</pre>
+        </div>
+
+        <label for="ocrText"><strong>Enter OCR Text:</strong></label>
+        <textarea id="ocrText" class="test-input" placeholder="Paste PhilHealth ID OCR text here..."></textarea>
+        
+        <div>
+            <button class="button" onclick="testParser()">🔍 Parse ID</button>
+            <button class="button" onclick="loadExample()">📋 Load Example</button>
+            <button class="button clear" onclick="clearAll()">🗑️ Clear</button>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h2>📊 Parsed Results</h2>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script src="philippine-id-parser.js"></script>
+    <script>
+        function loadExample() {
+            document.getElementById('ocrText').value = `REPUBLIC OF THE PHILIPPINES
+Philippine Health Insurance Corporation
+PhilHealth
+02-027851766-8
+RANIDO, HARRY MARK PARIÑAS
+DECEMBER 29, 2002 - MALE
+228 BAESA ROAD, BARANGAY 160, CITY OF CALOOCAN, METRO MANILA - 1400`;
+        }
+
+        function clearAll() {
+            document.getElementById('ocrText').value = '';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function testParser() {
+            const ocrText = document.getElementById('ocrText').value;
+            
+            if (!ocrText.trim()) {
+                alert('Please enter OCR text first!');
+                return;
+            }
+
+            // Parse using the PhilippineIDParser
+            const result = PhilippineIDParser.parse(ocrText);
+            
+            // Display results
+            const resultsDiv = document.getElementById('results');
+            const contentDiv = document.getElementById('resultContent');
+            
+            let html = '';
+            
+            // ID Type
+            html += `<div class="result-item">
+                <span class="label">ID Type:</span>
+                <span class="value"><strong>${result.idType}</strong></span>
+            </div>`;
+            
+            // PhilHealth ID Number
+            html += `<div class="result-item">
+                <span class="label">PhilHealth ID:</span>
+                <span class="value ${result.philhealthId ? 'success' : 'warning'}">
+                    ${result.philhealthId || 'Not found'}
+                </span>
+            </div>`;
+            
+            // Name fields
+            html += `<div class="result-item">
+                <span class="label">Last Name:</span>
+                <span class="value ${result.lastName ? 'success' : 'warning'}">
+                    ${result.lastName || 'Not found'}
+                </span>
+            </div>`;
+            
+            html += `<div class="result-item">
+                <span class="label">First Name:</span>
+                <span class="value ${result.firstName ? 'success' : 'warning'}">
+                    ${result.firstName || 'Not found'}
+                </span>
+            </div>`;
+            
+            html += `<div class="result-item">
+                <span class="label">Middle Name:</span>
+                <span class="value ${result.middleName ? 'success' : 'warning'}">
+                    ${result.middleName || 'Not found'}
+                </span>
+            </div>`;
+            
+            // Birth Date
+            html += `<div class="result-item">
+                <span class="label">Birth Date:</span>
+                <span class="value ${result.birthDate ? 'success' : 'warning'}">
+                    ${result.birthDate || 'Not found'}
+                </span>
+            </div>`;
+            
+            // Gender
+            html += `<div class="result-item">
+                <span class="label">Gender:</span>
+                <span class="value ${result.gender ? 'success' : 'warning'}">
+                    ${result.gender || 'Not found'}
+                </span>
+            </div>`;
+            
+            // Address
+            html += `<div class="result-item">
+                <span class="label">Address:</span>
+                <span class="value ${result.address ? 'success' : 'warning'}">
+                    ${result.address || 'Not found'}
+                </span>
+            </div>`;
+            
+            // Barangay
+            html += `<div class="result-item">
+                <span class="label">Barangay:</span>
+                <span class="value ${result.barangay ? 'success' : 'warning'}">
+                    ${result.barangay || 'Not detected'}
+                </span>
+            </div>`;
+            
+            contentDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+            
+            // Scroll to results
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

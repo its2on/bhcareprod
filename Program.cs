@@ -482,9 +482,12 @@ builder.Services.AddScoped<IFamilyNumberService, FamilyNumberService>();
 // Register HTTP client factory for OCR services
 builder.Services.AddHttpClient("GoogleVision", client =>
 {
-    client.BaseAddress = new Uri("https://vision.googleapis.com/v1/images:annotate");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
+
+// Register Azure OCR Service for automatic residency verification
+builder.Services.AddHttpClient<AzureOcrService>();
+builder.Services.AddScoped<AzureOcrService>();
 
 // Register Device Info Parser
 builder.Services.AddSingleton<IDeviceInfoParser, DeviceInfoParser>();
@@ -617,6 +620,79 @@ IF COL_LENGTH('dbo.HEEADSSSAssessments','Weight') IS NULL ALTER TABLE [dbo].[HEE
     catch (Exception ex)
     {
         logger.LogError(ex, "Schema repair failed.");
+    }
+}
+
+// Update form fields to remove required validation
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = services.GetRequiredService<ApplicationDbContext>();
+        
+        // List of fields to make optional
+        var fieldsToUpdate = new[]
+        {
+            "1_kayo_ba_ay_may_sumusunod_na_karamdaman",
+            "a_non_modifiable_risk_factors_sakit_sa_pamilya_first_degree_relatives"
+        };
+        
+        int updatedCount = 0;
+        foreach (var fieldName in fieldsToUpdate)
+        {
+            // Try exact match first
+            var field = await db.FormFields
+                .FirstOrDefaultAsync(f => f.FieldName == fieldName 
+                                        && f.FormTemplateId == 2);
+            
+            // If not found, try with brackets (for checkbox fields)
+            if (field == null)
+            {
+                field = await db.FormFields
+                    .FirstOrDefaultAsync(f => f.FieldName == fieldName + "[]" 
+                                            && f.FormTemplateId == 2);
+            }
+            
+            // If still not found, try without brackets if field name might have them
+            if (field == null && fieldName.Contains("_"))
+            {
+                // Try searching by partial match (for fields that might have variations)
+                field = await db.FormFields
+                    .Where(f => f.FormTemplateId == 2 
+                            && (f.FieldName == fieldName 
+                                || f.FieldName == fieldName + "[]"
+                                || f.FieldName.StartsWith(fieldName)))
+                    .FirstOrDefaultAsync();
+            }
+            
+            if (field != null && field.IsRequired)
+            {
+                field.IsRequired = false;
+                field.UpdatedAt = DateTime.UtcNow;
+                updatedCount++;
+                logger.LogInformation("Updated field '{FieldName}' to make it optional (not required).", field.FieldName);
+            }
+            else if (field == null)
+            {
+                logger.LogWarning("Field '{FieldName}' not found in FormTemplateId 2.", fieldName);
+            }
+            else
+            {
+                logger.LogInformation("Field '{FieldName}' is already optional.", field.FieldName);
+            }
+        }
+        
+        if (updatedCount > 0)
+        {
+            await db.SaveChangesAsync();
+            logger.LogInformation("Successfully updated {Count} field(s) to be optional.", updatedCount);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to update form field required status.");
     }
 }
 

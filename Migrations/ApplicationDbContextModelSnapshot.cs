@@ -163,6 +163,12 @@ namespace Barangay.Migrations
                     b.Property<bool>("AppointmentReminders")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Barangay")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -178,6 +184,9 @@ namespace Barangay.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DocumentVerifiedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -225,6 +234,9 @@ namespace Barangay.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsFirstLogin")
                         .HasColumnType("bit");
 
@@ -267,6 +279,9 @@ namespace Barangay.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("Occupation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OcrExtractedText")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
@@ -325,6 +340,12 @@ namespace Barangay.Migrations
 
                     b.Property<int>("UserType")
                         .HasColumnType("int");
+
+                    b.Property<string>("VerificationStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VerifiedBarangay")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("WorkingDays")
                         .IsRequired()

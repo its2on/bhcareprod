@@ -1,0 +1,139 @@
+@page
+@model Barangay.Pages.Account.RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Registration Successful";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5 text-center">
+                    @if (Model.AutoApproved)
+                    {
+                        <!-- Auto-Approved Success -->
+                        <div class="mb-4">
+                            <i class="fas fa-check-circle text-success" style="font-size: 80px;"></i>
+                        </div>
+                        <h2 class="text-success mb-3">🎉 Account Verified!</h2>
+                        <p class="lead mb-4">
+                            Your residency in <strong class="text-primary">Barangay @Model.VerifiedBarangay</strong> 
+                            has been automatically verified.
+                        </p>
+                        <div class="alert alert-success">
+                            <i class="fas fa-robot me-2"></i>
+                            <strong>Auto-Verified by System</strong>
+                            <p class="mb-0 mt-2 small">
+                                Our AI-powered document verification confirmed your eligibility for BHCare services.
+                            </p>
+                        </div>
+                        <p class="text-muted mb-4">
+                            Your account is now <strong>active</strong> and ready to use. 
+                            You can log in immediately and start booking appointments!
+                        </p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Your account has been verified and approved automatically!</strong>
+                            <p class="mb-0 mt-2 small">
+                                Your residency in Barangay @Model.VerifiedBarangay was confirmed.
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Pending Verification -->
+                        <div class="mb-4">
+                            <i class="fas fa-clock text-warning" style="font-size: 80px;"></i>
+                        </div>
+                        <h2 class="text-warning mb-3">⏳ Pending Verification</h2>
+                        <p class="lead mb-4">
+                            Your account is under <strong>review</strong>. An admin will verify your residency soon.
+                        </p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Manual Review Required</strong>
+                            <p class="mb-0 mt-2 small">
+                                Your application requires manual verification. Our admin team will review your submitted documents and notify you once your account is approved.
+                            </p>
+                        </div>
+                        <p class="text-muted mb-4">
+                            You will receive an email notification once your account has been reviewed and approved. 
+                            Please check your email regularly for updates.
+                        </p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>What happens next?</strong>
+                            <ul class="text-start mb-0 mt-2 small">
+                                <li>Our admin team will review your submitted ID and residency documents</li>
+                                <li>You will receive an email notification once your account is approved</li>
+                                <li>Once approved, you can log in and access all BHCare services</li>
+                            </ul>
+                        </div>
+                    }
+
+                    <!-- Success Message from TempData -->
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            @TempData["SuccessMessage"]
+                        </div>
+                    }
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <a href="/Account/Login" class="btn btn-success btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i> Login Now
+                        </a>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-2"></i> Go to Home
+                        </a>
+                    </div>
+
+                    <!-- What's Next -->
+                    <div class="mt-5 pt-4 border-top">
+                        <h5 class="text-muted mb-3">What's Next?</h5>
+                        <div class="row text-start">
+                            <div class="col-md-6 mb-3">
+                                <i class="fas fa-calendar-check text-primary me-2"></i>
+                                <small>Book appointments</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <i class="fas fa-user-md text-primary me-2"></i>
+                                <small>Consult with doctors</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <i class="fas fa-syringe text-primary me-2"></i>
+                                <small>Track immunizations</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <i class="fas fa-file-medical text-primary me-2"></i>
+                                <small>Access medical records</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Support -->
+                    <div class="mt-4">
+                        <small class="text-muted">
+                            Need help? Contact us at 
+                            <a href="mailto:healthcenterbaesa@gmail.com">healthcenterbaesa@gmail.com</a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .card {
+            border-radius: 15px;
+        }
+        .btn-lg {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+        }
+    </style>
+}

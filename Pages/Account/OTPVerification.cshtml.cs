@@ -368,7 +368,13 @@ namespace Barangay.Pages.Account
             }
             if (roles.Contains("User") || roles.Contains("Patient"))
             {
-                if (user.Status == "Verified" && user.IsActive)
+                // Allow access if user is verified OR auto-approved (bypass approval page)
+                // Accept both "Verified" and "Active" status for auto-approved users
+                bool isVerified = (user.Status == "Verified" && user.IsActive) || 
+                                 (user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive) ||
+                                 (user.Status == "Active" && user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive);
+                
+                if (isVerified)
                 {
                     return RedirectToPage("/User/UserDashboard");
                 }

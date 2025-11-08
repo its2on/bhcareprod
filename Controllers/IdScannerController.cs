@@ -16,6 +16,10 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using BHCARE.Extensions;
 using OpenCvSharp;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Barangay.Data;
+using Barangay.Models;
 
 namespace BHCARE.Controllers
 {
@@ -26,15 +30,25 @@ namespace BHCARE.Controllers
         private readonly ILogger<IdScannerController> _logger;
         private readonly IWebHostEnvironment _environment;
         private readonly IHttpClientFactory _clientFactory;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ApplicationDbContext _context;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private static readonly object _approvalLock = new object();
 
         public IdScannerController(
             ILogger<IdScannerController> logger,
             IWebHostEnvironment environment,
-            IHttpClientFactory clientFactory)
+            IHttpClientFactory clientFactory,
+            UserManager<ApplicationUser> userManager,
+            ApplicationDbContext context,
+            RoleManager<IdentityRole> roleManager)
         {
             _logger = logger;
             _environment = environment;
             _clientFactory = clientFactory;
+            _userManager = userManager;
+            _context = context;
+            _roleManager = roleManager;
         }
 
         public class IdScannerOptions
@@ -54,6 +68,9 @@ namespace BHCARE.Controllers
             public float Confidence { get; set; }
             public string ProcessedImageUrl { get; set; }
             public string ErrorDetails { get; set; }
+            public bool? AutoApproved { get; set; }
+            public string DetectedBarangay { get; set; }
+            public string ApprovalMessage { get; set; }
         }
 
         public class IdData
@@ -71,18 +88,68 @@ namespace BHCARE.Controllers
         }
 
         [HttpPost("process")]
-        public async Task<ActionResult<IdScannerResponse>> ProcessId(IFormFile file, [FromForm] string options)
+        public async Task<ActionResult<IdScannerResponse>> ProcessId(IFormFile file, [FromForm] string options, [FromForm] string userId = null)
         {
+            // === VALIDATION PHASE ===
+            
+            // Validate: File presence
             if (file == null || file.Length == 0)
             {
                 return BadRequest(new IdScannerResponse
                 {
                     Success = false,
-                    Message = "No file uploaded"
+                    Message = "No file uploaded",
+                    ErrorDetails = "Please select an ID image to upload."
                 });
             }
-
-            _logger.LogInformation($"Processing ID image: {file.FileName}, {file.ContentType}, {file.Length} bytes");
+            
+            // Validate: File size (max 10MB)
+            const long maxFileSize = 10 * 1024 * 1024; // 10 MB
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest(new IdScannerResponse
+                {
+                    Success = false,
+                    Message = "File too large",
+                    ErrorDetails = $"File size ({file.Length / 1024 / 1024}MB) exceeds maximum allowed (10MB). Please upload a smaller image."
+                });
+            }
+            
+            // Validate: File type
+            var allowedContentTypes = new[] 
+            { 
+                "image/jpeg", 
+                "image/jpg", 
+                "image/png", 
+                "image/bmp",
+                "image/webp"
+            };
+            
+            if (!allowedContentTypes.Contains(file.ContentType.ToLower()))
+            {
+                return BadRequest(new IdScannerResponse
+                {
+                    Success = false,
+                    Message = "Unsupported file type",
+                    ErrorDetails = $"File type '{file.ContentType}' is not supported. Please upload JPG, PNG, BMP, or WebP images."
+                });
+            }
+            
+            // Validate: File extension matches content type
+            var extension = Path.GetExtension(file.FileName)?.ToLower();
+            var validExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
+            
+            if (string.IsNullOrEmpty(extension) || !validExtensions.Contains(extension))
+            {
+                return BadRequest(new IdScannerResponse
+                {
+                    Success = false,
+                    Message = "Invalid file extension",
+                    ErrorDetails = $"File extension '{extension}' is not allowed. Use: .jpg, .jpeg, .png, .bmp, or .webp"
+                });
+            }
+            
+            _logger.LogInformation($"Processing ID - File: {file.FileName}, Type: {file.ContentType}, Size: {file.Length} bytes");
             
             // Parse options
             IdScannerOptions scannerOptions = null;
@@ -208,6 +275,144 @@ namespace BHCARE.Controllers
                 
                 _logger.LogInformation($"Overall extraction confidence: {confidence:P1}");
                 
+                // === AUTO-APPROVAL LOGIC: Check for eligible barangay in extracted address ===
+                bool? autoApproved = null;
+                string detectedBarangay = null;
+                string approvalMessage = null;
+                
+                if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(idData.Address))
+                {
+                    // CRITICAL: Search RAW OCR text first, then fallback to parsed address
+                    // This ensures we're reading from the ID image, not from user input
+                    string detectedBarangayFromRaw = null;
+                    if (!string.IsNullOrWhiteSpace(ocrResult))
+                    {
+                        // Search raw OCR text directly
+                        var rawBarangayPattern = @"\bBARANGAY\s*(158|159|160|161)\b";
+                        var rawMatch = Regex.Match(ocrResult, rawBarangayPattern, RegexOptions.IgnoreCase);
+                        if (rawMatch.Success && rawMatch.Groups.Count > 1)
+                        {
+                            detectedBarangayFromRaw = rawMatch.Groups[1].Value;
+                            _logger.LogInformation($"Barangay {detectedBarangayFromRaw} detected from RAW OCR text");
+                        }
+                    }
+                    
+                    // Use raw OCR result if found, otherwise use parsed address
+                    detectedBarangay = detectedBarangayFromRaw ?? DetectEligibleBarangayFromAddress(idData.Address);
+                    
+                    // CRITICAL VALIDATION: Ensure detected barangay is EXACTLY one of the eligible values
+                    // This prevents false positives from OCR misreading (e.g., "168" misread as "161")
+                    if (!string.IsNullOrEmpty(detectedBarangay))
+                    {
+                        var validBarangays = new[] { "158", "159", "160", "161" };
+                        if (!validBarangays.Contains(detectedBarangay))
+                        {
+                            _logger.LogWarning($"⚠️ INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
+                            if (!string.IsNullOrEmpty(ocrResult))
+                            {
+                                _logger.LogWarning($"This may be an OCR misread. OCR text preview: {ocrResult.Substring(0, Math.Min(1000, ocrResult.Length))}...");
+                            }
+                            detectedBarangay = null; // Reject invalid barangay
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"✅ Barangay {detectedBarangay} validated as eligible");
+                        }
+                    }
+                    
+                    if (!string.IsNullOrEmpty(detectedBarangay))
+                    {
+                        _logger.LogInformation($"Barangay {detectedBarangay} detected - attempting auto-approval for user ID {userId}");
+                        
+                        try
+                        {
+                            // Thread-safe auto-approval
+                            lock (_approvalLock)
+                            {
+                                var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+                                if (user != null)
+                                {
+                                    // Check if user is already approved to avoid duplicate processing
+                                    if (!user.IsApproved || user.VerificationStatus != "Auto Verified")
+                                    {
+                                        user.VerificationStatus = "Auto Verified";
+                                        user.IsApproved = true;
+                                        user.ApprovedBy = "System (Barangay Match via OCR)";
+                                        user.ApprovedDate = DateTime.UtcNow;
+                                        user.VerifiedBarangay = detectedBarangay;
+                                        user.OcrExtractedText = ocrResult.Length > 500 ? ocrResult.Substring(0, 500) : ocrResult;
+                                        user.DocumentVerifiedAt = DateTime.UtcNow;
+                                        user.Status = "Verified";
+                                        user.EncryptedStatus = "Verified";
+                                        user.IsActive = true;
+                                        
+                                        // Update document status if exists
+                                        var document = _context.UserDocuments
+                                            .Where(d => d.UserId == userId)
+                                            .OrderByDescending(d => d.UploadDate)
+                                            .FirstOrDefault();
+                                        
+                                        if (document != null)
+                                        {
+                                            document.Status = "Verified";
+                                            document.ApprovedBy = null; // NULL for system auto-approval
+                                            document.ApprovedAt = DateTime.UtcNow;
+                                        }
+                                        
+                                        _context.SaveChanges();
+                                        
+                                        // Ensure user has Patient role
+                                        try
+                                        {
+                                            if (!_userManager.IsInRoleAsync(user, "Patient").Result)
+                                            {
+                                                var roleExists = _roleManager.RoleExistsAsync("Patient").Result;
+                                                if (!roleExists)
+                                                {
+                                                    _roleManager.CreateAsync(new IdentityRole("Patient")).Wait();
+                                                }
+                                                _userManager.AddToRoleAsync(user, "Patient").Wait();
+                                            }
+                                        }
+                                        catch (Exception roleEx)
+                                        {
+                                            _logger.LogError(roleEx, "Error assigning Patient role during auto-approval");
+                                        }
+                                        
+                                        autoApproved = true;
+                                        approvalMessage = $"User auto-approved! Barangay {detectedBarangay} detected from ID address.";
+                                        _logger.LogInformation($"Barangay {detectedBarangay} detected - auto-approved user ID {userId}");
+                                    }
+                                    else
+                                    {
+                                        _logger.LogInformation($"User {userId} is already approved, skipping auto-approval");
+                                        autoApproved = false;
+                                        approvalMessage = "User is already approved.";
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"User {userId} not found for auto-approval");
+                                    autoApproved = false;
+                                    approvalMessage = "User not found.";
+                                }
+                            }
+                        }
+                        catch (Exception approvalEx)
+                        {
+                            _logger.LogError(approvalEx, $"Error during auto-approval for user {userId}");
+                            autoApproved = false;
+                            approvalMessage = "Auto-approval failed. Please approve manually.";
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"No eligible barangay (158-161) detected in address for user {userId}");
+                        autoApproved = false;
+                        approvalMessage = "No eligible barangay (158-161) detected. Manual review required.";
+                    }
+                }
+                
                 // Provide user guidance based on confidence level
                 string message = "ID processed successfully";
                 if (confidence < 0.5f)
@@ -223,23 +428,70 @@ namespace BHCARE.Controllers
                     message = "ID scanned with high confidence!";
                 }
                 
+                // Update message if auto-approved
+                if (autoApproved == true)
+                {
+                    message = $"ID processed successfully. {approvalMessage}";
+                }
+                else if (autoApproved == false && !string.IsNullOrEmpty(approvalMessage))
+                {
+                    message = $"ID processed successfully. {approvalMessage}";
+                }
+                
                 return Ok(new IdScannerResponse
                 {
                     Success = true,
                     Message = message,
                     Data = idData,
                     Confidence = confidence,
-                    ProcessedImageUrl = processedImageUrl
+                    ProcessedImageUrl = processedImageUrl,
+                    AutoApproved = autoApproved,
+                    DetectedBarangay = detectedBarangay,
+                    ApprovalMessage = approvalMessage
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing ID");
+                
+                // Parse error message for user-friendly response
+                string userMessage = "Failed to process ID image";
+                string errorDetails = ex.Message;
+                
+                // Categorize errors for better user feedback
+                if (ex.Message.Contains("resolution") || ex.Message.Contains("dimension"))
+                {
+                    userMessage = "Image quality issue";
+                }
+                else if (ex.Message.Contains("blurry") || ex.Message.Contains("blur"))
+                {
+                    userMessage = "Image too blurry";
+                }
+                else if (ex.Message.Contains("No readable text"))
+                {
+                    userMessage = "No text found in image";
+                }
+                else if (ex.Message.Contains("traineddata") || ex.Message.Contains("Tesseract"))
+                {
+                    userMessage = "OCR service configuration error";
+                    errorDetails = "The OCR service is not properly configured. Please contact support.";
+                }
+                else if (ex.Message.Contains("file") || ex.Message.Contains("path"))
+                {
+                    userMessage = "File processing error";
+                }
+                else if (ex.Message.Contains("Common causes:"))
+                {
+                    userMessage = "No text could be extracted";
+                    errorDetails = ex.Message;
+                }
+                
                 return StatusCode(500, new IdScannerResponse
                 {
                     Success = false,
-                    Message = GetUserFriendlyErrorMessage(ex),
-                    ErrorDetails = ex.ToString()
+                    Message = userMessage,
+                    ErrorDetails = errorDetails,
+                    ProcessedImageUrl = null
                 });
             }
         }
@@ -296,6 +548,42 @@ namespace BHCARE.Controllers
             {
                 _logger.LogError(ex, "OCR processing error");
                 throw new Exception("OCR service error: " + ex.Message, ex);
+            }
+        }
+        
+        /// <summary>
+        /// Calculate image blurriness using Laplacian variance
+        /// Higher values = sharper image
+        /// </summary>
+        private double CalculateImageBlurriness(string imagePath)
+        {
+            try
+            {
+                using (var src = Cv2.ImRead(imagePath, ImreadModes.Grayscale))
+                {
+                    if (src.Empty())
+                    {
+                        _logger.LogWarning("Failed to load image for blur detection");
+                        return 100; // Assume acceptable
+                    }
+                    
+                    // Use Laplacian variance to detect blur
+                    using (var laplacian = new Mat())
+                    {
+                        Cv2.Laplacian(src, laplacian, MatType.CV_64F);
+                        Cv2.MeanStdDev(laplacian, out Scalar mean, out Scalar stddev);
+                        
+                        // Variance (stddev squared) indicates sharpness
+                        double variance = stddev.Val0 * stddev.Val0;
+                        _logger.LogInformation($"Image blur score: {variance:F2}");
+                        return variance;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to calculate image blurriness");
+                return 100; // Assume acceptable if check fails
             }
         }
         
@@ -396,6 +684,63 @@ namespace BHCARE.Controllers
         {
             try
             {
+                // ========== VALIDATION PHASE ==========
+                
+                // Validate: File exists
+                if (!System.IO.File.Exists(imagePath))
+                {
+                    _logger.LogError($"Image file not found: {imagePath}");
+                    throw new Exception("Image file not found. Please try uploading again.");
+                }
+
+                // Validate: Image is readable and has minimum dimensions
+                try
+                {
+                    using (var testImage = Image.Load(imagePath))
+                    {
+                        _logger.LogInformation($"Image dimensions: {testImage.Width}x{testImage.Height}");
+                        
+                        // Check minimum resolution
+                        if (testImage.Width < 600 || testImage.Height < 400)
+                        {
+                            throw new Exception(
+                                $"Image resolution too low ({testImage.Width}x{testImage.Height}). " +
+                                "Minimum required: 600x400 pixels. Please use a higher quality image."
+                            );
+                        }
+                        
+                        // Check maximum resolution (prevent memory issues)
+                        if (testImage.Width > 4000 || testImage.Height > 4000)
+                        {
+                            _logger.LogWarning($"Image resolution very high: {testImage.Width}x{testImage.Height}");
+                        }
+                    }
+                }
+                catch (Exception imgEx)
+                {
+                    _logger.LogError(imgEx, "Image validation failed");
+                    
+                    if (imgEx.Message.Contains("resolution"))
+                    {
+                        throw; // Re-throw resolution errors as-is
+                    }
+                    
+                    throw new Exception($"Invalid or corrupted image file: {imgEx.Message}");
+                }
+                
+                // Validate: Check for blur
+                var blurScore = CalculateImageBlurriness(imagePath);
+                if (blurScore < 50) // Threshold for blurry images
+                {
+                    throw new Exception(
+                        "Image appears to be blurry or out of focus. " +
+                        $"Quality score: {blurScore:F0}/100. " +
+                        "Please retake the photo with a steady hand in good lighting."
+                    );
+                }
+                
+                // ========== PROCEED WITH OCR ==========
+                
                 // Initialize Tesseract with the trained data files path
                 var tessDataPath = Path.Combine(_environment.ContentRootPath, "tessdata");
                 
@@ -607,7 +952,24 @@ namespace BHCARE.Controllers
                 if (string.IsNullOrWhiteSpace(combinedText))
                 {
                     _logger.LogWarning("OCR returned empty text from all PSM modes");
-                    throw new Exception("OCR could not extract any text from the image");
+                    
+                    // Build a detailed error message
+                    var errorMessage = new StringBuilder();
+                    errorMessage.AppendLine("No readable text could be extracted from the image.");
+                    errorMessage.AppendLine();
+                    errorMessage.AppendLine("Common causes:");
+                    errorMessage.AppendLine("• Image does not contain a valid ID document");
+                    errorMessage.AppendLine("• Lighting is too dark or creates glare");
+                    errorMessage.AppendLine("• Text is blurry, small, or illegible");
+                    errorMessage.AppendLine("• Document is partially visible or cut off");
+                    errorMessage.AppendLine();
+                    errorMessage.AppendLine("Solutions:");
+                    errorMessage.AppendLine("• Ensure the entire ID is visible in the frame");
+                    errorMessage.AppendLine("• Use bright, even lighting without glare");
+                    errorMessage.AppendLine("• Hold the camera steady to avoid blur");
+                    errorMessage.AppendLine("• Try enabling 'Enhanced Mode' for better accuracy");
+                    
+                    throw new Exception(errorMessage.ToString());
                 }
                 
                 _logger.LogInformation($"Final OCR extracted text:\n{combinedText}");
@@ -616,7 +978,24 @@ namespace BHCARE.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Tesseract OCR failed");
-                throw new Exception($"OCR processing failed: {ex.Message}", ex);
+                
+                // Provide specific error messages based on exception type
+                if (ex.Message.Contains("traineddata"))
+                {
+                    throw new Exception("OCR language files are missing. Please contact support to configure Tesseract properly.");
+                }
+                else if (ex.Message.Contains("resolution") || ex.Message.Contains("blurry"))
+                {
+                    throw; // Re-throw as is - already has user-friendly message
+                }
+                else if (ex.Message.Contains("No readable text"))
+                {
+                    throw; // Re-throw as is - already has detailed guidance
+                }
+                else
+                {
+                    throw new Exception($"OCR processing error: {ex.Message}. Try using enhanced mode or retaking the photo.", ex);
+                }
             }
         }
 
@@ -2360,6 +2739,52 @@ namespace BHCARE.Controllers
             }
             
             _logger.LogInformation("No barangay number found in address");
+            return null;
+        }
+        
+        /// <summary>
+        /// Detect eligible barangay (158, 159, 160, or 161) from extracted address using regex pattern
+        /// Returns the barangay number if found, null otherwise
+        /// </summary>
+        private string DetectEligibleBarangayFromAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                return null;
+            }
+
+            // Primary pattern: Match "Barangay 158", "Barangay 159", "Barangay 160", or "Barangay 161" (case-insensitive)
+            var barangayPattern = @"\bBarangay\s*(158|159|160|161)\b";
+            var match = Regex.Match(address, barangayPattern, RegexOptions.IgnoreCase);
+
+            if (match.Success && match.Groups.Count > 1)
+            {
+                var barangayNum = match.Groups[1].Value;
+                _logger.LogInformation($"Detected eligible barangay {barangayNum} from address using primary pattern");
+                return barangayNum;
+            }
+
+            // Alternative patterns for different formats
+            var alternativePatterns = new[]
+            {
+                @"\bBRGY\.?\s*(158|159|160|161)\b",           // BRGY 158, BRGY. 159
+                @"\b(158|159|160|161)\s*(?:ST|ND|RD|TH)?\s*BARANGAY\b",  // 158 BARANGAY, 159TH BARANGAY
+                @"\bBARANGAY\s*(?:NO\.?|#)?\s*(158|159|160|161)\b",      // BARANGAY NO. 158, BARANGAY # 160
+                @"\b(158|159|160|161)\b"                      // Just the number (fallback)
+            };
+
+            foreach (var pattern in alternativePatterns)
+            {
+                match = Regex.Match(address, pattern, RegexOptions.IgnoreCase);
+                if (match.Success && match.Groups.Count > 1)
+                {
+                    var barangayNum = match.Groups[1].Value;
+                    _logger.LogInformation($"Detected eligible barangay {barangayNum} from address using alternative pattern: {pattern}");
+                    return barangayNum;
+                }
+            }
+
+            _logger.LogInformation("No eligible barangay (158-161) detected in address");
             return null;
         }
 

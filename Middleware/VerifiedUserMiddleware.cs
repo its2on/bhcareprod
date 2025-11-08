@@ -129,7 +129,13 @@ namespace Barangay.Middleware
             // Only check verification status for user dashboard access
             if (context.Request.Path.StartsWithSegments("/User"))
             {
-                if (user.Status == "Verified" && user.IsActive)
+                // Allow access if user is verified OR auto-approved (bypass approval page)
+                // Accept both "Verified" and "Active" status for auto-approved users
+                bool isVerified = (user.Status == "Verified" && user.IsActive) || 
+                                 (user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive) ||
+                                 (user.Status == "Active" && user.IsApproved && user.VerificationStatus == "Auto Verified" && user.IsActive);
+                
+                if (isVerified)
                 {
                     // Ensure user has the User role if verified (for patients and other users)
                     if (!roles.Contains("User") && !roles.Contains("Admin") && !roles.Contains("Doctor") && !roles.Contains("Nurse"))

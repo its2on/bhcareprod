@@ -47,6 +47,7 @@ namespace Barangay.Pages.Nurse
             public AppointmentStatus Status { get; set; }
             public string Type { get; set; }
             public string Description { get; set; }
+            public string? FamilyNumber { get; set; }
         }
 
         public List<AppointmentViewModel> Appointments { get; set; } = new List<AppointmentViewModel>();
@@ -125,7 +126,9 @@ namespace Barangay.Pages.Nurse
                         AppointmentTime = a.AppointmentTime,
                         Status = a.Status,
                         Type = a.Type ?? "General",
-                        Description = a.Description
+                        Description = a.Description,
+                        // Get FamilyNumber from Appointment first, then fallback to Patient
+                        FamilyNumber = !string.IsNullOrEmpty(a.FamilyNumber) ? a.FamilyNumber : (a.Patient != null ? a.Patient.FamilyNumber : null)
                     }).ToList();
                 
                 _logger.LogInformation("After filtering: {0} appointments for nurse view (excluding Draft and Cancelled)", Appointments.Count);

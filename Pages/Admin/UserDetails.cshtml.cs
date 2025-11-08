@@ -13,6 +13,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
+using System.Net.Http;
+using System.IO;
+using Microsoft.Extensions.Configuration;
 
 namespace Barangay.Pages.Admin
 {
@@ -21,24 +26,36 @@ namespace Barangay.Pages.Admin
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<UserDetailsModel> _logger;
         private readonly IDataEncryptionService _encryptionService;
         private readonly IEmailService _emailService;
+        private readonly AzureOcrService _ocrService;
+        private readonly IWebHostEnvironment _environment;
+        private readonly IConfiguration _configuration;
         
         public UserDetailsModel(
             ApplicationDbContext context, 
             UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             INotificationService notificationService,
             ILogger<UserDetailsModel> logger,
             IDataEncryptionService encryptionService,
-            IEmailService emailService) 
+            IEmailService emailService,
+            AzureOcrService ocrService,
+            IWebHostEnvironment environment,
+            IConfiguration configuration) 
             : base(notificationService)
         {
             _context = context;
             _userManager = userManager;
+            _roleManager = roleManager;
             _logger = logger;
             _encryptionService = encryptionService;
             _emailService = emailService;
+            _ocrService = ocrService;
+            _environment = environment;
+            _configuration = configuration;
         }
         
         [BindProperty(SupportsGet = true)]
@@ -205,8 +222,9 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "Admin user not found." });
                 }
                 
-                // Update user status
+                // Update user status - IMPORTANT: Update both Status and EncryptedStatus for login check
                 user.Status = "Verified";
+                user.EncryptedStatus = "Verified";
                 user.IsActive = true;
                 
                 var updateResult = await _userManager.UpdateAsync(user);
@@ -239,10 +257,32 @@ namespace Barangay.Pages.Admin
                     _logger.LogInformation($"Guardian consent approved for user {id}");
                 }
                 
-                // Assign patient role if needed
-                if (!await _userManager.IsInRoleAsync(user, "PATIENT"))
+                // Assign Patient role if needed
+                try
                 {
-                    await _userManager.AddToRoleAsync(user, "PATIENT");
+                    // Ensure Patient role exists
+                    if (!await _roleManager.RoleExistsAsync("Patient"))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole("Patient"));
+                        _logger.LogInformation("Created Patient role");
+                    }
+                    
+                    if (!await _userManager.IsInRoleAsync(user, "Patient"))
+                    {
+                        var roleResult = await _userManager.AddToRoleAsync(user, "Patient");
+                        if (roleResult.Succeeded)
+                        {
+                            _logger.LogInformation("Assigned Patient role to user {UserId} during manual approval", id);
+                        }
+                        else
+                        {
+                            _logger.LogError("Failed to assign Patient role: {Errors}", string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+                        }
+                    }
+                }
+                catch (Exception roleEx)
+                {
+                    _logger.LogError(roleEx, "Error assigning Patient role during manual approval");
                 }
                 
                 // Save changes
@@ -941,6 +981,657 @@ namespace Barangay.Pages.Admin
                 </div>
             </body>
             </html>";
+        }
+        
+        /// <summary>
+        /// Manual verification handler - checks user's Barangay field from profile
+        /// WARNING: This uses profile data, not ID image OCR. Use OnPostScanIdForApprovalAsync for ID-based verification.
+        /// </summary>
+        public async Task<JsonResult> OnPostReVerifyWithOCRAsync(string id)
+        {
+            try
+            {
+                _logger.LogInformation("=== AUTOMATIC BARANGAY VERIFICATION START (PROFILE-BASED) ===");
+                _logger.LogWarning("⚠️ WARNING: This method uses USER PROFILE data, not ID image OCR. For accurate verification, use ID scan instead.");
+                _logger.LogInformation("Admin triggered verification for user: {UserId}", id);
+                
+                // Find the user
+                var user = await _userManager.FindByIdAsync(id);
+                if (user == null)
+                {
+                    return new JsonResult(new { success = false, message = "User not found." });
+                }
+                
+                // Decrypt barangay field
+                string barangayValue = user.Barangay;
+                if (!string.IsNullOrEmpty(barangayValue) && _encryptionService.IsEncrypted(barangayValue))
+                {
+                    barangayValue = _encryptionService.Decrypt(barangayValue);
+                }
+                
+                _logger.LogInformation("User Barangay field from PROFILE: {Barangay}", barangayValue);
+                _logger.LogWarning("⚠️ NOTE: This is profile data, not verified from ID image. Please use 'Scan ID for Auto-Approval' for accurate verification.");
+                
+                // Use regex to extract exact barangay number (more accurate than Contains)
+                string detectedBarangay = null;
+                var validBarangays = new[] { "158", "159", "160", "161" };
+                
+                if (!string.IsNullOrEmpty(barangayValue))
+                {
+                    // Use regex to find exact barangay numbers
+                    var barangayPattern = @"\b(158|159|160|161)\b";
+                    var match = Regex.Match(barangayValue, barangayPattern);
+                    if (match.Success && match.Groups.Count > 1)
+                    {
+                        detectedBarangay = match.Groups[1].Value;
+                        _logger.LogInformation($"Extracted Barangay {detectedBarangay} from profile using regex");
+                    }
+                    else
+                    {
+                        // Fallback to Contains (less accurate)
+                        if (barangayValue.Contains("158"))
+                            detectedBarangay = "158";
+                        else if (barangayValue.Contains("159"))
+                            detectedBarangay = "159";
+                        else if (barangayValue.Contains("160"))
+                            detectedBarangay = "160";
+                        else if (barangayValue.Contains("161"))
+                            detectedBarangay = "161";
+                    }
+                    
+                    // Validate that detected barangay is in eligible list
+                    if (!string.IsNullOrEmpty(detectedBarangay) && !validBarangays.Contains(detectedBarangay))
+                    {
+                        _logger.LogError($"❌ INVALID: Detected {detectedBarangay} but it's not in eligible list (158-161)");
+                        detectedBarangay = null;
+                    }
+                }
+                
+                if (detectedBarangay != null)
+                {
+                    // BARANGAY VERIFIED - Auto-approve
+                    _logger.LogInformation("=== BARANGAY VERIFICATION SUCCESS ===");
+                    _logger.LogInformation("Detected Barangay: {Barangay} from user profile", detectedBarangay);
+                    
+                    user.VerificationStatus = "Auto Verified";
+                    user.IsApproved = true;
+                    user.ApprovedBy = "System (Profile Verified by Admin)";
+                    user.ApprovedDate = DateTime.UtcNow;
+                    user.VerifiedBarangay = detectedBarangay;
+                    user.OcrExtractedText = $"Verified from profile: {barangayValue}";
+                    user.DocumentVerifiedAt = DateTime.UtcNow;
+                    user.Status = "Verified";
+                    user.EncryptedStatus = "Verified"; // IMPORTANT: Update both Status fields for login check
+                    user.IsActive = true;
+                    
+                    // Update document status if exists
+                    var document = await _context.UserDocuments
+                        .Where(d => d.UserId == id)
+                        .OrderByDescending(d => d.UploadDate)
+                        .FirstOrDefaultAsync();
+                    
+                    if (document != null)
+                    {
+                        document.Status = "Verified";
+                        document.ApprovedBy = null; // NULL for system auto-approval
+                        document.ApprovedAt = DateTime.UtcNow;
+                    }
+                    
+                    await _userManager.UpdateAsync(user);
+                    await _context.SaveChangesAsync();
+                    
+                    // Ensure user has Patient role assigned
+                    try
+                    {
+                        if (!await _userManager.IsInRoleAsync(user, "Patient"))
+                        {
+                            _logger.LogInformation("User {UserId} missing Patient role, assigning now", user.Id);
+                            
+                            // Ensure Patient role exists
+                            if (!await _roleManager.RoleExistsAsync("Patient"))
+                            {
+                                await _roleManager.CreateAsync(new IdentityRole("Patient"));
+                            }
+                            
+                            var roleResult = await _userManager.AddToRoleAsync(user, "Patient");
+                            if (roleResult.Succeeded)
+                            {
+                                _logger.LogInformation("Successfully assigned Patient role to user {UserId}", user.Id);
+                            }
+                        }
+                    }
+                    catch (Exception roleEx)
+                    {
+                        _logger.LogError(roleEx, "Error assigning Patient role during auto-verification");
+                    }
+                    
+                    // Send approval email
+                    try
+                    {
+                        var userEmail = _encryptionService.Decrypt(user.Email);
+                        var firstName = _encryptionService.Decrypt(user.FirstName);
+                        
+                        var emailBody = $@"
+                            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                                <h2 style='color: #4CAF50;'>✅ BHCare Account Approved</h2>
+                                <p>Hi <strong>{firstName}</strong>,</p>
+                                <p>Great news! Your residency in <strong>Barangay {detectedBarangay}</strong> has been verified.</p>
+                                <p>Your BHCare account is now <strong>active</strong>. You can log in anytime.</p>
+                                <p><a href='{Request.Scheme}://{Request.Host}/Account/Login' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Login Now</a></p>
+                                <p>Thank you for your patience!</p>
+                            </div>";
+                        
+                        await _emailService.SendEmailAsync(userEmail, "BHCare Account Approved", emailBody);
+                        _logger.LogInformation("Approval email sent to {Email}", userEmail);
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "Failed to send approval email");
+                    }
+                    
+                    return new JsonResult(new 
+                    { 
+                        success = true, 
+                        message = $"✅ Verification Success! User auto-approved for Barangay {detectedBarangay} based on profile information.",
+                        barangay = detectedBarangay,
+                        autoApproved = true
+                    });
+                }
+                else
+                {
+                    // BARANGAY NOT IN ELIGIBLE LIST
+                    _logger.LogWarning("=== BARANGAY VERIFICATION FAILED ===");
+                    _logger.LogWarning("Barangay {Barangay} not in eligible list (158-161)", barangayValue);
+                    
+                    return new JsonResult(new 
+                    { 
+                        success = false, 
+                        message = $"❌ Barangay {barangayValue} is not in the service area (158-161). Please manually approve or reject.",
+                        autoApproved = false
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during manual OCR re-verification");
+                return new JsonResult(new 
+                { 
+                    success = false, 
+                    message = "An error occurred during OCR verification. Please try again or manually approve." 
+                });
+            }
+        }
+        
+        /// <summary>
+        /// Scan ID image and auto-approve user if eligible barangay is detected from OCR-extracted address
+        /// </summary>
+        [IgnoreAntiforgeryToken]
+        public async Task<JsonResult> OnPostScanIdForApprovalAsync(string id, IFormFile idImage)
+        {
+            try
+            {
+                _logger.LogInformation("=== ID SCAN FOR AUTO-APPROVAL START ===");
+                _logger.LogInformation("Admin scanning ID for user: {UserId}", id);
+                
+                // Validate file
+                if (idImage == null || idImage.Length == 0)
+                {
+                    return new JsonResult(new { success = false, message = "No image file uploaded" });
+                }
+                
+                // Find the user
+                var user = await _userManager.FindByIdAsync(id);
+                if (user == null)
+                {
+                    return new JsonResult(new { success = false, message = "User not found." });
+                }
+                
+                // Use the same OCR logic from SignUp page
+                var azureEndpoint = _configuration["AzureOCR:Endpoint"];
+                var azureKey = _configuration["AzureOCR:Key"];
+                
+                if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
+                {
+                    _logger.LogError("Azure OCR configuration is missing");
+                    return new JsonResult(new { success = false, message = "OCR service is not configured" });
+                }
+                
+                // Convert image to byte array
+                byte[] imageBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await idImage.CopyToAsync(memoryStream);
+                    imageBytes = memoryStream.ToArray();
+                }
+                
+                // Call Azure OCR Read API
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(600);
+                httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", azureKey);
+                
+                var readApiUrl = $"{azureEndpoint}/vision/v3.2/read/analyze";
+                using var content = new ByteArrayContent(imageBytes);
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(600));
+                using var request = new HttpRequestMessage(HttpMethod.Post, readApiUrl)
+                {
+                    Content = content
+                };
+                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Azure OCR API error: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                    return new JsonResult(new { success = false, message = "OCR processing failed. Please try again." });
+                }
+                
+                // Get operation location
+                if (!response.Headers.TryGetValues("Operation-Location", out var operationLocations))
+                {
+                    return new JsonResult(new { success = false, message = "OCR operation failed to start" });
+                }
+                
+                var operationLocation = operationLocations.FirstOrDefault();
+                
+                // Poll for results
+                string extractedText = await PollForOcrResultAsync(httpClient, operationLocation);
+                
+                if (string.IsNullOrWhiteSpace(extractedText))
+                {
+                    return new JsonResult(new { success = false, message = "No text could be extracted from the image" });
+                }
+                
+                // Log the full OCR text for debugging
+                _logger.LogInformation("=== FULL OCR TEXT FROM ID IMAGE ===");
+                _logger.LogInformation(extractedText);
+                _logger.LogInformation("=== END OCR TEXT ===");
+                
+                // Parse extracted text for address
+                var parsedData = ParseIdData(extractedText);
+                _logger.LogInformation($"Parsed Address from ID: {parsedData.Address ?? "(null)"}");
+                
+                // CRITICAL: First, check if ANY barangay number exists in the OCR text
+                // This prevents false matches when a non-eligible barangay is present
+                var validBarangays = new[] { "158", "159", "160", "161" };
+                string anyBarangayFound = null;
+                
+                // Step 1: Find ANY barangay number in the OCR text (to detect non-eligible ones)
+                var anyBarangayPattern = @"\bBARANGAY\s*(\d{2,3})\b";
+                var anyBarangayMatch = Regex.Match(extractedText, anyBarangayPattern, RegexOptions.IgnoreCase);
+                if (anyBarangayMatch.Success && anyBarangayMatch.Groups.Count > 1)
+                {
+                    anyBarangayFound = anyBarangayMatch.Groups[1].Value;
+                    _logger.LogInformation($"🔍 Found BARANGAY {anyBarangayFound} in OCR text");
+                    
+                    // If it's NOT in the eligible list, REJECT immediately
+                    if (!validBarangays.Contains(anyBarangayFound))
+                    {
+                        _logger.LogError($"❌ REJECTED: BARANGAY {anyBarangayFound} detected in ID, but it is NOT eligible (158-161 only)");
+                        _logger.LogError($"Full OCR address section: {extractedText}");
+                        return new JsonResult(new 
+                        { 
+                            success = false, 
+                            message = $"❌ REJECTED: Barangay {anyBarangayFound} detected in ID image, but it is NOT in the eligible service area (158-161 only). This application must be rejected.",
+                            detectedBarangay = (string)null,
+                            autoApproved = false,
+                            foundBarangay = anyBarangayFound,
+                            ocrTextPreview = extractedText.Substring(0, Math.Min(500, extractedText.Length))
+                        });
+                    }
+                }
+                
+                // Step 2: Now search for eligible barangays ONLY (158-161)
+                string detectedBarangay = null;
+                
+                // Method 1: Search raw OCR text directly for "BARANGAY 158/159/160/161" patterns
+                var rawBarangayPattern = @"\bBARANGAY\s*(158|159|160|161)\b";
+                var rawMatch = Regex.Match(extractedText, rawBarangayPattern, RegexOptions.IgnoreCase);
+                if (rawMatch.Success && rawMatch.Groups.Count > 1)
+                {
+                    detectedBarangay = rawMatch.Groups[1].Value;
+                    _logger.LogInformation($"✅ Barangay {detectedBarangay} detected directly from RAW OCR text");
+                }
+                else
+                {
+                    // Method 2: Try alternative patterns in raw OCR text
+                    var alternativePatterns = new[]
+                    {
+                        @"\bBRGY\.?\s*(158|159|160|161)\b",
+                        @"\b(158|159|160|161)\s*(?:ST|ND|RD|TH)?\s*BARANGAY\b",
+                        @"\bBARANGAY\s*(?:NO\.?|#)?\s*(158|159|160|161)\b"
+                    };
+                    
+                    foreach (var pattern in alternativePatterns)
+                    {
+                        rawMatch = Regex.Match(extractedText, pattern, RegexOptions.IgnoreCase);
+                        if (rawMatch.Success && rawMatch.Groups.Count > 1)
+                        {
+                            detectedBarangay = rawMatch.Groups[1].Value;
+                            _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from RAW OCR text using pattern: {pattern}");
+                            break;
+                        }
+                    }
+                }
+                
+                // Method 3: Fallback to parsed address if raw search didn't find anything
+                if (string.IsNullOrEmpty(detectedBarangay) && !string.IsNullOrWhiteSpace(parsedData.Address))
+                {
+                    detectedBarangay = DetectEligibleBarangayFromAddress(parsedData.Address);
+                    if (!string.IsNullOrEmpty(detectedBarangay))
+                    {
+                        _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from parsed address");
+                    }
+                }
+                
+                // CRITICAL VALIDATION: Double-check that detected barangay is EXACTLY one of the eligible values
+                if (!string.IsNullOrEmpty(detectedBarangay))
+                {
+                    if (!validBarangays.Contains(detectedBarangay))
+                    {
+                        _logger.LogError($"❌ INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
+                        _logger.LogError($"Full OCR text: {extractedText}");
+                        detectedBarangay = null; // Reject invalid barangay
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"🎯 FINAL DETECTED BARANGAY FROM ID IMAGE: {detectedBarangay} (VALIDATED)");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ No eligible barangay (158-161) detected in ID image OCR text");
+                    _logger.LogWarning($"Full OCR text preview: {extractedText.Substring(0, Math.Min(1000, extractedText.Length))}...");
+                }
+                
+                if (detectedBarangay != null)
+                {
+                    // AUTO-APPROVE user
+                    _logger.LogInformation("=== AUTO-APPROVAL FROM OCR BARANGAY DETECTION ===");
+                    _logger.LogInformation("Barangay {Barangay} detected - auto-approving user ID {UserId}", detectedBarangay, id);
+                    
+                    user.VerificationStatus = "Auto Verified";
+                    user.IsApproved = true;
+                    user.ApprovedBy = "System (Barangay Match via OCR)";
+                    user.ApprovedDate = DateTime.UtcNow;
+                    user.VerifiedBarangay = detectedBarangay;
+                    user.OcrExtractedText = extractedText;
+                    user.DocumentVerifiedAt = DateTime.UtcNow;
+                    user.Status = "Verified";
+                    user.EncryptedStatus = "Verified";
+                    user.IsActive = true;
+                    
+                    // Update document status
+                    var document = await _context.UserDocuments
+                        .Where(d => d.UserId == id)
+                        .OrderByDescending(d => d.UploadDate)
+                        .FirstOrDefaultAsync();
+                    
+                    if (document != null)
+                    {
+                        document.Status = "Verified";
+                        document.ApprovedBy = null;
+                        document.ApprovedAt = DateTime.UtcNow;
+                    }
+                    
+                    await _userManager.UpdateAsync(user);
+                    await _context.SaveChangesAsync();
+                    
+                    // Assign Patient role if needed
+                    try
+                    {
+                        if (!await _roleManager.RoleExistsAsync("Patient"))
+                        {
+                            await _roleManager.CreateAsync(new IdentityRole("Patient"));
+                        }
+                        
+                        if (!await _userManager.IsInRoleAsync(user, "Patient"))
+                        {
+                            await _userManager.AddToRoleAsync(user, "Patient");
+                        }
+                    }
+                    catch (Exception roleEx)
+                    {
+                        _logger.LogError(roleEx, "Error assigning Patient role");
+                    }
+                    
+                    return new JsonResult(new 
+                    { 
+                        success = true, 
+                        message = $"✅ User auto-approved! Barangay {detectedBarangay} detected from ID scan.",
+                        detectedBarangay = detectedBarangay,
+                        autoApproved = true
+                    });
+                }
+                else
+                {
+                    // No eligible barangay detected - check if a different barangay was found
+                    var checkBarangayPattern = @"\bBARANGAY\s*(\d{3})\b";
+                    var anyMatch = Regex.Match(extractedText, checkBarangayPattern, RegexOptions.IgnoreCase);
+                    string foundBarangay = null;
+                    if (anyMatch.Success && anyMatch.Groups.Count > 1)
+                    {
+                        foundBarangay = anyMatch.Groups[1].Value;
+                    }
+                    
+                    string message = "No eligible barangay (158-161) detected in the ID address.";
+                    if (!string.IsNullOrEmpty(foundBarangay) && !new[] { "158", "159", "160", "161" }.Contains(foundBarangay))
+                    {
+                        message = $"Barangay {foundBarangay} detected in ID, but it is not in the eligible service area (158-161). Please reject this application.";
+                    }
+                    
+                    return new JsonResult(new 
+                    { 
+                        success = false, 
+                        message = message,
+                        detectedBarangay = (string)null,
+                        autoApproved = false,
+                        extractedAddress = parsedData.Address,
+                        foundBarangay = foundBarangay,
+                        ocrTextPreview = extractedText.Substring(0, Math.Min(500, extractedText.Length))
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scanning ID for approval");
+                return new JsonResult(new { success = false, message = $"An error occurred: {ex.Message}" });
+            }
+        }
+        
+        /// <summary>
+        /// Poll Azure Read API for OCR results
+        /// </summary>
+        private async Task<string> PollForOcrResultAsync(HttpClient httpClient, string operationLocation)
+        {
+            const int maxAttempts = 180;
+            int attempts = 0;
+
+            while (attempts < maxAttempts)
+            {
+                await Task.Delay(1000);
+                attempts++;
+
+                var resultResponse = await httpClient.GetAsync(operationLocation);
+                
+                if (!resultResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning($"Polling failed: {resultResponse.StatusCode}");
+                    continue;
+                }
+
+                var resultJson = await resultResponse.Content.ReadAsStringAsync();
+                var resultData = System.Text.Json.JsonDocument.Parse(resultJson);
+                var root = resultData.RootElement;
+
+                if (root.TryGetProperty("status", out var statusElement))
+                {
+                    var status = statusElement.GetString();
+
+                    if (status == "succeeded")
+                    {
+                        var textLines = new List<string>();
+
+                        if (root.TryGetProperty("analyzeResult", out var analyzeResult) &&
+                            analyzeResult.TryGetProperty("readResults", out var readResults))
+                        {
+                            foreach (var readResult in readResults.EnumerateArray())
+                            {
+                                if (readResult.TryGetProperty("lines", out var lines))
+                                {
+                                    foreach (var line in lines.EnumerateArray())
+                                    {
+                                        if (line.TryGetProperty("text", out var textElement))
+                                        {
+                                            var lineText = textElement.GetString();
+                                            if (!string.IsNullOrWhiteSpace(lineText))
+                                            {
+                                                textLines.Add(lineText);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        return string.Join("\n", textLines);
+                    }
+                    else if (status == "failed")
+                    {
+                        _logger.LogError("OCR processing failed");
+                        throw new Exception("OCR processing failed");
+                    }
+                }
+            }
+
+            throw new TimeoutException($"OCR processing timed out after {attempts} attempts");
+        }
+        
+        /// <summary>
+        /// Parse extracted OCR text to identify name and address fields
+        /// </summary>
+        private (string FirstName, string LastName, string Address) ParseIdData(string text)
+        {
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(l => l.Trim())
+                           .Where(l => !string.IsNullOrWhiteSpace(l))
+                           .ToList();
+
+            string firstName = null;
+            string lastName = null;
+            string address = null;
+
+            foreach (var line in lines)
+            {
+                var upperLine = line.ToUpper();
+
+                if ((upperLine.Contains("SURNAME") || upperLine.Contains("LAST NAME") || upperLine.Contains("FAMILY NAME")) 
+                    && string.IsNullOrEmpty(lastName))
+                {
+                    var parts = line.Split(new[] { ':', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 1)
+                    {
+                        lastName = parts[1].Trim();
+                    }
+                    else
+                    {
+                        var currentIndex = lines.IndexOf(line);
+                        if (currentIndex + 1 < lines.Count)
+                        {
+                            lastName = lines[currentIndex + 1].Trim();
+                        }
+                    }
+                }
+
+                if ((upperLine.Contains("GIVEN NAME") || upperLine.Contains("FIRST NAME")) 
+                    && string.IsNullOrEmpty(firstName))
+                {
+                    var parts = line.Split(new[] { ':', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 1)
+                    {
+                        firstName = parts[1].Trim();
+                    }
+                    else
+                    {
+                        var currentIndex = lines.IndexOf(line);
+                        if (currentIndex + 1 < lines.Count)
+                        {
+                            firstName = lines[currentIndex + 1].Trim();
+                        }
+                    }
+                }
+
+                if ((upperLine.Contains("ADDRESS") || upperLine.Contains("RESIDENCE")) 
+                    && string.IsNullOrEmpty(address))
+                {
+                    var parts = line.Split(new[] { ':', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 1)
+                    {
+                        address = parts[1].Trim();
+                    }
+                    else
+                    {
+                        var currentIndex = lines.IndexOf(line);
+                        if (currentIndex + 1 < lines.Count)
+                        {
+                            var addressLines = new List<string>();
+                            for (int i = currentIndex + 1; i < Math.Min(currentIndex + 4, lines.Count); i++)
+                            {
+                                var nextLine = lines[i];
+                                if (nextLine.ToUpper().Contains("DATE") || 
+                                    nextLine.ToUpper().Contains("BIRTH") ||
+                                    nextLine.ToUpper().Contains("SEX") ||
+                                    nextLine.ToUpper().Contains("GENDER"))
+                                {
+                                    break;
+                                }
+                                addressLines.Add(nextLine);
+                            }
+                            address = string.Join(", ", addressLines);
+                        }
+                    }
+                }
+            }
+
+            return (firstName, lastName, address);
+        }
+        
+        /// <summary>
+        /// Detect eligible barangay from extracted address using regex pattern
+        /// </summary>
+        private string DetectEligibleBarangayFromAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                return null;
+            }
+
+            var barangayPattern = @"\bBarangay\s*(158|159|160|161)\b";
+            var match = Regex.Match(address, barangayPattern, RegexOptions.IgnoreCase);
+
+            if (match.Success && match.Groups.Count > 1)
+            {
+                return match.Groups[1].Value;
+            }
+
+            var alternativePatterns = new[]
+            {
+                @"\bBRGY\.?\s*(158|159|160|161)\b",
+                @"\b(158|159|160|161)\s*(?:ST|ND|RD|TH)?\s*BARANGAY\b",
+                @"\bBARANGAY\s*(?:NO\.?|#)?\s*(158|159|160|161)\b"
+            };
+
+            foreach (var pattern in alternativePatterns)
+            {
+                match = Regex.Match(address, pattern, RegexOptions.IgnoreCase);
+                if (match.Success && match.Groups.Count > 1)
+                {
+                    return match.Groups[1].Value;
+                }
+            }
+
+            return null;
         }
     }
     

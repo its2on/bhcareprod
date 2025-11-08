@@ -140,8 +140,10 @@ namespace Barangay.Services
                     }
                 }
 
-                _logger.LogInformation($"OTP not required for account: {email}");
-                return Task.FromResult(false);
+                // For other accounts, require OTP by default (for verified/active users)
+                // Auto-approved users will skip this check in the Login page
+                _logger.LogInformation($"OTP required for account: {email}");
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {

@@ -20,7 +20,7 @@ using Barangay.Services;
 using Barangay.Extensions;
 
 namespace Barangay.Pages.User {
-    [Authorize(Roles = "User")]
+    [Authorize(Roles = "User,Patient")]
     public partial class UserDashboardModel : PageModel
     {
         private readonly ApplicationDbContext _context;
