@@ -1342,8 +1342,13 @@ namespace Barangay.Pages.Account
                 // Check all possible configuration sources
                 var directEndpoint = _configuration["AzureOCR:Endpoint"];
                 var directKey = _configuration["AzureOCR:Key"];
-                _logger.LogWarning($"Direct config check - AzureOCR:Endpoint: {(string.IsNullOrEmpty(directEndpoint) ? "NULL OR EMPTY" : directEndpoint)}");
-                _logger.LogWarning($"Direct config check - AzureOCR:Key: {(string.IsNullOrEmpty(directKey) ? "NULL OR EMPTY" : $"Length={directKey.Length}")}");
+                _logger.LogWarning($"Direct config check (colon) - AzureOCR:Endpoint: {(string.IsNullOrEmpty(directEndpoint) ? "NULL OR EMPTY" : directEndpoint)}");
+                _logger.LogWarning($"Direct config check (colon) - AzureOCR:Key: {(string.IsNullOrEmpty(directKey) ? "NULL OR EMPTY" : $"Length={directKey.Length}")}");
+                
+                var underscoreEndpoint = _configuration["AzureOCR__Endpoint"];
+                var underscoreKey = _configuration["AzureOCR__Key"];
+                _logger.LogWarning($"Direct config check (underscore) - AzureOCR__Endpoint: {(string.IsNullOrEmpty(underscoreEndpoint) ? "NULL OR EMPTY" : underscoreEndpoint)}");
+                _logger.LogWarning($"Direct config check (underscore) - AzureOCR__Key: {(string.IsNullOrEmpty(underscoreKey) ? "NULL OR EMPTY" : $"Length={underscoreKey.Length}")}");
                 
                 var envEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint");
                 var envKey = Environment.GetEnvironmentVariable("AzureOCR__Key");

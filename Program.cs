@@ -28,10 +28,13 @@ using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Note: WebApplication.CreateBuilder already loads environment variables automatically
-// Environment variables take precedence over appsettings.json by default
-// Add appsettings.json (environment variables will override if they exist)
+// Configure configuration sources in correct order (later sources override earlier ones)
+// 1. Load appsettings.json first
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+// 2. Load environment variables AFTER appsettings.json to ensure they take precedence
+// This is critical for Azure App Service where environment variables override appsettings.json
+builder.Configuration.AddEnvironmentVariables();
 
 // Check for password reset command
 if (args.Length > 0 && (args[0] == "--reset-nurse-password" || args[0] == "--reset-admin-password"))
