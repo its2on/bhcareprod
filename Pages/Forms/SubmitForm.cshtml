@@ -245,7 +245,7 @@
                     <span>@Model.FormTemplate.SuccessMessage</span>
                 }
             </p>
-            <a href="/User/Dashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
+            <a href="/User/UserDashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
                 <i class="fa-solid fa-home me-2"></i>Go to Dashboard
             </a>
         </div>
@@ -395,8 +395,8 @@
                                                name="@field.FieldName"
                                                id="@radioId"
                                                value="@option.OptionValue"
-                                               checked="@isChecked"
-                                               onclick="@(isPrefilledReadonly ? "return false;" : "")" />
+                                               @(isChecked ? "checked" : "")
+                                               @(isPrefilledReadonly ? "onclick=\"return false;\"" : "") />
                                         <label class="form-check-label" for="@radioId">@option.OptionLabel</label>
                                     </div>
                                 }
@@ -520,7 +520,7 @@
                 </p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="/User/Dashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
+                <a href="/User/UserDashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
                     <i class="fa-solid fa-home me-2"></i>Go to Dashboard Now
                 </a>
             </div>
@@ -653,46 +653,74 @@
                             <div class="row">
                 `;
                 
-                // Get all fields in this section
-                const fields = page.querySelectorAll('input, select, textarea');
+                // Track processed field names to avoid duplicates
+                const processedFields = new Set();
+                let fieldCount = 0;
+                let valueCount = 0;
                 
-                fields.forEach(field => {
+                // Get all field wrappers (each .mb-4 contains one question)
+                const fieldWrappers = page.querySelectorAll('.mb-4');
+                console.log(`Section ${pageIndex + 1}: Found ${fieldWrappers.length} field wrappers`);
+                
+                fieldWrappers.forEach(wrapper => {
+                    // Get field label
+                    const labelElement = wrapper.querySelector('label.form-label');
+                    if (!labelElement) return;
+                    const label = labelElement.textContent?.trim() || '';
+                    
+                    // Get the input/select/textarea - check across entire page for radio groups
+                    let field = wrapper.querySelector('input, select, textarea');
+                    if (!field) return;
+                    
+                    const fieldName = field.name;
+                    fieldCount++;
+                    
+                    // Skip if already processed (prevents duplicates)
+                    if (processedFields.has(fieldName)) {
+                        console.log(`  Skipping duplicate: ${fieldName}`);
+                        return;
+                    }
+                    processedFields.add(fieldName);
+                    
                     // Skip hidden fields and buttons
                     if (field.type === 'hidden' || field.type === 'submit' || field.type === 'button') return;
-                    
-                    // Get field label
-                    const fieldWrapper = field.closest('.mb-4');
-                    const label = fieldWrapper?.querySelector('label')?.textContent?.trim() || field.name;
                     
                     // Get field value
                     let value = '';
                     if (field.type === 'radio') {
-                        const checked = page.querySelector(`input[name="${field.name}"]:checked`);
-                        if (checked && checked === field) {
+                        // For radio buttons, search in entire PAGE not just wrapper
+                        const checked = page.querySelector(`input[name="${fieldName}"]:checked`);
+                        if (checked) {
                             value = checked.value;
-                        } else if (checked !== field) {
-                            return; // Skip unchecked radios
                         }
                     } else if (field.type === 'checkbox') {
-                        value = field.checked ? 'Yes' : 'No';
+                        // For checkboxes, collect all checked values from entire page
+                        const checkboxes = page.querySelectorAll(`input[name="${fieldName}"]:checked, input[name="${fieldName}[]"]:checked`);
+                        const values = Array.from(checkboxes).map(cb => cb.value);
+                        value = values.length > 0 ? values.join(', ') : '';
                     } else if (field.tagName === 'SELECT') {
-                        value = field.options[field.selectedIndex]?.text || field.value;
+                        const selectedOption = field.options[field.selectedIndex];
+                        value = selectedOption?.text || field.value;
                     } else {
                         value = field.value;
                     }
                     
-                    // Only show if has value
-                    if (value && value.trim() !== '' && value !== 'Choose...') {
-                        html += `
-                            <div class="col-md-6 mb-3">
-                                <div class="d-flex flex-column">
-                                    <small class="text-muted">${label}</small>
-                                    <strong>${value}</strong>
-                                </div>
+                    // Show ALL questions, even if not answered
+                    // Display "No" for unanswered questions
+                    const displayValue = (value && value.trim() !== '' && value !== 'Choose...') ? value : 'No';
+                    valueCount++;
+                    
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">${label}</small>
+                                <strong>${displayValue}</strong>
                             </div>
-                        `;
-                    }
+                        </div>
+                    `;
                 });
+                
+                console.log(`Section ${pageIndex + 1}: Processed ${fieldCount} fields, ${valueCount} with values`);
                 
                 html += `
                             </div>

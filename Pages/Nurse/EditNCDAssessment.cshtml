@@ -2,7 +2,10 @@
 @model Barangay.Pages.Nurse.EditNCDAssessmentModel
 @{
     ViewData["Title"] = "Edit NCD Risk Assessment";
+    // Layout selection: Admin and Doctor use DoctorLayout, Nurse uses NurseLayout
+    // This allows different navigation and UI for each role while sharing the same form
     var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+    var isAdmin = User.IsInRole("Admin");
     Layout = isDoctor ? "_DoctorLayout" : "~/Pages/Shared/_NurseLayout.cshtml";
 }
 

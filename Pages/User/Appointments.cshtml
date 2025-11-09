@@ -719,7 +719,6 @@
                 {
                     var needsForms = Model.AppointmentNeedsForms.ContainsKey(appointment.Id) && Model.AppointmentNeedsForms[appointment.Id];
                     var formsCompleted = Model.AppointmentFormsCompleted.ContainsKey(appointment.Id) && Model.AppointmentFormsCompleted[appointment.Id];
-                    var canComplete = needsForms && !formsCompleted;
                     <text>
                     appointments.push({
                         id: @appointment.Id,
@@ -731,7 +730,7 @@
                         reason: '@appointment.ReasonForVisit',
                         status: '@appointment.Status.ToString()',
                         statusType: 'ongoing',
-                        canComplete: @(canComplete ? "true" : "false"),
+                        canComplete: false,
                         canCancel: true,
                         needsForms: @(needsForms ? "true" : "false"),
                         formsCompleted: @(formsCompleted ? "true" : "false")

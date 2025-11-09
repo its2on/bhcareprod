@@ -667,11 +667,13 @@ namespace Barangay.Pages.Forms
             ReadonlyFields.Add("edadage");
 
             // Gender (Kasarian) - prefilled + readonly
+            // Use the EXACT same values as stored in database from signup: "Male" or "Female"
             PrefilledValues["gender"] = gender;
             PrefilledValues["sex"] = gender;
             PrefilledValues["kasarian"] = gender;
-            PrefilledValues["kasarian(sex)"] = gender; // Handle "Kasarian (Sex)"
-            PrefilledValues["kasariansex"] = gender; // No spaces/parentheses
+            PrefilledValues["kasarian(sex)"] = gender;
+            PrefilledValues["kasariansex"] = gender;
+            
             ReadonlyFields.Add("gender");
             ReadonlyFields.Add("sex");
             ReadonlyFields.Add("kasarian");
@@ -694,8 +696,14 @@ namespace Barangay.Pages.Forms
             // NOTE: Religion and Civil Status are intentionally NOT prefilled
             // These remain editable for the user to fill in
             
-            _logger.LogInformation("Built prefill values: LastName={LastName}, FirstName={FirstName}, Age={Age}, Gender={Gender}", 
-                lastName, firstName, age, gender);
+            _logger.LogInformation("Prefilled Name: {FirstName} {LastName}, Age: {Age}, Gender: '{Gender}'", 
+                firstName, lastName, age, gender);
+            
+            // Log gender/kasarian mappings for debugging
+            if (PrefilledValues.ContainsKey("kasarian"))
+            {
+                _logger.LogInformation("Kasarian prefilled: '{Value}'", PrefilledValues["kasarian"]);
+            }
         }
     }
 }

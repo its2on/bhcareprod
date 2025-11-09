@@ -134,14 +134,6 @@
     </style>
 }
 
-<!-- Display logout success message if present -->
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
-        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-}
 
 <!-- Hero Section with Login Form -->
 <section class="hero-section">

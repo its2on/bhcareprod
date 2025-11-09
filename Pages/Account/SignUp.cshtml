@@ -2032,6 +2032,19 @@
             float: none;
             margin-left: 0;
         }
+        
+        /* Fix validation indicators on radio buttons */
+        .form-check-input[type="radio"].is-valid,
+        .form-check-input[type="radio"].is-invalid {
+            background-image: none !important;
+            border-color: #dee2e6 !important;
+        }
+        
+        .form-check-input[type="radio"].is-valid:checked,
+        .form-check-input[type="radio"].is-invalid:checked {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+        }
     </style>
 }
 
@@ -2066,6 +2079,26 @@
             console.log('Guardian consent modal:', document.getElementById('guardianConsentModal'));
             console.log('Parent name input:', document.getElementById('parentName'));
             console.log('Form found:', document.querySelector('form#signupForm'));
+            
+            // Prevent validation classes from being added to radio buttons
+            // Override the form validation to skip radio buttons
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
+            
+            // Remove any existing validation classes
+            radioButtons.forEach(function(radio) {
+                radio.classList.remove('is-valid', 'is-invalid');
+                
+                // Prevent validation state from being applied to radio buttons
+                // by intercepting classList.add
+                const originalAdd = radio.classList.add;
+                radio.classList.add = function() {
+                    const args = Array.from(arguments);
+                    const filteredArgs = args.filter(cls => cls !== 'is-valid' && cls !== 'is-invalid');
+                    if (filteredArgs.length > 0) {
+                        originalAdd.apply(this, filteredArgs);
+                    }
+                };
+            });
             
             // Check if form submission is working
             const form = document.querySelector('form#signupForm');
@@ -2292,8 +2325,15 @@
                                 otpInputSection.classList.add('d-none');
                                 
                                 // Mark email input as verified
+                                emailInput.classList.remove('is-invalid');
                                 emailInput.classList.add('is-valid');
                                 emailInput.readOnly = true;
+                                
+                                // Hide any error messages
+                                const emailError = document.getElementById('emailError');
+                                if (emailError) {
+                                    emailError.style.display = 'none';
+                                }
                                 
                                 // Add hidden field to indicate email is verified
                                 const form = emailInput.closest('form');

@@ -2,6 +2,23 @@
   "version": 3,
   "targets": {
     "net8.0": {
+      "Azure.AI.Vision.ImageAnalysis/1.0.0-beta.1": {
+        "type": "package",
+        "dependencies": {
+          "Azure.Core": "1.37.0",
+          "System.Text.Json": "4.7.2"
+        },
+        "compile": {
+          "lib/netstandard2.0/Azure.AI.Vision.ImageAnalysis.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Azure.AI.Vision.ImageAnalysis.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Azure.Core/1.38.0": {
         "type": "package",
         "dependencies": {
@@ -4794,6 +4811,22 @@
     }
   },
   "libraries": {
+    "Azure.AI.Vision.ImageAnalysis/1.0.0-beta.1": {
+      "sha512": "DXX6KNfWbnN1vtUQShrs154en5GqEsBCo4gztGDKNbFrERjTXeDu+5agyHhJJZzrm82xYfZkFKAHjjULPqJc1w==",
+      "type": "package",
+      "path": "azure.ai.vision.imageanalysis/1.0.0-beta.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "CHANGELOG.md",
+        "README.md",
+        "azure.ai.vision.imageanalysis.1.0.0-beta.1.nupkg.sha512",
+        "azure.ai.vision.imageanalysis.nuspec",
+        "azureicon.png",
+        "lib/netstandard2.0/Azure.AI.Vision.ImageAnalysis.dll",
+        "lib/netstandard2.0/Azure.AI.Vision.ImageAnalysis.xml"
+      ]
+    },
     "Azure.Core/1.38.0": {
       "sha512": "IuEgCoVA0ef7E4pQtpC3+TkPbzaoQfa77HlfJDmfuaJUCVJmn7fT0izamZiryW5sYUFKizsftIxMkXKbgIcPMQ==",
       "type": "package",
@@ -13974,6 +14007,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "Azure.AI.Vision.ImageAnalysis >= 1.0.0-beta.1",
       "BCrypt.Net-Next >= 4.0.3",
       "ClosedXML >= 0.102.2",
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 8.0.2",
@@ -14002,24 +14036,31 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Ben\\.nuget\\packages\\": {}
+    "C:\\Users\\WIN 10\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\Barangay.csproj",
+      "projectUniqueName": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\Barangay.csproj",
       "projectName": "Barangay",
-      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\Barangay.csproj",
-      "packagesPath": "C:\\Users\\Ben\\.nuget\\packages\\",
-      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\BHCARE-Automation&forms\\BHCARE-main\\obj\\",
+      "projectPath": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\Barangay.csproj",
+      "packagesPath": "C:\\Users\\WIN 10\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\Ben\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\WIN 10\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -14037,12 +14078,17 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net8.0": {
         "targetAlias": "net8.0",
         "dependencies": {
+          "Azure.AI.Vision.ImageAnalysis": {
+            "target": "Package",
+            "version": "[1.0.0-beta.1, )"
+          },
           "BCrypt.Net-Next": {
             "target": "Package",
             "version": "[4.0.3, )"
@@ -14167,7 +14213,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.414/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

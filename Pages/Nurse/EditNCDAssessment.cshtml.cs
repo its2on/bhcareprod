@@ -14,7 +14,9 @@ using System.Security.Claims;
 
 namespace Barangay.Pages.Nurse
 {
-    [Authorize(Roles = "Nurse,Head Nurse,Doctor,Head Doctor")]
+    // Authorization: Admin can edit all forms, Nurse/Doctor can edit their assigned forms
+    // Patients cannot access edit pages - they can only view/read their submitted forms
+    [Authorize(Roles = "Nurse,Head Nurse,Doctor,Head Doctor,Admin")]
     public class EditNCDAssessmentModel : PageModel
     {
         private readonly EncryptedDbContext _context;
@@ -44,9 +46,30 @@ namespace Barangay.Pages.Nurse
         public string UserId { get; set; }
         public string PatientName { get; set; }
 
+        /// <summary>
+        /// Checks if the current user is an Admin role
+        /// Admin has full edit permissions for all forms across all roles
+        /// </summary>
+        private bool IsAdminRole()
+        {
+            return User.IsInRole("Admin");
+        }
+
+        /// <summary>
+        /// Checks if the current user is a Doctor role (includes Admin)
+        /// Used for layout selection and navigation redirects
+        /// </summary>
         private bool IsDoctorRole()
         {
             return User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+        }
+
+        /// <summary>
+        /// Checks if the current user is a Nurse role
+        /// </summary>
+        private bool IsNurseRole()
+        {
+            return User.IsInRole("Nurse") || User.IsInRole("Head Nurse");
         }
 
         public async Task<IActionResult> OnGetAsync(int? appointmentId)

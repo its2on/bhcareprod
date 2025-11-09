@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Linq;
 using Barangay.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,9 @@ using Barangay.Extensions;
 
 namespace Barangay.Pages.Nurse
 {
+    // Authorization: Admin can edit all forms, Nurse/Doctor can edit their assigned forms
+    // Patients cannot access edit pages - they can only view/read their submitted forms
+    [Authorize(Roles = "Nurse,Head Nurse,Doctor,Head Doctor,Admin")]
     public class EditHEEADSSSAssessmentModel : PageModel
     {
         private readonly EncryptedDbContext _context;
@@ -36,9 +40,30 @@ namespace Barangay.Pages.Nurse
         [BindProperty]
         public HEEADSSSAssessmentViewModel Assessment { get; set; }
 
+        /// <summary>
+        /// Checks if the current user is an Admin role
+        /// Admin has full edit permissions for all forms across all roles
+        /// </summary>
+        private bool IsAdminRole()
+        {
+            return User.IsInRole("Admin");
+        }
+
+        /// <summary>
+        /// Checks if the current user is a Doctor role (includes Admin)
+        /// Used for layout selection and navigation redirects
+        /// </summary>
         private bool IsDoctorRole()
         {
             return User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+        }
+
+        /// <summary>
+        /// Checks if the current user is a Nurse role
+        /// </summary>
+        private bool IsNurseRole()
+        {
+            return User.IsInRole("Nurse") || User.IsInRole("Head Nurse");
         }
 
         public async Task<IActionResult> OnGetAsync(int appointmentId)
