@@ -71,6 +71,6 @@ If you want to test OCR locally:
 ## 🔑 Your Azure OCR Key
 
 **Endpoint:** `https://bhcare-ocr.cognitiveservices.azure.com/`  
-**Key:** `YOUR_AZURE_OCR_KEY_HERE`
+**Key:** `YOUR_AZURE_OCR_KEY_HERE` (Contact administrator for the actual key)
 
 **Keep this key secure!** Do not share publicly or commit to GitHub.
