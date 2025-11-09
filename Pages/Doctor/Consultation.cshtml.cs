@@ -961,6 +961,7 @@ namespace Barangay.Pages.Doctor
                             ReasonForVisit = FollowUpReason,
                             Status = AppointmentStatus.Pending,
                             Type = "Follow-up",
+                            ServiceId = appointment.ServiceId, // Copy service type from original appointment
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         };

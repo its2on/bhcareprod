@@ -178,10 +178,12 @@
                                             @{
                                                 var isToday = appointment.AppointmentDate.Date == DateTimeHelper.Today;
                                                 var btnClass = isToday ? "btn-primary" : "btn-secondary";
-                                                var disabled = !isToday ? "disabled" : "";
+                                                var href = isToday ? $"/Doctor/Consultation?id={appointment.Id}&startConsultation=true" : "#";
+                                                var onclick = !isToday ? "return false;" : "";
                                                 var tooltip = !isToday ? "data-bs-toggle=\"tooltip\" title=\"Consultation can only be started on the appointment day\"" : "";
+                                                var style = !isToday ? "pointer-events: none; cursor: not-allowed; opacity: 0.6;" : "";
                                             }
-                                            <a class="btn btn-sm @btnClass" href="/Doctor/Consultation?id=@appointment.Id&startConsultation=true" @disabled @Html.Raw(tooltip)>
+                                            <a class="btn btn-sm @btnClass" href="@href" onclick="@onclick" style="@style" @Html.Raw(tooltip)>
                                                 <i class="fas fa-play-circle me-1"></i> Start Consultation
                                             </a>
                                         </td>

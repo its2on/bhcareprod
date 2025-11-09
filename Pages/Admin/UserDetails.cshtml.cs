@@ -1201,20 +1201,20 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new { success = false, message = "OCR service is not configured" });
                 }
                 
-                // Validate key length (Azure Computer Vision keys are exactly 100 characters)
-                // Accept 95-105 characters to allow for minor variations, but reject anything < 95
-                if (azureKey.Length < 95)
+                // Validate key length - Azure Computer Vision keys are typically 100 characters, but can vary
+                // We'll let Azure validate the key and return appropriate errors
+                if (azureKey.Length < 50)
                 {
-                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected 100 characters). Please update AzureOCR__Key in App Service with complete key from Computer Vision resource.", azureKey.Length);
+                    _logger.LogError("Azure OCR Key appears to be too short! Length: {Length} characters. Please verify the complete key from Computer Vision resource.", azureKey.Length);
                     return new JsonResult(new { 
                         success = false, 
-                        message = $"OCR service configuration error. The API key appears to be incomplete (length: {azureKey.Length}, expected: 100 characters). Please update AzureOCR__Key in Azure App Service with the complete key from Computer Vision resource." 
+                        message = $"OCR service configuration error. The API key appears to be incomplete (length: {azureKey.Length} characters). Please verify AzureOCR__Key in Azure App Service contains the complete key from Computer Vision resource." 
                     });
                 }
                 
-                if (azureKey.Length != 100)
+                if (azureKey.Length < 80)
                 {
-                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", azureKey.Length);
+                    _logger.LogWarning("Azure OCR Key length is {Length} characters (typically 100). This may cause authentication issues. Please verify the complete key from Computer Vision resource.", azureKey.Length);
                 }
                 
                 _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");

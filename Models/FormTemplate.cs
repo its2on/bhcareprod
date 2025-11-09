@@ -56,6 +56,13 @@ namespace Barangay.Models
         public int? MaxAge { get; set; }
 
         /// <summary>
+        /// Optional: Link this form to a specific consultation service
+        /// If set, this form will only appear when the user books that specific service
+        /// If null, the form is either a standalone form or uses age-based logic
+        /// </summary>
+        public int? ServiceId { get; set; }
+
+        /// <summary>
         /// Indicates if this form should appear in appointment workflow
         /// True for clinical forms (HEEADSSS, NCD), False for general forms (surveys)
         /// </summary>
@@ -105,6 +112,9 @@ namespace Barangay.Models
         public string? UpdatedBy { get; set; }
 
         // Navigation properties
+        [ForeignKey("ServiceId")]
+        public virtual ConsultationService? ConsultationService { get; set; }
+        
         public virtual ICollection<FormField> FormFields { get; set; } = new List<FormField>();
         public virtual ICollection<FormSubmission> FormSubmissions { get; set; } = new List<FormSubmission>();
     }

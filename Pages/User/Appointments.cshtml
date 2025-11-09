@@ -905,25 +905,10 @@
             handleCompleteForm(appointmentId, age, consultationType) {
                 console.log('Complete Form clicked:', { age: age, appointmentId: appointmentId, consultationType: consultationType });
                 
-                // Check if this is a General Consult appointment
-                const isGeneralConsult = consultationType && consultationType.toLowerCase().includes('general consult');
+                // Fetch available forms for this service and age dynamically
+                console.log('Fetching available forms for consultation type:', consultationType, 'age:', age);
                 
-                if (!isGeneralConsult) {
-                    // For non-General Consult appointments, show message that no assessment is required
-                    Swal.fire({
-                        title: 'No Assessment Required',
-                        text: `${consultationType} appointments do not require additional assessment forms.`,
-                        icon: 'info',
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#17a2b8'
-                    });
-                    return;
-                }
-                
-                // Get available dynamic forms for this age
-                console.log('Fetching available dynamic forms for age:', age);
-                
-                fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}`)
+                fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}&consultationType=${encodeURIComponent(consultationType)}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.forms && data.forms.length > 0) {
@@ -950,12 +935,12 @@
                                     alert('Error accessing assessment form. Please try again or contact support.');
                                 });
                         } else {
-                            // No forms available for this age
-                            console.log('No assessment forms available for age:', age);
+                            // No forms available for this service/age
+                            console.log('No assessment forms available for:', consultationType, 'age:', age);
                             Swal.fire({
                                 icon: 'info',
                                 title: 'No Assessment Required',
-                                text: 'No assessment forms are required for this age group.',
+                                text: `${consultationType} appointments do not require additional assessment forms.`,
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#17a2b8'
                             });

@@ -5,6 +5,7 @@ using Barangay.Models;
 using Barangay.Services;
 using Barangay.Data;
 using Barangay.Helpers;
+using static Barangay.Services.AzureVisionOcrService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -142,8 +143,9 @@ namespace Barangay.Pages.Account
         private readonly IDataEncryptionService _encryptionService;
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly AzureOcrService _ocrService;
+        private readonly LocalOcrService _ocrService;
         private readonly IEmailService _emailService;
+        private readonly AzureVisionOcrService _azureVisionOcrService;
 
         public SignUpModel(
             UserManager<ApplicationUser> userManager,
@@ -155,8 +157,9 @@ namespace Barangay.Pages.Account
             IDataEncryptionService encryptionService,
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
-            AzureOcrService ocrService,
-            IEmailService emailService)
+            LocalOcrService ocrService,
+            IEmailService emailService,
+            AzureVisionOcrService azureVisionOcrService)
         {
             _userManager = userManager;
             _logger = logger;
@@ -169,6 +172,7 @@ namespace Barangay.Pages.Account
             _httpClientFactory = httpClientFactory;
             _ocrService = ocrService;
             _emailService = emailService;
+            _azureVisionOcrService = azureVisionOcrService;
         }
 
         [BindProperty]
@@ -1289,10 +1293,11 @@ namespace Barangay.Pages.Account
         }
 
         /// <summary>
-        /// Handler for Azure OCR ID Scanning
+        /// Enhanced handler for Azure Vision OCR ID Scanning with auto-fill
+        /// Extracts: First Name, Middle Name, Last Name, Suffix, Contact Number, Address, Birth Date, Barangay
         /// </summary>
         [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> OnPostScanIdAsync(IFormFile idImage)
+        public async Task<IActionResult> OnPostScanIdAsync(IFormFile idImage, bool usePreprocessing = true)
         {
             try
             {
@@ -1316,276 +1321,145 @@ namespace Barangay.Pages.Account
                     return new JsonResult(new { success = false, message = "Only JPG and PNG files are supported" });
                 }
 
-                _logger.LogInformation($"Processing ID image: {idImage.FileName}, Size: {idImage.Length} bytes");
+                _logger.LogInformation("Processing ID image: {FileName}, Size: {Size} bytes", idImage.FileName, idImage.Length);
 
-                // Get Azure OCR configuration - Prioritize environment variables from Azure App Service
-                // Try multiple ways to read the configuration
-                var azureEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
-                    ?? _configuration["AzureOCR__Endpoint"]  // Try with double underscore
-                    ?? _configuration["AzureOCR:Endpoint"];  // Fallback to colon notation
-                var azureKey = Environment.GetEnvironmentVariable("AzureOCR__Key") 
-                    ?? _configuration["AzureOCR__Key"]      // Try with double underscore
-                    ?? _configuration["AzureOCR:Key"];       // Fallback to colon notation
-
-                // Enhanced diagnostic logging
-                _logger.LogWarning("=== AZURE OCR CONFIGURATION DEBUG ===");
-                _logger.LogWarning($"AzureOCR:Endpoint value: {(string.IsNullOrEmpty(azureEndpoint) ? "NULL OR EMPTY" : azureEndpoint)}");
-                if (!string.IsNullOrEmpty(azureKey))
+                // Try Local OCR first (Tesseract) as it often extracts more text including names
+                // Then try Azure Vision OCR and combine results
+                OcrResult localOcrResult = null;
+                IdExtractionResult azureOcrResult = null;
+                
+                // Try Local OCR first
+                try
                 {
-                    _logger.LogWarning($"AzureOCR:Key value: Length={azureKey.Length}, First10={azureKey.Substring(0, Math.Min(10, azureKey.Length))}, Last10={azureKey.Substring(Math.Max(0, azureKey.Length - 10))}");
+                    using (var stream = idImage.OpenReadStream())
+                    {
+                        localOcrResult = await _ocrService.AnalyzeResidencyDocumentAsync(stream, idImage.FileName);
+                    }
+                    _logger.LogInformation("Local OCR extracted text length: {Length}", localOcrResult?.ExtractedText?.Length ?? 0);
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogWarning("AzureOCR:Key value: NULL OR EMPTY");
+                    _logger.LogWarning(ex, "Local OCR failed");
                 }
                 
-                // Check all possible configuration sources
-                var directEndpoint = _configuration["AzureOCR:Endpoint"];
-                var directKey = _configuration["AzureOCR:Key"];
-                _logger.LogWarning($"Direct config check (colon) - AzureOCR:Endpoint: {(string.IsNullOrEmpty(directEndpoint) ? "NULL OR EMPTY" : directEndpoint)}");
-                _logger.LogWarning($"Direct config check (colon) - AzureOCR:Key: {(string.IsNullOrEmpty(directKey) ? "NULL OR EMPTY" : $"Length={directKey.Length}")}");
-                
-                var underscoreEndpoint = _configuration["AzureOCR__Endpoint"];
-                var underscoreKey = _configuration["AzureOCR__Key"];
-                _logger.LogWarning($"Direct config check (underscore) - AzureOCR__Endpoint: {(string.IsNullOrEmpty(underscoreEndpoint) ? "NULL OR EMPTY" : underscoreEndpoint)}");
-                _logger.LogWarning($"Direct config check (underscore) - AzureOCR__Key: {(string.IsNullOrEmpty(underscoreKey) ? "NULL OR EMPTY" : $"Length={underscoreKey.Length}")}");
-                
-                var envEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint");
-                var envKey = Environment.GetEnvironmentVariable("AzureOCR__Key");
-                _logger.LogWarning($"Environment variable check - AzureOCR__Endpoint: {(string.IsNullOrEmpty(envEndpoint) ? "NULL OR EMPTY" : envEndpoint)}");
-                _logger.LogWarning($"Environment variable check - AzureOCR__Key: {(string.IsNullOrEmpty(envKey) ? "NULL OR EMPTY" : $"Length={envKey.Length}")}");
-                _logger.LogWarning("======================================");
-
-                if (string.IsNullOrEmpty(azureEndpoint) || string.IsNullOrEmpty(azureKey))
+                // Try Azure Vision OCR
+                try
                 {
-                    _logger.LogError("Azure OCR configuration is missing");
-                    return new JsonResult(new { success = false, message = "OCR service is not configured" });
+                    using (var stream = idImage.OpenReadStream())
+                    {
+                        azureOcrResult = await _azureVisionOcrService.AnalyzeIdImageAsync(stream, idImage.FileName, usePreprocessing);
+                    }
+                    _logger.LogInformation("Azure Vision OCR extracted text length: {Length}", azureOcrResult?.ExtractedText?.Length ?? 0);
                 }
-
-                // Trim whitespace from key (common issue)
-                azureKey = azureKey.Trim();
-                azureEndpoint = azureEndpoint.Trim();
-
-                // Validate key length (Azure Computer Vision keys are exactly 100 characters)
-                // Accept 95-105 characters to allow for minor variations, but reject anything < 95
-                if (azureKey.Length < 95)
+                catch (Exception ex)
                 {
-                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected 100 characters). Please update AzureOCR__Key in App Service with complete key from Computer Vision resource.", azureKey.Length);
-                    return new JsonResult(new { 
-                        success = false, 
-                        message = $"OCR service configuration error. The API key appears to be incomplete (length: {azureKey.Length}, expected: 100 characters). Please update AzureOCR__Key in Azure App Service with the complete key from Computer Vision resource." 
-                    });
+                    _logger.LogWarning(ex, "Azure Vision OCR failed");
                 }
                 
-                if (azureKey.Length != 100)
+                // Combine results - prefer Local OCR for name extraction (it extracts more text)
+                // Use Azure Vision for structured data if available
+                var combinedText = localOcrResult?.ExtractedText ?? azureOcrResult?.ExtractedText ?? "";
+                
+                var combinedResult = new IdExtractionResult
                 {
-                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", azureKey.Length);
-                }
-
-                // Log configuration (mask key for security)
-                _logger.LogInformation($"Azure OCR Endpoint: {azureEndpoint}");
-                _logger.LogInformation($"Azure OCR Key length: {azureKey?.Length ?? 0} characters");
-                _logger.LogInformation($"Azure OCR Key (first 10 chars): {azureKey?.Substring(0, Math.Min(10, azureKey?.Length ?? 0))}...");
-                _logger.LogInformation($"Azure OCR Key (last 10 chars): ...{azureKey?.Substring(Math.Max(0, (azureKey?.Length ?? 0) - 10))}");
-
-                // Convert image to byte array
-                byte[] imageBytes;
-                using (var memoryStream = new MemoryStream())
-                {
-                    await idImage.CopyToAsync(memoryStream);
-                    imageBytes = memoryStream.ToArray();
-                }
-
-                // Create HTTP client
-                var httpClient = _httpClientFactory.CreateClient();
-                httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", azureKey);
-                // Increased timeout to 600 seconds (10 minutes) to accommodate slow network connections and Azure service delays
-                httpClient.Timeout = TimeSpan.FromSeconds(600);
-
-                // Step 1: Submit image to Azure Read API
-                var readApiUrl = $"{azureEndpoint.TrimEnd('/')}/vision/v3.2/read/analyze?language=en";
-                var content = new ByteArrayContent(imageBytes);
-                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
-
-                _logger.LogInformation($"Calling Azure Read API: {readApiUrl}");
-                // Use ResponseHeadersRead to get headers immediately without waiting for full response
-                // This is important as Azure returns 202 Accepted with Operation-Location header quickly
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(600));
-                using var request = new HttpRequestMessage(HttpMethod.Post, readApiUrl)
-                {
-                    Content = content
+                    Success = (localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false),
+                    Message = azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document.",
+                    ExtractedText = combinedText,
+                    BarangayNumber = azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "",
+                    IsBarangayValid = !string.IsNullOrEmpty(azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "") &&
+                                     new[] { "158", "159", "160", "161" }.Contains((azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "").Trim())
                 };
-                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError($"Azure Read API error: {response.StatusCode} - {errorContent}");
-                    
-                    // Provide specific error messages for common issues
-                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    {
-                        _logger.LogError("401 Unauthorized - Key length: {Length}. This usually means the key is invalid or truncated. Expected ~100 characters.", azureKey.Length);
-                        return new JsonResult(new { 
-                            success = false, 
-                            message = "OCR service authentication failed. The API key may be invalid or incomplete. Please contact administrator." 
-                        });
-                    }
-                    
-                    return new JsonResult(new { success = false, message = $"OCR service error: {response.StatusCode}" });
-                }
-
-                // Get operation location from response headers
-                if (!response.Headers.TryGetValues("Operation-Location", out var operationLocations))
-                {
-                    _logger.LogError("No Operation-Location header in Azure response");
-                    return new JsonResult(new { success = false, message = "OCR operation failed to start" });
-                }
-
-                var operationLocation = operationLocations.FirstOrDefault();
-                _logger.LogInformation($"Operation location: {operationLocation}");
-
-                // Step 2: Poll for results
-                string extractedText = await PollForOcrResultAsync(httpClient, operationLocation);
-
-                if (string.IsNullOrWhiteSpace(extractedText))
-                {
-                    return new JsonResult(new { success = false, message = "No text could be extracted from the image" });
-                }
-
-                _logger.LogInformation($"OCR completed successfully. Extracted text length: {extractedText.Length}");
                 
-                // Log the full OCR text for debugging
-                _logger.LogInformation("=== FULL OCR TEXT FROM ID IMAGE ===");
-                _logger.LogInformation(extractedText);
-                _logger.LogInformation("=== END OCR TEXT ===");
-
-                // Step 3: Validate that this is an actual Philippine ID document (not plain text or screenshot)
-                if (!IsValidPhilippineIdDocument(extractedText))
+                // Parse the combined text for better name extraction (Local OCR often has more text)
+                if (!string.IsNullOrEmpty(combinedText))
                 {
-                    _logger.LogError("❌ REJECTED: Document is not a valid Philippine ID");
-                    _logger.LogError("The uploaded file appears to be plain text, a screenshot, or not a valid Philippine ID document.");
-                    _logger.LogError("Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, etc.)");
+                    _logger.LogInformation("Parsing combined text (length: {Length}) for name extraction", combinedText.Length);
+                    var parsedData = _azureVisionOcrService.ParseIdDataFromText(combinedText);
                     
-                    return new JsonResult(new 
-                    { 
-                        success = false, 
-                        message = "Invalid document type. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, etc.). Plain text or screenshots are not accepted.",
-                        detectedBarangay = (string)null,
-                        autoApproved = false,
-                        text = extractedText
-                    });
-                }
-
-                // Step 4: Parse extracted text for name and address
-                var parsedData = ParseIdData(extractedText);
-                _logger.LogInformation($"Parsed Address from ID: {parsedData.Address ?? "(null)"}");
-
-                // CRITICAL: First, check if ANY barangay number exists in the RAW OCR text
-                // This prevents false matches when a non-eligible barangay is present
-                var validBarangays = new[] { "158", "159", "160", "161" };
-                string anyBarangayFound = null;
-                
-                // Step 1: Find ANY barangay number in the RAW OCR text (to detect non-eligible ones)
-                var anyBarangayPattern = @"\bBARANGAY\s*(\d{2,3})\b";
-                var anyBarangayMatch = Regex.Match(extractedText, anyBarangayPattern, RegexOptions.IgnoreCase);
-                if (anyBarangayMatch.Success && anyBarangayMatch.Groups.Count > 1)
-                {
-                    anyBarangayFound = anyBarangayMatch.Groups[1].Value;
-                    _logger.LogInformation($"🔍 Found BARANGAY {anyBarangayFound} in RAW OCR text");
+                    // Use parsed data from combined text (Local OCR often extracts the name better)
+                    combinedResult.FirstName = parsedData.FirstName;
+                    combinedResult.MiddleName = parsedData.MiddleName;
+                    combinedResult.LastName = parsedData.LastName;
+                    combinedResult.Suffix = parsedData.Suffix;
+                    combinedResult.ContactNumber = parsedData.ContactNumber;
+                    combinedResult.Address = parsedData.Address;
+                    combinedResult.BirthDate = parsedData.BirthDate;
                     
-                    // If it's NOT in the eligible list, REJECT immediately
-                    if (!validBarangays.Contains(anyBarangayFound))
-                    {
-                        _logger.LogError($"❌ REJECTED: BARANGAY {anyBarangayFound} detected in ID, but it is NOT eligible (158-161 only)");
-                        _logger.LogError($"Full OCR text: {extractedText}");
-                        return new JsonResult(new 
-                        { 
-                            success = false, 
-                            message = $"❌ Barangay {anyBarangayFound} detected in ID image, but it is NOT in the eligible service area (158-161 only). Your application will require manual review.",
-                            detectedBarangay = (string)null,
-                            autoApproved = false,
-                            foundBarangay = anyBarangayFound,
-                            text = extractedText,
-                            firstName = parsedData.FirstName,
-                            lastName = parsedData.LastName,
-                            address = parsedData.Address
-                        });
-                    }
-                }
-
-                // Step 2: Now search for eligible barangays ONLY (158-161) in RAW OCR text first
-                string detectedBarangay = null;
-                
-                // Method 1: Search raw OCR text directly for "BARANGAY 158/159/160/161" patterns
-                var rawBarangayPattern = @"\bBARANGAY\s*(158|159|160|161)\b";
-                var rawMatch = Regex.Match(extractedText, rawBarangayPattern, RegexOptions.IgnoreCase);
-                if (rawMatch.Success && rawMatch.Groups.Count > 1)
-                {
-                    detectedBarangay = rawMatch.Groups[1].Value;
-                    _logger.LogInformation($"✅ Barangay {detectedBarangay} detected directly from RAW OCR text");
-                }
-                else
-                {
-                    // Method 2: Try alternative patterns in raw OCR text
-                    var alternativePatterns = new[]
-                    {
-                        @"\bBRGY\.?\s*(158|159|160|161)\b",
-                        @"\b(158|159|160|161)\s*(?:ST|ND|RD|TH)?\s*BARANGAY\b",
-                        @"\bBARANGAY\s*(?:NO\.?|#)?\s*(158|159|160|161)\b"
-                    };
+                    _logger.LogInformation("Parsed from combined text - FirstName: {FirstName}, LastName: {LastName}, MiddleName: {MiddleName}, Suffix: {Suffix}, BirthDate: {BirthDate}",
+                        parsedData.FirstName, parsedData.LastName, parsedData.MiddleName, parsedData.Suffix, parsedData.BirthDate);
                     
-                    foreach (var pattern in alternativePatterns)
+                    // If Azure Vision found these fields and they're better (not address words), prefer them
+                    // But only if our parsed data didn't find them or found wrong values
+                    if (string.IsNullOrEmpty(combinedResult.FirstName) && !string.IsNullOrEmpty(azureOcrResult?.FirstName))
                     {
-                        rawMatch = Regex.Match(extractedText, pattern, RegexOptions.IgnoreCase);
-                        if (rawMatch.Success && rawMatch.Groups.Count > 1)
+                        // Only use Azure Vision if it's not an address word
+                        if (!azureOcrResult.FirstName.Equals("BARANGAY", StringComparison.OrdinalIgnoreCase) &&
+                            !azureOcrResult.FirstName.Equals("REPARO", StringComparison.OrdinalIgnoreCase))
                         {
-                            detectedBarangay = rawMatch.Groups[1].Value;
-                            _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from RAW OCR text using pattern: {pattern}");
-                            break;
+                            combinedResult.FirstName = azureOcrResult.FirstName;
                         }
                     }
-                }
-                
-                // Method 3: Fallback to parsed address if raw search didn't find anything
-                if (string.IsNullOrEmpty(detectedBarangay) && !string.IsNullOrWhiteSpace(parsedData.Address))
-                {
-                    detectedBarangay = DetectEligibleBarangayFromAddress(parsedData.Address);
-                    if (!string.IsNullOrEmpty(detectedBarangay))
+                    if (string.IsNullOrEmpty(combinedResult.LastName) && !string.IsNullOrEmpty(azureOcrResult?.LastName))
                     {
-                        _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from parsed address");
+                        // Only use Azure Vision if it's not an address word
+                        if (!azureOcrResult.LastName.Equals("BARANGAY", StringComparison.OrdinalIgnoreCase) &&
+                            !azureOcrResult.LastName.Equals("REPARO", StringComparison.OrdinalIgnoreCase))
+                        {
+                            combinedResult.LastName = azureOcrResult.LastName;
+                        }
                     }
-                }
-                
-                // CRITICAL VALIDATION: Double-check that detected barangay is EXACTLY one of the eligible values
-                if (!string.IsNullOrEmpty(detectedBarangay))
-                {
-                    if (!validBarangays.Contains(detectedBarangay))
-                    {
-                        _logger.LogError($"❌ INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
-                        _logger.LogError($"Full OCR text: {extractedText}");
-                        detectedBarangay = null; // Reject invalid barangay
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"🎯 FINAL DETECTED BARANGAY FROM ID IMAGE: {detectedBarangay} (VALIDATED)");
-                    }
+                    if (!string.IsNullOrEmpty(azureOcrResult?.ContactNumber)) combinedResult.ContactNumber = azureOcrResult.ContactNumber;
+                    if (!string.IsNullOrEmpty(azureOcrResult?.Address)) combinedResult.Address = azureOcrResult.Address;
+                    if (!string.IsNullOrEmpty(azureOcrResult?.BirthDate)) combinedResult.BirthDate = azureOcrResult.BirthDate;
                 }
                 else
                 {
-                    _logger.LogWarning("⚠️ No eligible barangay (158-161) detected in ID image OCR text");
-                    _logger.LogWarning($"Full OCR text preview: {extractedText.Substring(0, Math.Min(1000, extractedText.Length))}...");
+                    // Fallback to Azure Vision result if Local OCR didn't extract text
+                    combinedResult = azureOcrResult ?? combinedResult;
                 }
+                
+                if (!combinedResult.Success)
+                {
+                    return new JsonResult(new
+                    {
+                        success = false,
+                        message = combinedResult.Message,
+                        autoApproved = false,
+                        firstName = "",
+                        middleName = "",
+                        lastName = "",
+                        suffix = "",
+                        contactNumber = "",
+                        address = "",
+                        birthDate = "",
+                        barangay = ""
+                    });
+                }
+                
+                var ocrResult = combinedResult;
 
+                // CRITICAL VALIDATION: Only accept barangays 158, 159, 160, or 161
+                var validBarangays = new[] { "158", "159", "160", "161" };
+                bool isBarangayValid = ocrResult.IsBarangayValid;
+
+                // Return all extracted fields for auto-fill, regardless of barangay validation
+                // The frontend will handle showing the error message if barangay is invalid
                 return new JsonResult(new 
                 { 
                     success = true, 
-                    text = extractedText,
-                    firstName = parsedData.FirstName,
-                    lastName = parsedData.LastName,
-                    address = parsedData.Address,
-                    detectedBarangay = detectedBarangay, // Include detected barangay in response (null if not eligible)
-                    autoApproved = detectedBarangay != null
+                    message = ocrResult.Message,
+                    autoApproved = isBarangayValid,
+                    // Extracted fields for auto-fill
+                    firstName = ocrResult.FirstName ?? "",
+                    middleName = ocrResult.MiddleName ?? "",
+                    lastName = ocrResult.LastName ?? "",
+                    suffix = ocrResult.Suffix ?? "",
+                    contactNumber = ocrResult.ContactNumber ?? "",
+                    address = ocrResult.Address ?? "",
+                    birthDate = ocrResult.BirthDate ?? "",
+                    barangay = ocrResult.BarangayNumber ?? "",
+                    isBarangayValid = isBarangayValid,
+                    extractedText = ocrResult.ExtractedText ?? ""
                 });
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException || ex.Message.Contains("Timeout"))
@@ -1594,7 +1468,7 @@ namespace Barangay.Pages.Account
                 return new JsonResult(new 
                 { 
                     success = false, 
-                    message = "The OCR request timed out. This can happen with large images or when using enhanced recognition mode. Please try again with a smaller image or disable enhanced recognition mode." 
+                    message = "The OCR request timed out. Please try again with a clearer image."
                 });
             }
             catch (TimeoutException ex)
@@ -1603,7 +1477,7 @@ namespace Barangay.Pages.Account
                 return new JsonResult(new 
                 { 
                     success = false, 
-                    message = "OCR processing took too long to complete. Please try again with a clearer image or disable enhanced recognition mode." 
+                    message = "OCR processing took too long to complete. Please try again with a clearer image."
                 });
             }
             catch (Exception ex)
@@ -1613,82 +1487,6 @@ namespace Barangay.Pages.Account
             }
         }
 
-        /// <summary>
-        /// Poll Azure Read API for OCR results
-        /// </summary>
-        private async Task<string> PollForOcrResultAsync(HttpClient httpClient, string operationLocation)
-        {
-            // Increased to 180 attempts (3 minutes) to accommodate enhanced recognition mode
-            // Enhanced mode can take significantly longer, especially for complex documents
-            const int maxAttempts = 180;
-            int attempts = 0;
-
-            while (attempts < maxAttempts)
-            {
-                await Task.Delay(1000); // Wait 1 second between polls
-                attempts++;
-
-                _logger.LogDebug($"Polling for OCR results (attempt {attempts}/{maxAttempts})");
-
-                var resultResponse = await httpClient.GetAsync(operationLocation);
-                
-                if (!resultResponse.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning($"Polling failed: {resultResponse.StatusCode}");
-                    continue;
-                }
-
-                var resultJson = await resultResponse.Content.ReadAsStringAsync();
-                var resultData = System.Text.Json.JsonDocument.Parse(resultJson);
-                var root = resultData.RootElement;
-
-                if (root.TryGetProperty("status", out var statusElement))
-                {
-                    var status = statusElement.GetString();
-                    _logger.LogDebug($"OCR status: {status}");
-
-                    if (status == "succeeded")
-                    {
-                        // Extract text from all lines
-                        var textLines = new List<string>();
-
-                        if (root.TryGetProperty("analyzeResult", out var analyzeResult) &&
-                            analyzeResult.TryGetProperty("readResults", out var readResults))
-                        {
-                            foreach (var readResult in readResults.EnumerateArray())
-                            {
-                                if (readResult.TryGetProperty("lines", out var lines))
-                                {
-                                    foreach (var line in lines.EnumerateArray())
-                                    {
-                                        if (line.TryGetProperty("text", out var textElement))
-                                        {
-                                            var lineText = textElement.GetString();
-                                            if (!string.IsNullOrWhiteSpace(lineText))
-                                            {
-                                                textLines.Add(lineText);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        var extractedText = string.Join("\n", textLines);
-                        _logger.LogInformation($"Extracted {textLines.Count} lines of text");
-                        return extractedText;
-                    }
-                    else if (status == "failed")
-                    {
-                        _logger.LogError("OCR processing failed");
-                        throw new Exception("OCR processing failed");
-                    }
-                    // Continue polling if status is "running" or "notStarted"
-                }
-            }
-
-            throw new TimeoutException($"OCR processing timed out after {attempts} attempts");
-        }
 
         /// <summary>
         /// Validates that the extracted text is from an actual Philippine ID document
@@ -1834,6 +1632,7 @@ namespace Barangay.Pages.Account
             _logger.LogDebug($"No eligible barangay detected in address: {address.Substring(0, Math.Min(100, address.Length))}...");
             return null;
         }
+
 
         /// <summary>
         /// Parse extracted OCR text to identify name and address fields

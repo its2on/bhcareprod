@@ -154,19 +154,17 @@ namespace Barangay.Pages.User
                     .ToList();
 
                 // Separate appointments by status for upcoming appointments
-                // Consultation types that don't require assessments
-                var noAssessmentTypes = new[] { "immunization", "prenatal & family planning", "prenatal and family planning", "dots consult", "dental" };
+                // Draft = User booked but hasn't completed required forms yet
+                // Pending = Forms completed (or no forms required), waiting for nurse/doctor
+                // InProgress = Nurse/doctor has started the consultation
                 
                 DraftAppointments = UpcomingAppointments
-                    .Where(a => a.Status == AppointmentStatus.Draft && 
-                                !noAssessmentTypes.Contains(a.Type?.ToLower() ?? ""))
+                    .Where(a => a.Status == AppointmentStatus.Draft)
                     .ToList();
 
                 OngoingAppointments = UpcomingAppointments
                     .Where(a => a.Status == AppointmentStatus.Pending || 
-                                a.Status == AppointmentStatus.InProgress ||
-                                (a.Status == AppointmentStatus.Draft && 
-                                 noAssessmentTypes.Contains(a.Type?.ToLower() ?? "")))
+                                a.Status == AppointmentStatus.InProgress)
                     .ToList();
 
                 ConfirmedAppointments = UpcomingAppointments

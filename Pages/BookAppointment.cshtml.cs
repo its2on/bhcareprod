@@ -79,6 +79,9 @@ namespace Barangay.Pages
         // Dynamic Forms for this patient
         public List<DynamicFormInfo> AvailableDynamicForms { get; set; } = new();
         
+        // Available consultation services
+        public List<ConsultationService> ConsultationServices { get; set; } = new();
+        
         public class DynamicFormInfo
         {
             public string FormName { get; set; }
@@ -220,6 +223,12 @@ namespace Barangay.Pages
 
                 // Load dynamic forms that will be shown in appointment workflow
                 await LoadAvailableDynamicFormsAsync();
+
+                // Load available consultation services from database
+                ConsultationServices = await _context.ConsultationServices
+                    .Where(s => s.IsActive)
+                    .OrderBy(s => s.DisplayOrder)
+                    .ToListAsync();
 
                 return Page();
             }
@@ -716,6 +725,22 @@ namespace Barangay.Pages
                     return -1; // Indicate failure with a negative value
                 }
                 string selectedConsultationType = bookingModel.ConsultationType ?? "medical";
+                
+                // Look up the ServiceId from ConsultationType
+                int? serviceId = null;
+                var consultationService = await _context.ConsultationServices
+                    .FirstOrDefaultAsync(s => s.ServiceName.ToLower() == selectedConsultationType.ToLower());
+                if (consultationService != null)
+                {
+                    serviceId = consultationService.ServiceId;
+                    _logger.LogInformation("Mapped consultation type '{ConsultationType}' to ServiceId: {ServiceId}", 
+                        selectedConsultationType, serviceId);
+                }
+                else
+                {
+                    _logger.LogWarning("Could not find ServiceId for consultation type: {ConsultationType}", 
+                        selectedConsultationType);
+                }
 
                 // Centralized time slot validation
                 var validationResult = await ValidateTimeSlotAsync(bookingModel);
@@ -764,11 +789,19 @@ namespace Barangay.Pages
                 // Use the selected doctor from the booking model
                 var doctor = await _context.Users.FindAsync(bookingModel.DoctorId);
                 
-                // Determine initial status based on consultation type
-                // Consultation types that don't require assessments should be Pending, not Draft
-                var noAssessmentTypes = new[] { "immunization", "prenatal & family planning", "prenatal and family planning", "dots consult", "dental" };
-                var requiresAssessment = !noAssessmentTypes.Contains(selectedConsultationType.ToLower());
-                var initialStatus = requiresAssessment ? AppointmentStatus.Draft : AppointmentStatus.Pending;
+                // Determine initial status based on whether forms exist for this service
+                // If forms exist, status should be Draft (user must complete forms first)
+                // If no forms exist, status should be Pending (ready for doctor review)
+                var hasFormsForService = await _context.FormTemplates
+                    .AnyAsync(f => f.IsActive && 
+                                  f.ShowInAppointmentFlow && 
+                                  (f.ServiceId == serviceId || 
+                                   (f.ServiceId == null && selectedConsultationType.ToLower() == "general consult")));
+                
+                var initialStatus = hasFormsForService ? AppointmentStatus.Draft : AppointmentStatus.Pending;
+                
+                _logger.LogInformation("Service '{Service}' (ServiceId: {ServiceId}) has forms: {HasForms}, Initial status: {Status}", 
+                    selectedConsultationType, serviceId, hasFormsForService, initialStatus);
                 
                 var newAppointment = new Models.Appointment
                 {
@@ -787,6 +820,7 @@ namespace Barangay.Pages
                     AppointmentDate = appointmentDate,
                     AppointmentTime = selectedApptTime,
                     Type = selectedConsultationType,
+                    ServiceId = serviceId, // Link to ConsultationService for form filtering
                     ReasonForVisit = bookingModel.ReasonForVisit,
                     Status = initialStatus, // Set to Pending for non-assessment types, Draft for others
                     DoctorId = doctor?.Id, // Assign a doctor if found
@@ -1744,16 +1778,35 @@ namespace Barangay.Pages
             }
         }
         
-        // API endpoint to get available forms for a specific age
-        public async Task<JsonResult> OnGetGetAvailableFormsForAgeAsync(int age)
+        // API endpoint to get available forms for a specific age and consultation type
+        public async Task<JsonResult> OnGetGetAvailableFormsForAgeAsync(int age, string? consultationType = null)
         {
             try
             {
-                _logger.LogInformation($"Getting available forms for age: {age}");
+                _logger.LogInformation($"Getting available forms for age: {age}, consultation type: {consultationType}");
+                
+                // Get service ID from consultation type
+                int? serviceId = null;
+                if (!string.IsNullOrEmpty(consultationType))
+                {
+                    var service = await _context.ConsultationServices
+                        .FirstOrDefaultAsync(s => s.ServiceName.ToLower() == consultationType.ToLower());
+                    serviceId = service?.ServiceId;
+                }
                 
                 // Get all active dynamic forms that should appear in appointment workflow
-                var forms = await _context.FormTemplates
-                    .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                var formsQuery = _context.FormTemplates
+                    .Where(f => f.IsActive && f.ShowInAppointmentFlow);
+                
+                // Filter by service:
+                // - Show forms linked to the selected service (ServiceId == serviceId)
+                // - ALSO show general forms (ServiceId == null) for all services
+                if (serviceId.HasValue)
+                {
+                    formsQuery = formsQuery.Where(f => f.ServiceId == serviceId.Value || f.ServiceId == null);
+                }
+                
+                var forms = await formsQuery
                     .OrderBy(f => f.DisplayOrder)
                     .ToListAsync();
                 
@@ -1883,7 +1936,7 @@ namespace Barangay.Pages
                 }
 
                 // Generate a completely new family number (never reuse)
-                var newFamilyNumber = await _familyNumberService.GenerateNewFamilyNumberAsync(request.LastName);
+                var newFamilyNumber = await _familyNumberService.GenerateBrandNewFamilyNumberAsync(request.LastName);
 
                 if (string.IsNullOrWhiteSpace(newFamilyNumber))
                 {

@@ -23,6 +23,7 @@ namespace Barangay.Pages.Admin
         public FormTemplate FormTemplate { get; set; } = new FormTemplate();
         public bool IsEdit { get; set; } = false;
         public string FormFieldsJson { get; set; } = "[]";
+        public List<ConsultationService> AvailableServices { get; set; } = new List<ConsultationService>();
 
         public async Task<IActionResult> OnGetAsync(int? id)
         {
@@ -65,6 +66,12 @@ namespace Barangay.Pages.Admin
                 FormFieldsJson = JsonSerializer.Serialize(fields);
             }
 
+            // Load available consultation services
+            AvailableServices = await _context.ConsultationServices
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+
             return Page();
         }
 
@@ -94,7 +101,7 @@ namespace Barangay.Pages.Admin
 
                     form.FormName = formData.FormName;
                     form.Description = formData.FormDescription;
-                    form.Category = formData.Category;
+                    form.ServiceId = formData.ServiceId;
                     form.IsActive = formData.IsActive;
                     form.DisplayOrder = formData.DisplayOrder;
                     form.ShowInAppointmentFlow = formData.ShowInAppointmentFlow;
@@ -127,7 +134,7 @@ namespace Barangay.Pages.Admin
                         FormName = formData.FormName,
                         Description = formData.FormDescription,
                         FormKey = formData.FormKey,
-                        Category = formData.Category,
+                        ServiceId = formData.ServiceId,
                         IsActive = formData.IsActive,
                         DisplayOrder = formData.DisplayOrder,
                         ShowInAppointmentFlow = formData.ShowInAppointmentFlow,
@@ -208,7 +215,7 @@ namespace Barangay.Pages.Admin
         public string FormName { get; set; } = string.Empty;
         public string? FormDescription { get; set; }
         public string FormKey { get; set; } = string.Empty;
-        public string? Category { get; set; }
+        public int? ServiceId { get; set; }
         public bool IsActive { get; set; } = true;
         public int DisplayOrder { get; set; }
         public bool ShowInAppointmentFlow { get; set; }

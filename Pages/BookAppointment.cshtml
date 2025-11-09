@@ -273,11 +273,10 @@
                                 <label for="consultationType" class="form-label">Consultation Type</label>
                                 <select class="form-select" id="consultationType" name="consultationType" required>
                                     <option value="" selected disabled>Select consultation type</option>
-                                    <option value="general consult">General Consult (8AM-11AM, 1PM-4PM, Mon-Fri)</option>
-                                    <option value="dental">Dental (8AM-11AM, Mon/Wed/Fri)</option>
-                                    <option value="immunization">Immunization (8AM-12PM, Wed)</option>
-                                    <option value="prenatal & family planning">Prenatal & Family Planning (8AM-11AM, 1PM-4PM, Mon/Wed/Fri)</option>
-                                    <option value="dots consult">DOTS Consult (1PM-4PM, Mon-Fri)</option>
+                                    @foreach (var service in Model.ConsultationServices)
+                                    {
+                                        <option value="@service.ServiceName.ToLower()">@service.ServiceName</option>
+                                    }
                                 </select>
                                 <input type="hidden" name="BookingModel.ConsultationType" id="hiddenConsultationType">
                             </div>
@@ -373,15 +372,15 @@
                                 <strong>Note:</strong> Please arrive 15 minutes before your appointment time.
                             </div>
                             
-                            @if (Model.AvailableDynamicForms.Any())
-                            {
+                            <!-- Dynamic forms list - updates based on consultation type and age -->
+                            <div id="dynamicFormsContainer" style="display: none;">
                                 <div class="alert alert-primary mt-3">
                                     <h6 class="alert-heading">
                                         <i class="fa-solid fa-clipboard-list me-2"></i>
                                         <strong>Clinical Assessment Forms</strong>
                                     </h6>
-                                    <p class="mb-2">Based on the patient's age, the following assessment forms may be required after booking:</p>
-                                    <ul class="mb-0">
+                                    <p class="mb-2" id="formsDescription">Based on the selected service and patient's age, the following forms may be required after booking:</p>
+                                    <ul class="mb-0" id="dynamicFormsList">
                                         @foreach (var form in Model.AvailableDynamicForms)
                                         {
                                             <li>
@@ -414,7 +413,7 @@
                                         You'll be directed to complete the appropriate assessment form(s) based on the patient's age after booking.
                                     </small>
                                 </div>
-                            }
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -838,11 +837,85 @@
                 updateTimeSlots();
             });
             
+            // Event listener for birth date changes to update forms
+            $('#dateOfBirth, #birthDate').on('change', function() {
+                console.log('[BookAppointment] Birth date changed, updating forms');
+                updateAvailableForms();
+            });
+            
+            // Function to update available forms based on consultation type and age
+            function updateAvailableForms() {
+                const consultationType = $('#consultationType').val();
+                const dobInput = $('#dateOfBirth').val() || $('#birthDate').val();
+                
+                if (!consultationType) {
+                    $('#dynamicFormsContainer').hide();
+                    return;
+                }
+                
+                // Calculate age from DOB
+                let age = 0;
+                if (dobInput) {
+                    const birthDate = new Date(dobInput);
+                    const today = new Date();
+                    age = today.getFullYear() - birthDate.getFullYear();
+                    const monthDiff = today.getMonth() - birthDate.getMonth();
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                    }
+                }
+                
+                console.log('[UpdateForms] Fetching forms for:', { consultationType, age });
+                
+                // Call API to get available forms
+                $.ajax({
+                    url: `/BookAppointment?handler=GetAvailableFormsForAge&age=${age}&consultationType=${encodeURIComponent(consultationType)}`,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('[UpdateForms] Forms received:', response);
+                        
+                        if (response.forms && response.forms.length > 0) {
+                            // Update forms list
+                            const formsList = $('#dynamicFormsList');
+                            formsList.empty();
+                            
+                            response.forms.forEach(function(form) {
+                                let ageInfo = '';
+                                if (form.minAge && form.maxAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages ${form.minAge} - ${form.maxAge})</small>`;
+                                } else if (form.minAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages ${form.minAge}+)</small>`;
+                                } else if (form.maxAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages up to ${form.maxAge})</small>`;
+                                }
+                                
+                                const icon = form.iconClass || 'fa-solid fa-file-medical';
+                                formsList.append(`
+                                    <li>
+                                        <i class="${icon} me-1" style="width: 20px;"></i>
+                                        <strong>${form.formName}</strong>${ageInfo}
+                                    </li>
+                                `);
+                            });
+                            
+                            $('#dynamicFormsContainer').show();
+                        } else {
+                            $('#dynamicFormsContainer').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[UpdateForms] Error fetching forms:', error);
+                        $('#dynamicFormsContainer').hide();
+                    }
+                });
+            }
+            
             // Event listener for consultation type changes
             $('#consultationType').on('change', function() {
                 const selectedType = $(this).val();
                 console.log('[BookAppointment] Consultation type changed to:', selectedType);
                 updateTimeSlots();
+                updateAvailableForms(); // Update forms based on selected service
                 
                 // Show family number section for ALL consultation types (now using dynamic forms)
                 const hasFamilyNumber = $('#hasFamilyNumber').val();
@@ -1506,40 +1579,31 @@
                                     console.log('[BookAppointment] Auto-redirecting after 5 seconds');
                                     const consultationType = $('#consultationType').val();
                                     
-                                    // Only require assessment forms for General Consult appointments
-                                    if (consultationType === 'general consult') {
-                                        console.log('[BookAppointment] General Consult - checking for dynamic assessment forms');
-                                        
-                                        // Fetch available dynamic forms for this age
-                                        fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}`)
-                                            .then(response => response.json())
-                                            .then(data => {
-                                                if (data.success && data.forms && data.forms.length > 0) {
-                                                    // Redirect to the first available dynamic form
-                                                    const firstForm = data.forms[0];
-                                                    console.log(`[BookAppointment] Redirecting to dynamic form: ${firstForm.formName}`);
-                                                    window.location.href = `/Forms/SubmitForm/${firstForm.formKey}?appointmentId=${appointmentId}`;
-                                                } else {
-                                                    // No forms available for this age, redirect to appointments
-                                                    console.log('[BookAppointment] No assessment forms required for this age');
-                                                    window.location.href = '/User/Appointments';
-                                                }
-                                            })
-                                            .catch(error => {
-                                                console.error('[BookAppointment] Error fetching forms:', error);
-                                                // Fallback: redirect to appointments
+                                    // Check for available forms for ALL consultation types
+                                    console.log(`[BookAppointment] Checking for forms for: ${consultationType}, age: ${age}`);
+                                    
+                                    // Fetch available dynamic forms for this age and consultation type
+                                    fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}&consultationType=${encodeURIComponent(consultationType)}`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('[BookAppointment] Forms API response:', data);
+                                            
+                                            if (data.forms && data.forms.length > 0) {
+                                                // Redirect to the first available dynamic form
+                                                const firstForm = data.forms[0];
+                                                console.log(`[BookAppointment] Redirecting to dynamic form: ${firstForm.formName}`);
+                                                window.location.href = `/Forms/SubmitForm/${firstForm.formKey}?appointmentId=${appointmentId}`;
+                                            } else {
+                                                // No forms available, redirect to appointments
+                                                console.log(`[BookAppointment] No forms required for ${consultationType}, redirecting to appointments`);
                                                 window.location.href = '/User/Appointments';
-                                            });
-                                        return; // Exit early to prevent other redirects
-                                    } else if (consultationType === 'immunization') {
-                                        // For immunization appointments, redirect to UserDashboard
-                                        console.log('[BookAppointment] Immunization - redirecting to dashboard');
-                                        window.location.href = '/User/UserDashboard';
-                                    } else {
-                                        // For non-General Consult appointments, skip assessment and go directly to appointments
-                                        console.log('[BookAppointment] Non-General Consult - skipping assessment form');
-                                        window.location.href = '/User/Appointments';
-                                    }
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('[BookAppointment] Error fetching forms:', error);
+                                            // Fallback: redirect to appointments
+                                            window.location.href = '/User/Appointments';
+                                        });
                                 }, 5000);
                             } else {
                                 console.error('[BookAppointment] SweetAlert2 not available, using fallback alert');

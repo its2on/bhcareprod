@@ -334,20 +334,18 @@
                                    value="@(Model.IsEdit ? Model.FormTemplate.FormKey : "")">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Category</label>
-                            <input type="text" 
-                                   class="form-control form-control-sm" 
-                                   id="formCategory" 
-                                   list="categoryList"
-                                   placeholder="e.g., Registration, Assessment"
-                                   value="@(Model.IsEdit ? Model.FormTemplate.Category : "")">
-                            <datalist id="categoryList">
-                                <option value="Registration"></option>
-                                <option value="Assessment"></option>
-                                <option value="Medical"></option>
-                                <option value="Survey"></option>
-                                <option value="Feedback"></option>
-                            </datalist>
+                            <label class="form-label small text-muted">Service Type</label>
+                            <select class="form-select form-select-sm" id="formServiceId">
+                                <option value="">None (Standalone Form)</option>
+                                @foreach (var service in Model.AvailableServices)
+                                {
+                                    <option value="@service.ServiceId" 
+                                            selected="@(Model.IsEdit && Model.FormTemplate.ServiceId == service.ServiceId)">
+                                        @service.ServiceName
+                                    </option>
+                                }
+                            </select>
+                            <small class="text-muted">Link this form to a specific consultation service</small>
                         </div>
                     </div>
                 </div>
@@ -885,7 +883,7 @@
             const formName = document.getElementById('formName').value;
             const formDescription = document.getElementById('formDescription').value;
             const formKey = document.getElementById('formKey').value;
-            const formCategory = document.getElementById('formCategory').value;
+            const formServiceId = document.getElementById('formServiceId').value;
             const formIsActive = document.getElementById('formIsActive').checked;
             const formDisplayOrder = document.getElementById('formDisplayOrder').value;
             const showInAppointmentFlow = document.getElementById('showInAppointmentFlow').checked;
@@ -960,7 +958,7 @@
                 formName: formName || 'Untitled Form',
                 formDescription: formDescription,
                 formKey: formKey || 'untitled-form',
-                category: formCategory,
+                serviceId: formServiceId ? parseInt(formServiceId) : null,
                 isActive: formIsActive,
                 displayOrder: parseInt(formDisplayOrder) || 0,
                 showInAppointmentFlow: showInAppointmentFlow,

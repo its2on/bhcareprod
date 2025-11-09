@@ -18,6 +18,7 @@ namespace Barangay.Services
         private readonly HttpClient _httpClient;
         private readonly string _endpoint;
         private readonly string _subscriptionKey;
+        private readonly string _region;
 
         public AzureOcrService(IConfiguration configuration, ILogger<AzureOcrService> logger, HttpClient httpClient)
         {
@@ -26,14 +27,138 @@ namespace Barangay.Services
             _httpClient = httpClient;
 
             // Prioritize environment variables from Azure App Service (they take precedence)
-            // Try multiple ways to read the configuration
-            _endpoint = (Environment.GetEnvironmentVariable("AzureOCR__Endpoint") 
-                ?? _configuration["AzureOCR__Endpoint"]  // Try with double underscore
-                ?? _configuration["AzureOCR:Endpoint"])?.Trim();  // Fallback to colon notation
-            _subscriptionKey = (Environment.GetEnvironmentVariable("AzureOCR__Key") 
-                ?? _configuration["AzureOCR__Key"]       // Try with double underscore
-                ?? _configuration["AzureOCR:Key"])?.Trim();       // Fallback to colon notation
+            // In ASP.NET Core, IConfiguration automatically includes environment variables
+            // So _configuration["AzureOCR__Key"] will read from environment variables if they exist
+            // We check both direct environment variables and IConfiguration to be thorough
+            
+            // Check direct environment variables first (most reliable)
+            var envEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint");
+            var envKey = Environment.GetEnvironmentVariable("AzureOCR__Key");
+            
+            // DIAGNOSTIC: Log all AzureOCR-related environment variables to help debug
+            _logger.LogWarning("=== AZURE OCR ENVIRONMENT VARIABLE DIAGNOSTICS ===");
+            var allEnvVars = Environment.GetEnvironmentVariables();
+            var azureOcrVars = new System.Collections.Hashtable();
+            foreach (System.Collections.DictionaryEntry entry in allEnvVars)
+            {
+                var key = entry.Key?.ToString() ?? "";
+                if (key.Contains("AzureOCR", StringComparison.OrdinalIgnoreCase) || 
+                    key.Contains("OCR", StringComparison.OrdinalIgnoreCase))
+                {
+                    azureOcrVars[key] = entry.Value;
+                    _logger.LogWarning("Found environment variable: {Key} = {Value} (Length: {Length})", 
+                        key, 
+                        entry.Value?.ToString()?.Substring(0, Math.Min(20, entry.Value?.ToString()?.Length ?? 0)) + "...", 
+                        entry.Value?.ToString()?.Length ?? 0);
+                }
+            }
+            if (azureOcrVars.Count == 0)
+            {
+                _logger.LogWarning("No AzureOCR-related environment variables found!");
+            }
+            _logger.LogWarning("Direct env var check - AzureOCR__Endpoint: {Value}", envEndpoint ?? "NULL");
+            _logger.LogWarning("Direct env var check - AzureOCR__Key: {Value} (Length: {Length})", 
+                envKey != null ? envKey.Substring(0, Math.Min(20, envKey.Length)) + "..." : "NULL", 
+                envKey?.Length ?? 0);
+            
+            // Check IConfiguration (which includes environment variables automatically)
+            var configEndpointUnderscore = _configuration["AzureOCR__Endpoint"];
+            var configKeyUnderscore = _configuration["AzureOCR__Key"];
+            var configEndpointColon = _configuration["AzureOCR:Endpoint"];
+            var configKeyColon = _configuration["AzureOCR:Key"];
+            
+            _logger.LogWarning("IConfiguration check - AzureOCR__Endpoint: {Value}", configEndpointUnderscore ?? "NULL");
+            _logger.LogWarning("IConfiguration check - AzureOCR__Key: {Value} (Length: {Length})", 
+                configKeyUnderscore != null ? configKeyUnderscore.Substring(0, Math.Min(20, configKeyUnderscore.Length)) + "..." : "NULL",
+                configKeyUnderscore?.Length ?? 0);
+            _logger.LogWarning("IConfiguration check - AzureOCR:Endpoint: {Value}", configEndpointColon ?? "NULL");
+            _logger.LogWarning("IConfiguration check - AzureOCR:Key: {Value} (Length: {Length})", 
+                configKeyColon != null ? configKeyColon.Substring(0, Math.Min(20, configKeyColon.Length)) + "..." : "NULL",
+                configKeyColon?.Length ?? 0);
+            _logger.LogWarning("================================================");
+            
+            // Determine which source we're using and log it
+            // Priority: Direct env var > IConfiguration with double underscore > IConfiguration with colon
+            if (!string.IsNullOrEmpty(envKey))
+            {
+                _subscriptionKey = envKey.Trim();
+                _logger.LogInformation("Azure OCR Key loaded from DIRECT ENVIRONMENT VARIABLE (AzureOCR__Key) - Length: {Length}", _subscriptionKey.Length);
+            }
+            else if (!string.IsNullOrEmpty(configKeyUnderscore))
+            {
+                _subscriptionKey = configKeyUnderscore.Trim();
+                _logger.LogInformation("Azure OCR Key loaded from IConfiguration (AzureOCR__Key) - Length: {Length} - This may include environment variables", _subscriptionKey.Length);
+            }
+            else if (!string.IsNullOrEmpty(configKeyColon))
+            {
+                _subscriptionKey = configKeyColon.Trim();
+                _logger.LogInformation("Azure OCR Key loaded from IConfiguration (AzureOCR:Key) - Length: {Length} - This may include environment variables", _subscriptionKey.Length);
+            }
+            else
+            {
+                _subscriptionKey = null;
+                _logger.LogWarning("Azure OCR Key not found in any configuration source!");
+            }
+            
+            // Validate that the key is not a placeholder
+            if (!string.IsNullOrEmpty(_subscriptionKey))
+            {
+                var trimmedKey = _subscriptionKey.Trim();
+                if (trimmedKey.Equals("YOUR_AZURE_OCR_KEY_HERE", StringComparison.OrdinalIgnoreCase) ||
+                    trimmedKey.Equals("YOUR_KEY_HERE", StringComparison.OrdinalIgnoreCase) ||
+                    trimmedKey.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase) ||
+                    trimmedKey.Length == 0)
+                {
+                    _subscriptionKey = null;
+                    _logger.LogError("Azure OCR Key is a placeholder or empty. Please set AzureOCR__Key in Azure App Service Configuration with the complete 100-character key from Computer Vision resource.");
+                }
+            }
+            
+            if (!string.IsNullOrEmpty(envEndpoint))
+            {
+                _endpoint = envEndpoint.Trim();
+            }
+            else if (!string.IsNullOrEmpty(configEndpointUnderscore))
+            {
+                _endpoint = configEndpointUnderscore.Trim();
+            }
+            else if (!string.IsNullOrEmpty(configEndpointColon))
+            {
+                _endpoint = configEndpointColon.Trim();
+            }
+            else
+            {
+                _endpoint = null;
+            }
+            
+            // Remove any hidden characters or encoding issues
+            // IMPORTANT: Only remove control characters and leading/trailing whitespace
+            // Do NOT remove any alphanumeric characters as they are part of the key
+            if (!string.IsNullOrEmpty(_subscriptionKey))
+            {
+                var originalLength = _subscriptionKey.Length;
+                // Remove only control characters (non-printable), keep all alphanumeric and special chars
+                _subscriptionKey = new string(_subscriptionKey.Where(c => !char.IsControl(c)).ToArray()).Trim();
+                if (_subscriptionKey.Length != originalLength)
+                {
+                    _logger.LogWarning("Azure OCR Key was modified during sanitization - Original length: {Original}, New length: {New}", originalLength, _subscriptionKey.Length);
+                }
+            }
 
+            // Get region from configuration or environment variable
+            // For multi-service resources, region header is required
+            var envRegion = Environment.GetEnvironmentVariable("AzureOCR__Region");
+            var configRegionUnderscore = _configuration["AzureOCR__Region"];
+            var configRegionColon = _configuration["AzureOCR:Region"];
+            
+            _region = !string.IsNullOrEmpty(envRegion) 
+                ? envRegion.Trim() 
+                : !string.IsNullOrEmpty(configRegionUnderscore) 
+                    ? configRegionUnderscore.Trim() 
+                    : !string.IsNullOrEmpty(configRegionColon) 
+                        ? configRegionColon.Trim() 
+                        : "southeastasia"; // Default to southeastasia based on resource location
+            
             // Enhanced validation and logging
             if (string.IsNullOrEmpty(_endpoint) || string.IsNullOrEmpty(_subscriptionKey))
             {
@@ -41,24 +166,67 @@ namespace Barangay.Services
             }
             else
             {
-                // Validate key length (Azure Computer Vision keys are exactly 100 characters)
-                if (_subscriptionKey.Length < 95)
+                // Validate key length (Azure Computer Vision keys are typically 100 characters, but can vary)
+                var trimmedKey = _subscriptionKey.Trim();
+                
+                // Log the exact key being used for debugging (first and last 10 chars only for security)
+                _logger.LogInformation("Azure OCR Key loaded - Length: {Length} characters, First 10: {First10}, Last 10: {Last10}", 
+                    trimmedKey.Length,
+                    trimmedKey.Substring(0, Math.Min(10, trimmedKey.Length)),
+                    trimmedKey.Substring(Math.Max(0, trimmedKey.Length - 10)));
+                
+                // Critical validation: Keys should be 100 characters. 83 characters indicates truncation.
+                if (trimmedKey.Length < 50)
                 {
-                    _logger.LogError("Azure OCR Key appears to be truncated! Expected 100 characters, got {Length} characters. First 10: {First10}, Last 10: {Last10}", 
-                        _subscriptionKey.Length, 
-                        _subscriptionKey.Substring(0, Math.Min(10, _subscriptionKey.Length)),
-                        _subscriptionKey.Substring(Math.Max(0, _subscriptionKey.Length - 10)));
+                    _logger.LogError("Azure OCR Key appears to be too short! Length: {Length} characters. First 10: {First10}, Last 10: {Last10}. Please verify the complete key from Computer Vision resource.", 
+                        trimmedKey.Length, 
+                        trimmedKey.Substring(0, Math.Min(10, trimmedKey.Length)),
+                        trimmedKey.Substring(Math.Max(0, trimmedKey.Length - 10)));
                 }
-                else if (_subscriptionKey.Length != 100)
+                else if (trimmedKey.Length < 95)
                 {
-                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", _subscriptionKey.Length);
+                    _logger.LogError("Azure OCR Key length is {Length} characters (expected 100). The key appears to be INCOMPLETE/TRUNCATED. This will cause 401 Unauthorized errors. Please copy the COMPLETE 100-character key from Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint → KEY 1, and update AzureOCR__Key in Azure App Service Configuration. Current key appears to be truncated.", trimmedKey.Length);
+                }
+                else if (trimmedKey.Length == 100)
+                {
+                    _logger.LogInformation("Azure OCR configured - Endpoint: {Endpoint}, Key length: {Length} (correct), Region: {Region}", 
+                        _endpoint, trimmedKey.Length, _region);
                 }
                 else
                 {
-                    _logger.LogInformation("Azure OCR configured - Endpoint: {Endpoint}, Key length: {Length}", 
-                        _endpoint, _subscriptionKey.Length);
+                    _logger.LogInformation("Azure OCR configured - Endpoint: {Endpoint}, Key length: {Length}, Region: {Region}", 
+                        _endpoint, trimmedKey.Length, _region);
                 }
             }
+        }
+
+        /// <summary>
+        /// Extracts region from endpoint URL if it's a regional endpoint
+        /// Returns null for custom endpoints
+        /// </summary>
+        private string ExtractRegionFromEndpoint(string endpoint)
+        {
+            try
+            {
+                // Check if it's a regional endpoint: https://{region}.api.cognitive.microsoft.com
+                if (endpoint.Contains(".api.cognitive.microsoft.com"))
+                {
+                    var uri = new Uri(endpoint);
+                    var host = uri.Host;
+                    var parts = host.Split('.');
+                    if (parts.Length > 0 && parts[0] != "api")
+                    {
+                        return parts[0]; // Return the region (e.g., "eastus", "westus2")
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to extract region from endpoint: {Endpoint}", endpoint);
+            }
+            
+            // Custom endpoints (like bhcare-ocr.cognitiveservices.azure.com) don't need region header
+            return null;
         }
 
         /// <summary>
@@ -81,33 +249,138 @@ namespace Barangay.Services
                     };
                 }
 
-                // Validate key length before making request (Azure Computer Vision keys are exactly 100 characters)
-                // Accept 95-105 characters to allow for minor variations, but reject anything < 95
+                // Validate key length before making request
+                // Azure Computer Vision keys are typically 100 characters
+                // Keys with length < 95 are likely truncated and will cause 401 errors
                 var trimmedKey = _subscriptionKey.Trim();
-                if (trimmedKey.Length < 95)
+                if (trimmedKey.Length < 50)
                 {
-                    _logger.LogError("Azure OCR Key is invalid or truncated! Length: {Length} (expected 100 characters). Please update AzureOCR__Key in App Service with complete key from Computer Vision resource.", trimmedKey.Length);
+                    _logger.LogError("Azure OCR Key appears to be too short! Length: {Length} characters. Please verify the complete key from Computer Vision resource.", trimmedKey.Length);
                     return new OcrResult
                     {
                         Success = false,
-                        Message = $"OCR service configuration error. The API key appears to be incomplete (length: {trimmedKey.Length}, expected: 100 characters). Please update AzureOCR__Key in Azure App Service with the complete key from Computer Vision resource."
+                        Message = $"OCR service configuration error. The API key appears to be incomplete (length: {trimmedKey.Length} characters, expected 100). Please verify AzureOCR__Key in Azure App Service contains the complete key from Computer Vision resource (bhcare-ocr) → Keys and Endpoint → KEY 1."
                     };
                 }
                 
-                if (trimmedKey.Length != 100)
+                // Critical: Keys with length < 95 are likely truncated (83 characters is a common truncation)
+                if (trimmedKey.Length < 95)
                 {
-                    _logger.LogWarning("Azure OCR Key length is {Length} (expected 100). This may cause authentication issues.", trimmedKey.Length);
+                    _logger.LogError("Azure OCR Key length is {Length} characters (expected 100). The key appears to be INCOMPLETE/TRUNCATED. This will cause 401 Unauthorized errors. Please copy the COMPLETE 100-character key from Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint → KEY 1, and update AzureOCR__Key in Azure App Service Configuration.", trimmedKey.Length);
+                    return new OcrResult
+                    {
+                        Success = false,
+                        Message = $"OCR service configuration error. The API key appears to be INCOMPLETE/TRUNCATED (length: {trimmedKey.Length} characters, expected 100). " +
+                            $"This typically happens when the key is not fully copied from Azure Portal. " +
+                            $"Please: 1) Go to Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint, 2) Click 'Show' next to KEY 1, 3) Copy the COMPLETE 100-character key (ensure no characters are cut off), " +
+                            $"4) Update AzureOCR__Key in Azure App Service → Configuration → Application settings with the complete key, 5) Restart the app service."
+                    };
                 }
 
                 // Step 1: Submit document for OCR analysis
-                var trimmedEndpoint = _endpoint.Trim().TrimEnd('/');
-                var analyzeUrl = $"{trimmedEndpoint}/vision/v3.2/read/analyze";
+                // Ensure endpoint is properly formatted (remove trailing slash, ensure it's the base endpoint)
+                var baseEndpoint = _endpoint.Trim().TrimEnd('/');
+                if (!baseEndpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+                    !baseEndpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    baseEndpoint = "https://" + baseEndpoint;
+                }
                 
+                // Use v4.0 API endpoint for better performance and features
+                var analyzeUrl = $"{baseEndpoint}/vision/v4.0/read/analyze";
+                
+                // Diagnostic logging
                 _logger.LogInformation("Submitting to Azure OCR: {Url}", analyzeUrl);
+                _logger.LogInformation("Endpoint: {Endpoint}", baseEndpoint);
                 _logger.LogInformation("Using key length: {Length} characters", trimmedKey.Length);
+                _logger.LogInformation("Key first 10 chars: {First10}", trimmedKey.Substring(0, Math.Min(10, trimmedKey.Length)));
+                _logger.LogInformation("Key last 10 chars: {Last10}", trimmedKey.Substring(Math.Max(0, trimmedKey.Length - 10)));
+                
+                // Log the full key for debugging (only in development)
+                #if DEBUG
+                _logger.LogInformation("FULL KEY FOR DEBUGGING: {FullKey}", trimmedKey);
+                #endif
+                
+                // Check if key contains only valid characters (alphanumeric and some special chars)
+                if (trimmedKey.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
+                {
+                    _logger.LogWarning("Key contains control characters or whitespace - this may cause authentication issues");
+                }
+                
+                // Verify key format - Azure keys should be alphanumeric
+                var invalidChars = trimmedKey.Where(c => !char.IsLetterOrDigit(c)).ToList();
+                if (invalidChars.Any())
+                {
+                    _logger.LogWarning("Key contains non-alphanumeric characters: {Chars}. This may cause authentication issues.", string.Join(", ", invalidChars.Distinct()));
+                }
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, analyzeUrl);
-                request.Headers.Add("Ocp-Apim-Subscription-Key", trimmedKey);
+                
+                // Use TryAddWithoutValidation to avoid header validation issues
+                if (!request.Headers.TryAddWithoutValidation("Ocp-Apim-Subscription-Key", trimmedKey))
+                {
+                    _logger.LogError("Failed to add Ocp-Apim-Subscription-Key header");
+                    return new OcrResult
+                    {
+                        Success = false,
+                        Message = "Failed to configure OCR request. Please contact administrator."
+                    };
+                }
+                
+                // Add region header for multi-service resources (required for Computer Vision)
+                // For custom endpoints like bhcare-ocr.cognitiveservices.azure.com, region header is required
+                // Region is set to southeastasia based on resource location
+                if (!string.IsNullOrEmpty(_region))
+                {
+                    if (!request.Headers.TryAddWithoutValidation("Ocp-Apim-Subscription-Region", _region))
+                    {
+                        _logger.LogWarning("Failed to add Ocp-Apim-Subscription-Region header, but continuing anyway");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Added region header: {Region} (required for multi-service Computer Vision resource)", _region);
+                    }
+                }
+                else
+                {
+                    // Try to extract region from endpoint if it's a regional endpoint
+                    // Regional endpoints look like: https://{region}.api.cognitive.microsoft.com
+                    var extractedRegion = ExtractRegionFromEndpoint(baseEndpoint);
+                    if (!string.IsNullOrEmpty(extractedRegion))
+                    {
+                        if (!request.Headers.TryAddWithoutValidation("Ocp-Apim-Subscription-Region", extractedRegion))
+                        {
+                            _logger.LogWarning("Failed to add Ocp-Apim-Subscription-Region header, but continuing anyway");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Added region header from endpoint: {Region}", extractedRegion);
+                        }
+                    }
+                    else
+                    {
+                        // Default to southeastasia if no region found
+                        if (!request.Headers.TryAddWithoutValidation("Ocp-Apim-Subscription-Region", "southeastasia"))
+                        {
+                            _logger.LogWarning("Failed to add default Ocp-Apim-Subscription-Region header (southeastasia)");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Added default region header: southeastasia");
+                        }
+                    }
+                }
+                
+                // Verify the key header was added correctly
+                if (!request.Headers.Contains("Ocp-Apim-Subscription-Key"))
+                {
+                    _logger.LogError("Ocp-Apim-Subscription-Key header not found in request");
+                    return new OcrResult
+                    {
+                        Success = false,
+                        Message = "Failed to configure OCR request headers. Please contact administrator."
+                    };
+                }
 
                 // Convert stream to byte array
                 using var memoryStream = new MemoryStream();
@@ -127,11 +400,35 @@ namespace Barangay.Services
                     // Provide specific error messages for common issues
                     if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                     {
-                        _logger.LogError("401 Unauthorized - Key length: {Length}. This usually means the key is invalid or truncated. Expected ~100 characters.", trimmedKey.Length);
+                        string errorMessage;
+                        if (trimmedKey.Length < 95)
+                        {
+                            // Key is truncated (83 characters indicates incomplete copy)
+                            errorMessage = $"OCR service authentication failed (401 Unauthorized). The API key appears to be INCOMPLETE/TRUNCATED (length: {trimmedKey.Length} characters, expected 100 characters). " +
+                                $"This typically happens when the key is not fully copied from Azure Portal. " +
+                                $"Please: 1) Go to Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint, 2) Click 'Show' next to KEY 1, 3) Copy the COMPLETE 100-character key (ensure no characters are cut off), " +
+                                $"4) Update AzureOCR__Key in Azure App Service → Configuration → Application settings with the complete key, 5) Restart the app service.";
+                        }
+                        else if (trimmedKey.Length == 100)
+                        {
+                            // Key length is correct but still getting 401 - might be wrong key or missing region header
+                            errorMessage = "OCR service authentication failed (401 Unauthorized). The API key length is correct (100 characters), but authentication still failed. " +
+                                "Possible causes: 1) The key may be incorrect or expired - verify KEY 1 in Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint, " +
+                                "2) The key may not match the Computer Vision resource, 3) Region header may be missing. " +
+                                "Please verify AzureOCR__Key in Azure App Service Configuration matches exactly with KEY 1 from the Computer Vision resource, and ensure AzureOCR__Region is set to 'southeastasia'.";
+                        }
+                        else
+                        {
+                            errorMessage = "OCR service authentication failed (401 Unauthorized). The API key may be invalid, expired, or doesn't match the Computer Vision resource. " +
+                                "Please verify the key in Azure Portal → Computer Vision resource (bhcare-ocr) → Keys and Endpoint, and ensure AzureOCR__Key in Azure App Service Configuration matches exactly.";
+                        }
+                        
+                        _logger.LogError("401 Unauthorized - Endpoint: {Endpoint}, Key length: {Length}, Region: {Region}. Azure error: {Error}", 
+                            baseEndpoint, trimmedKey.Length, _region ?? "not set", errorContent);
                         return new OcrResult
                         {
                             Success = false,
-                            Message = "OCR service authentication failed. The API key may be invalid or incomplete. Please contact administrator."
+                            Message = errorMessage
                         };
                     }
                     
@@ -202,6 +499,12 @@ namespace Barangay.Services
 
                 using var request = new HttpRequestMessage(HttpMethod.Get, operationLocation);
                 request.Headers.Add("Ocp-Apim-Subscription-Key", _subscriptionKey?.Trim() ?? string.Empty);
+                
+                // Add region header for polling requests as well
+                if (!string.IsNullOrEmpty(_region))
+                {
+                    request.Headers.Add("Ocp-Apim-Subscription-Region", _region);
+                }
 
                 var response = await _httpClient.SendAsync(request);
                 var resultJson = await response.Content.ReadAsStringAsync();

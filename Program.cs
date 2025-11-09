@@ -28,13 +28,10 @@ using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure configuration sources in correct order (later sources override earlier ones)
-// 1. Load appsettings.json first
+// Note: WebApplication.CreateBuilder already loads environment variables automatically
+// Environment variables take precedence over appsettings.json by default
+// Add appsettings.json (environment variables will override if they exist)
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-
-// 2. Load environment variables AFTER appsettings.json to ensure they take precedence
-// This is critical for Azure App Service where environment variables override appsettings.json
-builder.Configuration.AddEnvironmentVariables();
 
 // Check for password reset command
 if (args.Length > 0 && (args[0] == "--reset-nurse-password" || args[0] == "--reset-admin-password"))
@@ -492,9 +489,16 @@ builder.Services.AddHttpClient("GoogleVision", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Register Azure OCR Service for automatic residency verification
-builder.Services.AddHttpClient<AzureOcrService>();
-builder.Services.AddScoped<AzureOcrService>();
+// Register Local OCR Service for automatic residency verification (using Tesseract)
+// Register Azure Vision OCR Service
+builder.Services.AddScoped<AzureVisionOcrService>();
+
+builder.Services.AddScoped<LocalOcrService>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<LocalOcrService>>();
+    var httpClientFactory = sp.GetService<IHttpClientFactory>();
+    return new LocalOcrService(logger, httpClientFactory);
+});
 
 // Register Device Info Parser
 builder.Services.AddSingleton<IDeviceInfoParser, DeviceInfoParser>();
@@ -520,6 +524,11 @@ builder.Services.AddScoped<PermissionFixService>();
 
 // Register UserNumber Fix Service
 // builder.Services.AddHostedService<UserNumberFixService>();
+
+// Local OCR Service using Tesseract - no external API configuration needed
+Console.ForegroundColor = ConsoleColor.Green;
+Console.WriteLine("✓ Local OCR Service (Tesseract) configured - no external API required");
+Console.ResetColor();
 
 var app = builder.Build();
 

@@ -551,6 +551,15 @@
                             this.updateNextButtonState();
                             this.updateRegisterButtonState();
                         }, 100);
+                        
+                        // Also update when file changes (for pre-uploaded files)
+                        setTimeout(() => {
+                            const fileInput = document.getElementById('residencyProofFile') || document.getElementById('Input_ResidencyProof');
+                            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                                console.log('✅ File already uploaded, updating button state');
+                                this.updateRegisterButtonState();
+                            }
+                        }, 500);
                     }
 
                     setupStepNavigation() {
@@ -703,25 +712,14 @@
                             });
                         }
 
-                        // File validation
-                        const fileInput = document.getElementById('Input_ResidencyProof');
+                        // File input validation - check both possible IDs
+                        const fileInput = document.getElementById('residencyProofFile') || document.getElementById('Input_ResidencyProof');
                         if (fileInput) {
                             fileInput.addEventListener('change', () => {
                                 this.validateFile();
                                 this.updateRegisterButtonState();
                                 // Automatically verify residency proof when file is uploaded
                                 this.verifyResidencyProof(fileInput.files[0]);
-                            });
-                        }
-                        
-                        // Also listen to residencyProofFile if it exists (alternative ID)
-                        const residencyProofFile = document.getElementById('residencyProofFile');
-                        if (residencyProofFile) {
-                            residencyProofFile.addEventListener('change', () => {
-                                this.validateFile();
-                                this.updateRegisterButtonState();
-                                // Automatically verify residency proof when file is uploaded
-                                this.verifyResidencyProof(residencyProofFile.files[0]);
                             });
                         }
 
@@ -1245,7 +1243,12 @@
                     }
 
                     validateFile() {
-                        const fileInput = document.getElementById('Input_ResidencyProof');
+                        // Try both possible IDs for the file input
+                        let fileInput = document.getElementById('residencyProofFile');
+                        if (!fileInput) {
+                            fileInput = document.getElementById('Input_ResidencyProof');
+                        }
+                        
                         const file = fileInput?.files?.[0];
                         
                         if (!file) {
@@ -2982,95 +2985,167 @@
                     progressBar.style.width = '100%';
                     
                     if (result.success) {
-                        // 🧠 Smart parsing with automatic ID type detection
-                        const parsedData = parsePhilippineIdText(result.text);
-                        console.log('Parsed data with ID type:', parsedData);
+                        // Enhanced auto-fill from Azure Vision OCR response
+                        console.log('Azure Vision OCR response:', result);
                         
-                        // Store OCR-detected barangay and address in hidden fields for auto-approval
-                        if (result.detectedBarangay) {
-                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
-                            if (ocrBarangayInput) {
-                                ocrBarangayInput.value = result.detectedBarangay;
-                                console.log('Stored OCR-detected barangay:', result.detectedBarangay);
+                        let filledFields = [];
+                        
+                        // Auto-fill First Name
+                        if (result.firstName) {
+                            // Try multiple selectors to find the field
+                            let firstNameInput = document.querySelector('input[name="Input.FirstName"]') ||
+                                                document.querySelector('input[id="Input_FirstName"]') ||
+                                                document.querySelector('input[asp-for="Input.FirstName"]');
+                            if (firstNameInput) {
+                                firstNameInput.value = result.firstName;
+                                // Trigger input event for validation
+                                firstNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                firstNameInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('First Name');
+                                console.log('Filled First Name:', result.firstName);
+                            } else {
+                                console.error('First Name input not found');
                             }
                         }
                         
+                        // Auto-fill Middle Name
+                        if (result.middleName) {
+                            let middleNameInput = document.querySelector('input[name="Input.MiddleName"]') ||
+                                                  document.querySelector('input[id="Input_MiddleName"]');
+                            if (middleNameInput) {
+                                middleNameInput.value = result.middleName;
+                                middleNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                middleNameInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Middle Name');
+                                console.log('Filled Middle Name:', result.middleName);
+                            }
+                        }
+                        
+                        // Auto-fill Last Name
+                        if (result.lastName) {
+                            let lastNameInput = document.querySelector('input[name="Input.LastName"]') ||
+                                                document.querySelector('input[id="Input_LastName"]');
+                            if (lastNameInput) {
+                                lastNameInput.value = result.lastName;
+                                lastNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                lastNameInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Last Name');
+                                console.log('Filled Last Name:', result.lastName);
+                            }
+                        }
+                        
+                        // Auto-fill Suffix
+                        if (result.suffix) {
+                            let suffixInput = document.querySelector('input[name="Input.Suffix"]') ||
+                                              document.querySelector('input[id="Input_Suffix"]');
+                            if (suffixInput) {
+                                suffixInput.value = result.suffix;
+                                suffixInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                suffixInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Suffix');
+                                console.log('Filled Suffix:', result.suffix);
+                            }
+                        }
+                        
+                        // Auto-fill Contact Number
+                        if (result.contactNumber) {
+                            let contactNumberInput = document.querySelector('input[name="Input.ContactNumber"]') ||
+                                                     document.querySelector('input[id="Input_ContactNumber"]');
+                            if (contactNumberInput) {
+                                contactNumberInput.value = result.contactNumber;
+                                contactNumberInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                contactNumberInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Contact Number');
+                                console.log('Filled Contact Number:', result.contactNumber);
+                            }
+                        }
+                        
+                        // Auto-fill Address
                         if (result.address) {
+                            let addressInput = document.querySelector('textarea[name="Input.Address"]') ||
+                                               document.querySelector('textarea[id="Input_Address"]') ||
+                                               document.querySelector('input[name="Input.Address"]');
+                            if (addressInput) {
+                                addressInput.value = result.address;
+                                addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                addressInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Address');
+                                console.log('Filled Address:', result.address);
+                            }
+                            
+                            // Store in hidden field for auto-approval
                             const ocrAddressInput = document.getElementById('OcrExtractedAddress');
                             if (ocrAddressInput) {
                                 ocrAddressInput.value = result.address;
                             }
                         }
                         
-                        if (result.text) {
-                            const ocrTextInput = document.getElementById('OcrExtractedText');
-                            if (ocrTextInput) {
-                                ocrTextInput.value = result.text;
+                        // Auto-fill Birth Date
+                        if (result.birthDate) {
+                            let birthDateInput = document.querySelector('input[name="Input.BirthDate"]') ||
+                                                 document.querySelector('input[id="Input_BirthDate"]');
+                            if (birthDateInput) {
+                                birthDateInput.value = result.birthDate;
+                                birthDateInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                birthDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                filledFields.push('Birth Date');
+                                console.log('Filled Birth Date:', result.birthDate);
                             }
                         }
                         
-                        // Auto-fill form fields using the module's autoFill function
-                        let filledFields = [];
-                        if (typeof PhilippineIDParser !== 'undefined' && PhilippineIDParser.autoFill) {
-                            filledFields = PhilippineIDParser.autoFill(parsedData);
-                        } else {
-                            // Fallback to manual auto-fill if module not loaded
-                            console.warn('Module autoFill not available, using manual fill');
-                            
-                            if (parsedData.firstName) {
-                                const firstNameInput = document.querySelector('input[name="Input.FirstName"]');
-                                if (firstNameInput) { firstNameInput.value = parsedData.firstName; filledFields.push('First Name'); }
-                            }
-                            if (parsedData.middleName) {
-                                const middleNameInput = document.querySelector('input[name="Input.MiddleName"]');
-                                if (middleNameInput) { middleNameInput.value = parsedData.middleName; filledFields.push('Middle Name'); }
-                            }
-                            if (parsedData.lastName) {
-                                const lastNameInput = document.querySelector('input[name="Input.LastName"]');
-                                if (lastNameInput) { lastNameInput.value = parsedData.lastName; filledFields.push('Last Name'); }
-                            }
-                            if (parsedData.address) {
-                                const addressInput = document.querySelector('textarea[name="Input.Address"]');
-                                if (addressInput) { addressInput.value = parsedData.address; filledFields.push('Address'); }
-                            }
-                            if (parsedData.birthDate) {
-                                const birthDateInput = document.querySelector('input[name="Input.BirthDate"]');
-                                if (birthDateInput) { birthDateInput.value = parsedData.birthDate; filledFields.push('Birth Date'); }
-                            }
-                            if (parsedData.gender) {
-                                const genderRadio = document.querySelector(`input[name="Input.Gender"][value="${parsedData.gender}"]`);
-                                if (genderRadio) { genderRadio.checked = true; filledFields.push('Gender'); }
-                            }
-                            if (parsedData.barangay) {
+                        // Auto-fill Barangay
+                        if (result.barangay) {
                                 const barangaySelect = document.querySelector('select[name="Input.Barangay"]');
                                 if (barangaySelect) {
                                     const option = Array.from(barangaySelect.options).find(opt => 
-                                        opt.text.includes(parsedData.barangay) || opt.value === parsedData.barangay
-                                    );
-                                    if (option) { barangaySelect.value = option.value; filledFields.push('Barangay'); }
+                                    opt.value === result.barangay || opt.text.includes(result.barangay)
+                                );
+                                if (option) {
+                                    barangaySelect.value = option.value;
+                                    filledFields.push('Barangay');
                                 }
+                            }
+                            
+                            // Store OCR-detected barangay in hidden field for auto-approval
+                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                            if (ocrBarangayInput) {
+                                ocrBarangayInput.value = result.barangay;
+                                console.log('Stored OCR-detected barangay:', result.barangay);
                             }
                         }
                         
-                        // Show minimal success notification without extracted text
-                        let notificationMessage = '';
-                        if (result.detectedBarangay) {
-                            notificationMessage = `<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle me-1"></i>Eligible barangay detected (${result.detectedBarangay}) - account will be auto-approved!</small></div>`;
+                        // Store extracted text in hidden field
+                        if (result.extractedText) {
+                            const ocrTextInput = document.getElementById('OcrExtractedText');
+                            if (ocrTextInput) {
+                                ocrTextInput.value = result.extractedText;
+                            }
                         }
                         
+                        // Show success notification
+                        let notificationMessage = '';
+                        let alertClass = 'alert-success';
+                        
+                        if (result.isBarangayValid && result.autoApproved) {
+                            notificationMessage = `<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle me-1"></i>Eligible barangay detected (${result.barangay}) - account will be auto-approved!</small></div>`;
+                        } else if (result.barangay && !result.isBarangayValid) {
+                            alertClass = 'alert-warning';
+                            notificationMessage = `<div class="mt-1"><small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Barangay ${result.barangay} detected but not eligible (must be 158, 159, 160, or 161). Please select a valid barangay.</small></div>`;
+                        } else if (!result.barangay) {
+                            alertClass = 'alert-warning';
+                            notificationMessage = `<div class="mt-1"><small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Unable to verify residency. No valid Barangay number (158, 159, 160, 161) found in the document.</small></div>`;
+                        }
+                        
+                        if (filledFields.length > 0 || notificationMessage) {
+                            let extractedHtml = `<div class="alert ${alertClass}">`;
                         if (filledFields.length > 0) {
-                            let extractedHtml = '<div class="alert alert-success">';
                             extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
+                            }
                             extractedHtml += notificationMessage;
                             extractedHtml += '<div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>';
                             extractedHtml += '</div>';
                             scannerResult.innerHTML = extractedHtml;
-                        } else if (result.detectedBarangay) {
-                            // Show notification even if no fields were auto-filled but barangay was detected
-                            let extractedHtml = '<div class="alert alert-success">';
-                            extractedHtml += notificationMessage;
-                            extractedHtml += '</div>';
-                            scannerResult.innerHTML = extractedHtml;
+                            scannerResult.classList.remove('d-none');
                         } else {
                             // Hide result if nothing was filled
                             scannerResult.innerHTML = '';

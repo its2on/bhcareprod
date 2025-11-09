@@ -73,6 +73,9 @@ namespace Barangay.Data
         public DbSet<FormField> FormFields { get; set; }
         public DbSet<FormFieldOption> FormFieldOptions { get; set; }
         public DbSet<FormSubmission> FormSubmissions { get; set; }
+        
+        // Consultation Services (dynamic service management)
+        public DbSet<ConsultationService> ConsultationServices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

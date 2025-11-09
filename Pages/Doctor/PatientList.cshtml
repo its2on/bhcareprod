@@ -23,6 +23,26 @@
         transform: translateY(-2px);
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
+    
+    /* Single match highlighting */
+    .single-match-card {
+        border: 3px solid #fd7e14 !important;
+        box-shadow: 0 0 20px rgba(253, 126, 20, 0.3) !important;
+        animation: pulseGlow 2s ease-in-out infinite;
+    }
+    
+    .single-match-badge {
+        background: linear-gradient(135deg, #fd7e14 0%, #ff9247 100%);
+        font-weight: bold;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 8px rgba(253, 126, 20, 0.4);
+    }
+    
+    @@keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 0 20px rgba(253, 126, 20, 0.3); }
+        50% { box-shadow: 0 0 30px rgba(253, 126, 20, 0.6); }
+    }
 
     .search-box {
         position: relative;
@@ -177,8 +197,29 @@
     </div>
 </div>
 
+<!-- Single Match Indicator -->
+@if (Model.IsSingleMatch && !string.IsNullOrEmpty(Model.SearchQuery))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>Single Match Found!</strong> Only one patient matches your search "<strong>@Model.SearchQuery</strong>".
+        <a href="/Doctor/PatientDetails/@Model.SingleMatchPatientId" class="btn btn-sm btn-success ms-3">
+            <i class="fas fa-eye me-1"></i> View Patient Details
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+else if (!string.IsNullOrEmpty(Model.SearchQuery) && Model.TotalMatches > 0)
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        Found <strong>@Model.TotalMatches</strong> patient(s) matching "@Model.SearchQuery".
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <!-- Family Groups List -->
-<div class="row">
+<div class="row" id="familyGroupsContainer">
     @if (!Model.FamilyGroups.Any())
     {
         <div class="col-12">
@@ -193,8 +234,9 @@
     {
         @foreach (var familyGroup in Model.FamilyGroups)
         {
+            var isSingleMatchFamily = Model.IsSingleMatch && familyGroup.FamilyMembers.Any(m => m.PatientId == Model.SingleMatchPatientId);
             <div class="col-12">
-                <div class="card patient-card">
+                <div class="card patient-card @(isSingleMatchFamily ? "single-match-card" : "")"  data-patient-id="@(isSingleMatchFamily ? Model.SingleMatchPatientId : "")">
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-md-1 text-center">
@@ -221,9 +263,18 @@
                                 </p>
                             </div>
                             <div class="col-md-2">
-                                <span class="badge bg-info">
-                                    Family Group
-                                </span>
+                                @if (isSingleMatchFamily)
+                                {
+                                    <span class="badge single-match-badge">
+                                        <i class="fas fa-star me-1"></i> Exact Match
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info">
+                                        Family Group
+                                    </span>
+                                }
                             </div>
                             <div class="col-md-2 text-end">
                                 <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#family-@familyGroup.FamilyNumber.Replace(".", "-").Replace("-", "")" aria-expanded="false">
@@ -383,22 +434,279 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-submit form when select filters change
+            // Get search input first
+            const searchInput = document.querySelector('input[name="SearchQuery"]') || 
+                                document.querySelector('input#SearchQuery') ||
+                                document.querySelector('.search-box input');
+            const familyGroupsContainer = document.getElementById('familyGroupsContainer');
+            
+            // Auto-submit form when select filters change (but not for search input)
             document.querySelectorAll('select').forEach(select => {
                 select.addEventListener('change', () => {
-                    document.getElementById('filterForm').submit();
+                    // Get current search value from input
+                    const currentSearchValue = searchInput?.value.trim() || '';
+                    if (currentSearchValue) {
+                        // Use AJAX search instead of form submit to preserve search
+                        const form = document.getElementById('filterForm');
+                        const selectedBarangay = form.querySelector('select[name="SelectedBarangay"]')?.value || '';
+                        const selectedStatus = form.querySelector('select[name="SelectedStatus"]')?.value || '';
+                        
+                        const params = new URLSearchParams();
+                        if (currentSearchValue) params.append('searchQuery', currentSearchValue);
+                        if (selectedBarangay) params.append('selectedBarangay', selectedBarangay);
+                        if (selectedStatus) params.append('selectedStatus', selectedStatus);
+                        
+                        // Trigger AJAX search
+                        if (familyGroupsContainer) {
+                            familyGroupsContainer.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Searching...</p></div>';
+                        }
+                        
+                        fetch(`/Doctor/PatientList?handler=Search&${params.toString()}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const familyGroups = data.familyGroups || data.FamilyGroups || [];
+                                updateFamilyGroupsList(familyGroups);
+                                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                                window.history.pushState({}, '', newUrl);
+                            })
+                            .catch(error => {
+                                console.error('Search error:', error);
+                                document.getElementById('filterForm').submit();
+                            });
+                    } else {
+                        document.getElementById('filterForm').submit();
+                    }
                 });
             });
+            
+            // Prevent form submission on Enter key in search input
+            const filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('submit', function(e) {
+                    // If search input has focus, prevent form submission and use AJAX instead
+                    if (document.activeElement === searchInput) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Trigger input event to use AJAX search
+                        searchInput.dispatchEvent(new Event('input'));
+                    }
+                });
+            }
 
-            // Debounce search input
+            // Dynamic search with AJAX
             let searchTimeout;
-            const searchInput = document.getElementById('searchQuery');
-            searchInput.addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    document.getElementById('filterForm').submit();
-                }, 500);
-            });
+            
+            if (searchInput) {
+                // Prevent form submission on Enter key
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                });
+                
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    
+                    const form = document.getElementById('filterForm');
+                    // Get the current value directly from the input field
+                    const searchValue = this.value.trim();
+                    
+                    // Don't search if value is too short (less than 1 character)
+                    if (searchValue.length === 0) {
+                        // Clear results or show all
+                        return;
+                    }
+                    
+                    // Show loading state
+                    if (familyGroupsContainer) {
+                        familyGroupsContainer.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Searching...</p></div>';
+                    }
+                    
+                    searchTimeout = setTimeout(async () => {
+                        try {
+                            // Get the current value again to ensure we have the latest
+                            const currentSearchValue = searchInput.value.trim();
+                            
+                            // Get filter values
+                            const selectedBarangay = form.querySelector('select[name="SelectedBarangay"]')?.value || '';
+                            const selectedStatus = form.querySelector('select[name="SelectedStatus"]')?.value || '';
+                            
+                            // Build query parameters - encode the search value properly
+                            const params = new URLSearchParams();
+                            if (currentSearchValue) {
+                                params.append('searchQuery', currentSearchValue);
+                            }
+                            if (selectedBarangay) params.append('selectedBarangay', selectedBarangay);
+                            if (selectedStatus) params.append('selectedStatus', selectedStatus);
+                            
+                            // Debug: log the search value being sent
+                            console.log('Searching for:', currentSearchValue);
+                            
+                            // Fetch results via AJAX
+                            const response = await fetch(`/Doctor/PatientList?handler=Search&${params.toString()}`);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            // Debug: log the response
+                            console.log('Search response:', data);
+                            
+                            // Update URL without reload
+                            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                            window.history.pushState({}, '', newUrl);
+                            
+                            // Update DOM with results
+                            // Handle both camelCase and PascalCase property names
+                            const familyGroups = data.familyGroups || data.FamilyGroups || [];
+                            updateFamilyGroupsList(familyGroups);
+                            
+                        } catch (error) {
+                            console.error('Search error:', error);
+                            if (familyGroupsContainer) {
+                                familyGroupsContainer.innerHTML = '<div class="col-12"><div class="alert alert-danger">Error loading results. Please try again.</div></div>';
+                            }
+                        }
+                    }, 500); // 500ms debounce delay
+                });
+                
+                // If page loads with a search query in URL, ensure input value matches
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlSearchQuery = urlParams.get('SearchQuery') || urlParams.get('searchQuery');
+                if (urlSearchQuery && searchInput.value !== urlSearchQuery) {
+                    searchInput.value = urlSearchQuery;
+                    // Trigger search if there's a value in URL
+                    searchInput.dispatchEvent(new Event('input'));
+                }
+            }
+            
+            // Function to update family groups list
+            function updateFamilyGroupsList(familyGroups) {
+                if (!familyGroupsContainer) return;
+                
+                if (!familyGroups || familyGroups.length === 0) {
+                    familyGroupsContainer.innerHTML = `
+                        <div class="col-12">
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-users fa-3x mb-3"></i>
+                                <h5>No family groups found</h5>
+                                <p>Try adjusting your filters or search criteria</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                familyGroups.forEach(familyGroup => {
+                    // Handle both camelCase and PascalCase property names
+                    const familyNumber = familyGroup.familyNumber || familyGroup.FamilyNumber || '';
+                    const memberCount = familyGroup.memberCount || familyGroup.MemberCount || 0;
+                    const primaryBarangay = familyGroup.primaryBarangay || familyGroup.PrimaryBarangay || 'Guest';
+                    const primaryContact = familyGroup.primaryContact || familyGroup.PrimaryContact || 'N/A';
+                    const familyMembers = familyGroup.familyMembers || familyGroup.FamilyMembers || [];
+                    
+                    const familyId = familyNumber.replace(/\./g, '-').replace(/-/g, '');
+                    const displayName = familyNumber.length > 15 
+                        ? familyNumber.substring(0, 15) + '...' 
+                        : familyNumber;
+                    
+                    html += `
+                        <div class="col-12">
+                            <div class="card patient-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-1 text-center">
+                                            <i class="fas fa-users fa-2x text-primary"></i>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <h5 class="card-title mb-1">Family ${displayName}</h5>
+                                            <p class="text-muted mb-0">
+                                                <small>
+                                                    <i class="fas fa-user-friends me-1"></i> ${memberCount} member(s)
+                                                </small>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <p class="mb-0">
+                                                <i class="fas fa-map-marker-alt me-1"></i>
+                                                ${primaryBarangay}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <p class="mb-0">
+                                                <i class="fas fa-phone me-1"></i>
+                                                ${primaryContact}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <span class="badge bg-info">Family Group</span>
+                                        </div>
+                                        <div class="col-md-2 text-end">
+                                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#family-${familyId}" aria-expanded="false">
+                                                <i class="fas fa-chevron-down me-1"></i> View Members
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="collapse mt-3" id="family-${familyId}">
+                                        <div class="card card-body bg-light">
+                                            <h6 class="mb-3">Family Members (${memberCount})</h6>
+                                            <div class="row">
+                    `;
+                    
+                    familyMembers.forEach(member => {
+                        // Handle both camelCase and PascalCase property names
+                        const memberFullName = member.fullName || member.FullName || 'Unknown';
+                        const memberAge = member.age || member.Age || 'N/A';
+                        const memberStatus = member.status || member.Status || 'N/A';
+                        const memberPatientId = member.patientId || member.PatientId || '';
+                        
+                        html += `
+                                <div class="col-md-6 mb-2">
+                                    <div class="d-flex align-items-center p-2 bg-white rounded border">
+                                        <i class="fas fa-user-circle text-secondary me-2"></i>
+                                        <div class="flex-grow-1">
+                                            <strong>${memberFullName}</strong>
+                                            <br>
+                                            <small class="text-muted">
+                                                Age: ${memberAge} | Status: ${memberStatus}
+                                            </small>
+                                        </div>
+                                        <a href="/Doctor/PatientDetails/${memberPatientId}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                        `;
+                    });
+                    
+                    html += `
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                familyGroupsContainer.innerHTML = html;
+                
+                // Reinitialize Bootstrap collapse components
+                const collapseElements = familyGroupsContainer.querySelectorAll('[data-bs-toggle="collapse"]');
+                collapseElements.forEach(element => {
+                    element.addEventListener('click', function() {
+                        const target = document.querySelector(this.getAttribute('data-bs-target'));
+                        if (target) {
+                            const bsCollapse = new bootstrap.Collapse(target, { toggle: true });
+                        }
+                    });
+                });
+            }
             
             // Handle print certificate button
             const printButton = document.getElementById('printCertificate');

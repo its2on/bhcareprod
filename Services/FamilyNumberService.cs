@@ -17,7 +17,7 @@ namespace Barangay.Services
         Task<string?> GetExistingFamilyNumberAsync(string userId);
         Task<string?> GetFamilyNumberByLastNameAsync(string lastName);
         Task<GenerateFamilyNumberResponse> GenerateOrReuseFamilyNumberAsync(string lastName, string userId, bool sameFamily);
-        Task<string> GenerateNewFamilyNumberAsync(string lastName);
+        Task<string> GenerateBrandNewFamilyNumberAsync(string lastName);
     }
 
     public class FamilyNumberService : IFamilyNumberService
@@ -331,7 +331,7 @@ namespace Barangay.Services
         /// <summary>
         /// Generate a brand new family number without checking for existing ones
         /// </summary>
-        public async Task<string> GenerateNewFamilyNumberAsync(string lastName)
+        public async Task<string> GenerateBrandNewFamilyNumberAsync(string lastName)
         {
             await _semaphore.WaitAsync();
             try
@@ -341,13 +341,12 @@ namespace Barangay.Services
                 // Get the first letter of last name for prefix
                 var prefix = lastName.Substring(0, 1).ToUpper();
 
-                // Get the next available number for this prefix
-                var nextNumber = await GetNextFamilyNumberAsync(prefix);
+                // Get the next available number for this prefix - call internal method to avoid deadlock
+                var nextNumber = await GetNextFamilyNumberInternalAsync(prefix);
 
-                var newFamilyNumber = $"{prefix}-{nextNumber:D3}";
-                _logger.LogInformation("Generated new family number: {FamilyNumber}", newFamilyNumber);
+                _logger.LogInformation("Generated new family number: {FamilyNumber}", nextNumber);
 
-                return newFamilyNumber;
+                return nextNumber;
             }
             catch (Exception ex)
             {

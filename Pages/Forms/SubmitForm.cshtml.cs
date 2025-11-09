@@ -272,18 +272,20 @@ namespace Barangay.Pages.Forms
 
                 _logger.LogInformation($"Form submission {submission.FormSubmissionId} for form '{FormTemplate.FormName}' saved successfully with AppointmentId={submission.AppointmentId}");
 
-                // Update appointment status to InProgress after successful form submission
+                // Update appointment status to Pending after successful form submission
+                // Pending = waiting for nurse/doctor to start consultation
+                // InProgress = nurse/doctor has started the consultation (set by nurse/doctor, not by form)
                 if (AppointmentId.HasValue)
                 {
-                    _logger.LogInformation("Updating appointment status to InProgress for AppointmentId: {AppointmentId}", AppointmentId.Value);
+                    _logger.LogInformation("Updating appointment status to Pending for AppointmentId: {AppointmentId}", AppointmentId.Value);
                     var appointment = await _context.Appointments.FindAsync(AppointmentId.Value);
                     if (appointment != null)
                     {
                         var oldStatus = appointment.Status;
-                        appointment.Status = AppointmentStatus.InProgress; // 2 = InProgress (Ongoing)
+                        appointment.Status = AppointmentStatus.Pending; // Ready for nurse/doctor review
                         appointment.UpdatedAt = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
-                        _logger.LogInformation("Appointment {AppointmentId} status updated from {OldStatus} to InProgress", 
+                        _logger.LogInformation("Appointment {AppointmentId} status updated from {OldStatus} to Pending (form completed)", 
                             AppointmentId.Value, oldStatus);
                     }
                     else

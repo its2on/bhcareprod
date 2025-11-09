@@ -104,6 +104,12 @@ namespace Barangay.Models
         [StringLength(50)]
         public string? Type { get; set; }
         
+        /// <summary>
+        /// Links this appointment to a consultation service
+        /// If null, defaults to "General Consult" (for backward compatibility)
+        /// </summary>
+        public int? ServiceId { get; set; }
+        
         [StringLength(500)]
         public string? AttachmentPath { get; set; }
         
@@ -127,6 +133,9 @@ namespace Barangay.Models
         [ForeignKey(nameof(DoctorId))]
         [InverseProperty("DoctorAppointments")]
         public virtual ApplicationUser? Doctor { get; set; }
+        
+        [ForeignKey(nameof(ServiceId))]
+        public virtual ConsultationService? ConsultationService { get; set; }
         
         // Navigation properties for attachments and files
         [JsonIgnore]

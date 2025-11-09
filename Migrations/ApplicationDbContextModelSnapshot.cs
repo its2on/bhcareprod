@@ -500,6 +500,9 @@ namespace Barangay.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("ServiceId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -519,6 +522,8 @@ namespace Barangay.Migrations
                     b.HasIndex("PatientId");
 
                     b.HasIndex("PatientUserId");
+
+                    b.HasIndex("ServiceId");
 
                     b.ToTable("Appointments");
                 });
@@ -713,6 +718,84 @@ namespace Barangay.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("AuditTrails");
+                });
+
+            modelBuilder.Entity("Barangay.Models.ConsultationService", b =>
+                {
+                    b.Property<int>("ServiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
+
+                    b.Property<bool>("AllowsWalkIn")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("AverageDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ColorTheme")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IconClass")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaxAge")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinAge")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresAgeBasedAssessment")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ServiceKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SpecialInstructions")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("ServiceId");
+
+                    b.ToTable("ConsultationServices");
                 });
 
             modelBuilder.Entity("Barangay.Models.ConsultationTimeSlot", b =>
@@ -1393,6 +1476,9 @@ namespace Barangay.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("ServiceId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("ShowInAppointmentFlow")
                         .HasColumnType("bit");
 
@@ -1416,6 +1502,8 @@ namespace Barangay.Migrations
                         .IsUnique();
 
                     b.HasIndex("IsActive");
+
+                    b.HasIndex("ServiceId");
 
                     b.ToTable("FormTemplates");
                 });
@@ -4452,6 +4540,12 @@ namespace Barangay.Migrations
                         .WithMany("Appointments")
                         .HasForeignKey("PatientUserId");
 
+                    b.HasOne("Barangay.Models.ConsultationService", "ConsultationService")
+                        .WithMany("Appointments")
+                        .HasForeignKey("ServiceId");
+
+                    b.Navigation("ConsultationService");
+
                     b.Navigation("Doctor");
 
                     b.Navigation("Patient");
@@ -4591,6 +4685,15 @@ namespace Barangay.Migrations
                     b.Navigation("FormTemplate");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Barangay.Models.FormTemplate", b =>
+                {
+                    b.HasOne("Barangay.Models.ConsultationService", "ConsultationService")
+                        .WithMany("AssociatedForms")
+                        .HasForeignKey("ServiceId");
+
+                    b.Navigation("ConsultationService");
                 });
 
             modelBuilder.Entity("Barangay.Models.GuardianInformation", b =>
@@ -5019,6 +5122,13 @@ namespace Barangay.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("Barangay.Models.ConsultationService", b =>
+                {
+                    b.Navigation("Appointments");
+
+                    b.Navigation("AssociatedForms");
                 });
 
             modelBuilder.Entity("Barangay.Models.FormField", b =>
