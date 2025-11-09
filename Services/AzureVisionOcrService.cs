@@ -28,25 +28,48 @@ namespace Barangay.Services
             _logger = logger;
 
             // Get Azure Vision credentials from configuration
-            // Try multiple configuration sources (environment variables take precedence in ASP.NET Core)
-            _endpoint = _configuration["AzureOCR__Endpoint"] ??  // Environment variable format (double underscore)
-                       _configuration["AzureOCR:Endpoint"] ??   // appsettings.json format (colon)
-                       Environment.GetEnvironmentVariable("AzureOCR__Endpoint") ?? "";
+            // Priority: Environment variables > IConfiguration (which includes appsettings.json)
+            // Try multiple formats to handle different configuration sources
             
-            _key = _configuration["AzureOCR__Key"] ??            // Environment variable format (double underscore)
-                   _configuration["AzureOCR:Key"] ??             // appsettings.json format (colon)
-                   Environment.GetEnvironmentVariable("AzureOCR__Key") ?? "";
+            // Check environment variables first (highest priority in Azure App Service)
+            var envEndpoint = Environment.GetEnvironmentVariable("AzureOCR__Endpoint");
+            var envKey = Environment.GetEnvironmentVariable("AzureOCR__Key");
+            
+            // Check IConfiguration (includes appsettings.json and environment variables)
+            var configEndpointUnderscore = _configuration["AzureOCR__Endpoint"];
+            var configKeyUnderscore = _configuration["AzureOCR__Key"];
+            var configEndpointColon = _configuration["AzureOCR:Endpoint"];
+            var configKeyColon = _configuration["AzureOCR:Key"];
+            
+            // Use environment variables if available, otherwise use IConfiguration
+            _endpoint = envEndpoint?.Trim() ?? 
+                       configEndpointUnderscore?.Trim() ?? 
+                       configEndpointColon?.Trim() ?? "";
+            
+            _key = envKey?.Trim() ?? 
+                   configKeyUnderscore?.Trim() ?? 
+                   configKeyColon?.Trim() ?? "";
 
-            // Log configuration status for debugging
+            // Enhanced logging for debugging
             if (!string.IsNullOrEmpty(_endpoint) && !string.IsNullOrEmpty(_key))
             {
-                _logger.LogInformation("Azure Vision OCR configured - Endpoint: {Endpoint}, Key length: {KeyLength}", 
-                    _endpoint, _key.Length);
+                var source = !string.IsNullOrEmpty(envEndpoint) ? "Environment Variable" :
+                            !string.IsNullOrEmpty(configEndpointUnderscore) ? "IConfiguration (AzureOCR__Endpoint)" :
+                            "IConfiguration (AzureOCR:Endpoint)";
+                _logger.LogInformation("✓ Azure Vision OCR configured - Endpoint: {Endpoint}, Key length: {KeyLength}, Source: {Source}", 
+                    _endpoint, _key.Length, source);
             }
             else
             {
-                _logger.LogWarning("Azure Vision OCR credentials not configured. OCR features may not work.");
-                _logger.LogWarning("Checked: AzureOCR__Endpoint, AzureOCR:Endpoint, AzureOCR__Key, AzureOCR:Key");
+                _logger.LogError("✗ Azure Vision OCR credentials not configured. OCR features will not work.");
+                _logger.LogWarning("Configuration check results:");
+                _logger.LogWarning("  Environment AzureOCR__Endpoint: {EnvEndpoint}", envEndpoint != null ? "FOUND" : "NOT FOUND");
+                _logger.LogWarning("  Environment AzureOCR__Key: {EnvKey}", envKey != null ? $"FOUND (length: {envKey.Length})" : "NOT FOUND");
+                _logger.LogWarning("  IConfiguration AzureOCR__Endpoint: {ConfigUnderscore}", configEndpointUnderscore != null ? "FOUND" : "NOT FOUND");
+                _logger.LogWarning("  IConfiguration AzureOCR__Key: {ConfigKeyUnderscore}", configKeyUnderscore != null ? $"FOUND (length: {configKeyUnderscore.Length})" : "NOT FOUND");
+                _logger.LogWarning("  IConfiguration AzureOCR:Endpoint: {ConfigColon}", configEndpointColon != null ? "FOUND" : "NOT FOUND");
+                _logger.LogWarning("  IConfiguration AzureOCR:Key: {ConfigKeyColon}", configKeyColon != null ? $"FOUND (length: {configKeyColon.Length})" : "NOT FOUND");
+                _logger.LogWarning("To fix: Set AzureOCR__Endpoint and AzureOCR__Key in Azure App Service → Configuration → Application settings");
             }
         }
 
