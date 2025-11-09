@@ -36,12 +36,22 @@ RUN apt-get update && \
         tesseract-ocr-eng \
         libleptonica-dev \
         libtesseract-dev \
+        libleptonica5 \
+        libtesseract4 \
         libopencv-dev \
         libopencv4 \
         libgdiplus \
         libc6-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Create symlinks for Leptonica library (Tesseract.NET looks for specific version)
+RUN if [ -f /usr/lib/x86_64-linux-gnu/liblept.so ]; then \
+        ln -sf /usr/lib/x86_64-linux-gnu/liblept.so /usr/lib/x86_64-linux-gnu/libleptonica-1.82.0.so || true; \
+    elif [ -f /usr/lib/liblept.so ]; then \
+        ln -sf /usr/lib/liblept.so /usr/lib/libleptonica-1.82.0.so || true; \
+    fi && \
+    find /usr/lib -name "liblept*.so*" -exec ln -sf {} /usr/lib/x86_64-linux-gnu/libleptonica-1.82.0.so \; 2>/dev/null || true
 
 COPY --from=publish /app/publish .
 
