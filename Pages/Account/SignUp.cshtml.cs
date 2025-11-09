@@ -1339,7 +1339,19 @@ namespace Barangay.Pages.Account
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Local OCR failed");
+                    // Check if this is a native library issue
+                    bool isNativeLibraryError = ex.Message.Contains("libleptonica") || 
+                                                ex.Message.Contains("DllNotFoundException") ||
+                                                ex.InnerException?.Message?.Contains("libleptonica") == true;
+                    
+                    if (isNativeLibraryError)
+                    {
+                        _logger.LogWarning(ex, "Local OCR unavailable (native libraries not installed). Falling back to Azure Vision OCR.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning(ex, "Local OCR failed. Will try Azure Vision OCR as fallback.");
+                    }
                 }
                 
                 // Try Azure Vision OCR

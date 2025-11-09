@@ -83,6 +83,29 @@ namespace Barangay.Services
             
             _logger.LogInformation("Tesseract data path: {Path}", _tesseractDataPath);
             
+            // Test if Tesseract native libraries are available (only on Linux)
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                try
+                {
+                    // Try to create a TesseractEngine instance to test if native libraries are available
+                    using (var testEngine = new TesseractEngine(_tesseractDataPath, "eng", EngineMode.Default))
+                    {
+                        _logger.LogInformation("✓ Tesseract native libraries are available");
+                    }
+                }
+                catch (DllNotFoundException dllEx)
+                {
+                    _logger.LogError(dllEx, "❌ Tesseract native libraries (Leptonica) not found. Local OCR will not work. " +
+                        "Please ensure Leptonica is installed: apt-get install -y libleptonica-dev libtesseract-dev");
+                }
+                catch (Exception ex)
+                {
+                    // Other exceptions (like missing language files) are OK - we'll handle those later
+                    _logger.LogWarning(ex, "Could not initialize Tesseract engine during startup check (this may be OK if language files are missing)");
+                }
+            }
+            
             // Ensure language files exist (download if needed) - wait for it to complete
             try
             {
@@ -417,9 +440,36 @@ namespace Barangay.Services
                                     }
                                 }
                             }
+                            catch (DllNotFoundException dllEx)
+                            {
+                                // Native library missing - this is a critical error that should be reported clearly
+                                _logger.LogError(dllEx, "❌ Tesseract native libraries (Leptonica) not found. " +
+                                    "Local OCR cannot function. Please install: apt-get install -y libleptonica-dev libtesseract-dev");
+                                
+                                // Return early with a clear error message
+                                return new OcrResult
+                                {
+                                    Success = false,
+                                    Message = "Tesseract OCR native libraries are not installed on the server. " +
+                                        "Please contact the administrator. Error: " + dllEx.Message
+                                };
+                            }
                             catch (Exception ex)
                             {
                                 _logger.LogWarning(ex, "Failed to process with Method: {Method}, Engine: {EngineMode}, PSM {PSM}", method, engineMode, psmMode);
+                                
+                                // Check if this is a native library issue
+                                if (ex.Message.Contains("libleptonica") || ex.Message.Contains("DllNotFoundException") || 
+                                    ex.InnerException?.Message?.Contains("libleptonica") == true)
+                                {
+                                    _logger.LogError(ex, "❌ Native library error detected. Local OCR cannot function.");
+                                    return new OcrResult
+                                    {
+                                        Success = false,
+                                        Message = "Tesseract OCR native libraries are not available. " +
+                                            "Please contact the administrator. Error: " + ex.Message
+                                    };
+                                }
                             }
                         }
                     }
