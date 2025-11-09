@@ -443,15 +443,126 @@ namespace Barangay.Pages.Account
 
                 _logger.LogInformation("Processing file: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
-                // Perform OCR analysis
-                OcrResult ocrResult;
-                using (var stream = file.OpenReadStream())
+                // Perform OCR analysis with fallback logic
+                OcrResult ocrResult = null;
+                
+                // Try Local OCR first (Tesseract)
+                try
                 {
-                    ocrResult = await _ocrService.AnalyzeResidencyDocumentAsync(stream, file.FileName);
+                    using (var stream = file.OpenReadStream())
+                    {
+                        ocrResult = await _ocrService.AnalyzeResidencyDocumentAsync(stream, file.FileName);
+                    }
+                    
+                    // Check if Local OCR failed due to native library issues
+                    bool isNativeLibraryError = !ocrResult.Success && 
+                        (ocrResult.Message?.Contains("Tesseract OCR native libraries") == true ||
+                         ocrResult.Message?.Contains("libleptonica") == true ||
+                         ocrResult.Message?.Contains("DllNotFoundException") == true);
+                    
+                    if (isNativeLibraryError)
+                    {
+                        _logger.LogWarning("Local OCR unavailable (native libraries not installed). Falling back to Azure Vision OCR.");
+                        ocrResult = null; // Reset to try Azure OCR
+                    }
+                    else if (ocrResult.Success)
+                    {
+                        _logger.LogInformation("Local OCR succeeded. Barangay: {Barangay}", ocrResult.BarangayNumber);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Check if this is a native library issue
+                    bool isNativeLibraryError = ex.Message.Contains("libleptonica") || 
+                                                ex.Message.Contains("DllNotFoundException") ||
+                                                ex.InnerException?.Message?.Contains("libleptonica") == true;
+                    
+                    if (isNativeLibraryError)
+                    {
+                        _logger.LogWarning(ex, "Local OCR unavailable (native libraries not installed). Falling back to Azure Vision OCR.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning(ex, "Local OCR failed. Will try Azure Vision OCR as fallback.");
+                    }
+                }
+                
+                // Fallback to Azure Vision OCR if Local OCR failed or is unavailable
+                if (ocrResult == null || !ocrResult.Success)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Attempting Azure Vision OCR as fallback...");
+                        using (var stream = file.OpenReadStream())
+                        {
+                            var azureResult = await _azureVisionOcrService.AnalyzeIdImageAsync(stream, file.FileName, usePreprocessing: true);
+                            
+                            if (azureResult != null && !string.IsNullOrEmpty(azureResult.ExtractedText))
+                            {
+                                // Convert Azure Vision result to OcrResult format
+                                var validBarangaysList = new[] { "158", "159", "160", "161" };
+                                var barangayNumber = azureResult.BarangayNumber?.Trim() ?? "";
+                                bool isBarangayValid = !string.IsNullOrWhiteSpace(barangayNumber) && 
+                                                      validBarangaysList.Contains(barangayNumber);
+                                
+                                ocrResult = new OcrResult
+                                {
+                                    // Set Success to true if barangay is valid, false otherwise
+                                    // This allows the downstream logic to handle both cases correctly
+                                    Success = isBarangayValid,
+                                    BarangayNumber = barangayNumber,
+                                    Message = isBarangayValid 
+                                        ? $"Residency verified in Barangay {barangayNumber}"
+                                        : !string.IsNullOrWhiteSpace(barangayNumber)
+                                            ? $"The document shows Barangay {barangayNumber}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Your account will require manual review by an administrator."
+                                            : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please ensure your document clearly shows your barangay number.",
+                                    ExtractedText = azureResult.ExtractedText
+                                };
+                                
+                                _logger.LogInformation("Azure Vision OCR completed. Barangay: {Barangay}, Success: {Success}, Valid: {Valid}", 
+                                    barangayNumber, ocrResult.Success, isBarangayValid);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Azure Vision OCR did not extract any text");
+                                if (ocrResult == null)
+                                {
+                                    ocrResult = new OcrResult
+                                    {
+                                        Success = false,
+                                        Message = "Unable to extract text from the document. Please ensure the image is clear and readable."
+                                    };
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Azure Vision OCR also failed");
+                        if (ocrResult == null)
+                        {
+                            ocrResult = new OcrResult
+                            {
+                                Success = false,
+                                Message = "OCR processing failed. Please try again or contact support."
+                            };
+                        }
+                    }
                 }
 
                 // CRITICAL VALIDATION: Only accept barangays 158, 159, 160, or 161
                 var validBarangays = new[] { "158", "159", "160", "161" };
+                
+                // Safety check: ensure ocrResult is not null
+                if (ocrResult == null)
+                {
+                    _logger.LogError("Both Local OCR and Azure Vision OCR failed. No OCR result available.");
+                    return new JsonResult(new 
+                    { 
+                        success = false, 
+                        message = "OCR processing failed. Please try again or contact support." 
+                    });
+                }
                 
                 // Check if a barangay number was detected (even if not eligible)
                 if (!string.IsNullOrWhiteSpace(ocrResult.BarangayNumber))
