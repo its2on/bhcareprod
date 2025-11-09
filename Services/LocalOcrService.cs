@@ -551,6 +551,7 @@ namespace Barangay.Services
         /// <summary>
         /// Validates that the extracted text is from an actual Philippine ID document
         /// Rejects plain text, screenshots, or documents without ID markers
+        /// STRICT VALIDATION: Requires actual ID document markers, not just address fields
         /// </summary>
         private bool IsValidPhilippineIdDocument(string text)
         {
@@ -559,71 +560,93 @@ namespace Barangay.Services
 
             var upperText = text.ToUpper();
             
-            // Required Philippine ID markers - document must contain at least one
-            // Using very lenient partial matches to handle OCR errors
-            var idMarkers = new[]
+            // CRITICAL: Check for screenshot indicators in text (screenshots often have UI elements)
+            var screenshotIndicators = new[] { "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", "WINDOWS", "MACOS", "ANDROID", "IOS" };
+            if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                // Republic of the Philippines markers (very lenient for OCR errors)
-                "REPUBLIC", "PHILIPPINES", "PHILIPPINE", "REPUBLIKA", "PILIPINAS", "PHL", "PHIL",
-                
-                // Driver's License markers (very lenient)
-                "DRIVER", "LICENSE", "DRIVERS", "LTO", "LAND TRANSPORTATION", "TRANSPORTATION", "LICENS",
-                
-                // National ID markers
-                "PHILSYS", "NATIONAL ID", "IDENTIFICATION", "PAMBANSANG", "NATIONAL", "NATL",
-                
-                // PhilHealth markers
-                "PHILHEALTH", "HEALTH INSURANCE", "MEMBER", "HEALTH",
-                
-                // UMID/SSS markers
-                "UMID", "UNIFIED", "GSIS", "SSS", "SOCIAL SECURITY", "SOCIAL",
-                
-                // Postal ID markers
-                "POSTAL", "POST OFFICE", "POST",
-                
-                // Passport markers
-                "PASSPORT", "PASS",
-                
-                // TIN ID markers
-                "TIN", "TAX", "BIR", "BUREAU"
-            };
-
-            // Check if text contains at least one ID marker (using very lenient partial/fuzzy matching)
-            // Also check for common OCR misreadings and partial matches
-            bool hasIdMarker = idMarkers.Any(marker => 
-                upperText.Contains(marker) || 
-                upperText.Contains(marker.Replace(" ", "")) ||
-                // Handle common OCR errors - very lenient
-                (marker.Contains("REPUBLIC") && (upperText.Contains("REPUB") || upperText.Contains("PHILIPP") || upperText.Contains("PHL") || upperText.Contains("PHI"))) ||
-                (marker.Contains("PHILIPPINES") && (upperText.Contains("PHILIPP") || upperText.Contains("PHL") || upperText.Contains("PHIL") || upperText.Contains("PHI"))) ||
-                (marker.Contains("DRIVER") && (upperText.Contains("DRIV") || upperText.Contains("LICENS") || upperText.Contains("LICEN") || upperText.Contains("LIC"))) ||
-                (marker.Contains("LICENSE") && (upperText.Contains("LICENS") || upperText.Contains("LICEN") || upperText.Contains("LIC") || upperText.Contains("LI"))) ||
-                (marker.Contains("NATIONAL") && (upperText.Contains("NATL") || upperText.Contains("NATIO") || upperText.Contains("NAT"))) ||
-                (marker.Contains("ADDRESS") && (upperText.Contains("ADDR") || upperText.Contains("ADD"))) ||
-                // Check for common ID patterns even if garbled
-                upperText.Contains("ADDRESS") || // Address field is a strong indicator
-                upperText.Contains("ADDR") || // Partial address
-                upperText.Contains("CITY") || // City field
-                upperText.Contains("BARANGAY") || upperText.Contains("BARANG") || upperText.Contains("BRGY") || upperText.Contains("BAR") || // Barangay field
-                Regex.IsMatch(upperText, @"\b\d{2,3}-\d{2}-\d{6}\b") || // License number pattern: N10-22-300176
-                Regex.IsMatch(upperText, @"\b\d{2,3}-\d{2}-\d{4,6}\b") || // License number pattern (lenient)
-                Regex.IsMatch(upperText, @"[A-Z]{2,},\s*[A-Z]{2,}") || // Name pattern: LOPEZ, ANTHONY
-                Regex.IsMatch(upperText, @"[A-Z]{2,}[,\s]+[A-Z]{2,}") || // Name pattern (lenient)
-                // Check for date patterns (common in IDs)
-                Regex.IsMatch(upperText, @"\b\d{4}[/-]\d{2}[/-]\d{2}\b") || // Date pattern: 2026/10/14
-                Regex.IsMatch(upperText, @"\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b") || // Date pattern (lenient)
-                // Check for common ID number patterns
-                Regex.IsMatch(upperText, @"\b[A-Z]?\d{2,3}-\d{2}-\d{4,6}\b") || // License number with letter prefix
-                // Check for common words that appear in IDs even if garbled
-                (upperText.Contains("AR") && upperText.Contains("S")) || // Might be "BARANGAY" or "AREA"
-                (upperText.Contains("ST") && upperText.Contains("A")) || // Might be "STATE" or "ADDRESS"
-                (upperText.Contains("16") || upperText.Contains("15") || upperText.Contains("17") || upperText.Contains("18")) // Barangay numbers
-            );
+                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                return false;
+            }
             
-            if (!hasIdMarker)
+            // Required Philippine ID markers - document MUST contain at least one STRONG ID marker
+            // These are specific to actual ID documents, not just any document with an address
+            var strongIdMarkers = new[]
             {
-                _logger.LogWarning("⚠️ Document validation failed: No Philippine ID markers found");
+                // Republic of the Philippines markers (REQUIRED for most IDs)
+                "REPUBLIC OF THE PHILIPPINES",
+                "REPUBLIKA NG PILIPINAS",
+                "REPUBLIC OF THE PHILIPPINE",
+                
+                // Driver's License markers (REQUIRED)
+                "DRIVER'S LICENSE",
+                "DRIVERS LICENSE",
+                "DRIVER LICENSE",
+                "LICENSE TO DRIVE",
+                "LAND TRANSPORTATION OFFICE",
+                "LTO",
+                "DEPARTMENT OF TRANSPORTATION",
+                
+                // National ID markers (REQUIRED)
+                "PHILSYS",
+                "PHILIPPINE IDENTIFICATION SYSTEM",
+                "PHILIPPINE NATIONAL ID",
+                "NATIONAL ID",
+                "PAMBANSANG PAGKAKAKILANLAN",
+                "PHILIPPINE IDENTIFICATION CARD",
+                
+                // PhilHealth markers (REQUIRED)
+                "PHILHEALTH",
+                "PHIL-HEALTH",
+                "PHILIPPINE HEALTH INSURANCE",
+                "MEMBER ID",
+                
+                // UMID/SSS markers (REQUIRED)
+                "UMID",
+                "UNIFIED MULTI-PURPOSE ID",
+                "GSIS",
+                "SSS",
+                "SOCIAL SECURITY",
+                
+                // Postal ID markers (REQUIRED)
+                "POSTAL ID",
+                "PHILIPPINE POSTAL",
+                "PHLPOST",
+                "POST OFFICE",
+                
+                // Passport markers (REQUIRED)
+                "PASSPORT",
+                "REPUBLIC OF THE PHILIPPINES PASSPORT",
+                
+                // TIN ID markers (REQUIRED)
+                "TIN",
+                "TAX IDENTIFICATION NUMBER",
+                "BIR",
+                "BUREAU OF INTERNAL REVENUE"
+            };
+            
+            // Check for STRONG ID markers first (these are required for legitimate IDs)
+            bool hasStrongIdMarker = strongIdMarkers.Any(marker => upperText.Contains(marker));
+            
+            // Also check for partial matches of strong markers (handle OCR errors)
+            if (!hasStrongIdMarker)
+            {
+                hasStrongIdMarker = 
+                    upperText.Contains("REPUBLIC") && (upperText.Contains("PHILIPPINES") || upperText.Contains("PHILIPPINE")) ||
+                    (upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE") ||
+                    upperText.Contains("PHILSYS") ||
+                    upperText.Contains("PHILHEALTH") ||
+                    upperText.Contains("UMID") ||
+                    upperText.Contains("POSTAL ID") ||
+                    upperText.Contains("PASSPORT") ||
+                    (upperText.Contains("TAX") || upperText.Contains("TIN")) && upperText.Contains("IDENTIFICATION");
+            }
+
+            // CRITICAL: Must have a STRONG ID marker - screenshots won't have these
+            if (!hasStrongIdMarker)
+            {
+                _logger.LogWarning("⚠️ Document validation failed: No strong Philippine ID markers found");
                 _logger.LogWarning("Text preview: {Preview}", text.Substring(0, Math.Min(500, text.Length)));
+                _logger.LogWarning("Screenshots and non-ID documents are rejected. Please upload an actual Philippine ID document.");
                 return false;
             }
 
@@ -688,7 +711,7 @@ namespace Barangay.Services
             }
 
             _logger.LogInformation("✅ Document validation passed: Philippine ID detected (markers: {Markers}, fields: {Fields})", 
-                idMarkers.Count(m => upperText.Contains(m)), fieldCount);
+                strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
             return true;
         }
 
