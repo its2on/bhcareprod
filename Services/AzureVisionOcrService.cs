@@ -28,12 +28,25 @@ namespace Barangay.Services
             _logger = logger;
 
             // Get Azure Vision credentials from configuration
-            _endpoint = _configuration["AzureOCR:Endpoint"] ?? Environment.GetEnvironmentVariable("AzureOCR__Endpoint") ?? "";
-            _key = _configuration["AzureOCR:Key"] ?? Environment.GetEnvironmentVariable("AzureOCR__Key") ?? "";
+            // Try multiple configuration sources (environment variables take precedence in ASP.NET Core)
+            _endpoint = _configuration["AzureOCR__Endpoint"] ??  // Environment variable format (double underscore)
+                       _configuration["AzureOCR:Endpoint"] ??   // appsettings.json format (colon)
+                       Environment.GetEnvironmentVariable("AzureOCR__Endpoint") ?? "";
+            
+            _key = _configuration["AzureOCR__Key"] ??            // Environment variable format (double underscore)
+                   _configuration["AzureOCR:Key"] ??             // appsettings.json format (colon)
+                   Environment.GetEnvironmentVariable("AzureOCR__Key") ?? "";
 
-            if (string.IsNullOrEmpty(_endpoint) || string.IsNullOrEmpty(_key))
+            // Log configuration status for debugging
+            if (!string.IsNullOrEmpty(_endpoint) && !string.IsNullOrEmpty(_key))
+            {
+                _logger.LogInformation("Azure Vision OCR configured - Endpoint: {Endpoint}, Key length: {KeyLength}", 
+                    _endpoint, _key.Length);
+            }
+            else
             {
                 _logger.LogWarning("Azure Vision OCR credentials not configured. OCR features may not work.");
+                _logger.LogWarning("Checked: AzureOCR__Endpoint, AzureOCR:Endpoint, AzureOCR__Key, AzureOCR:Key");
             }
         }
 
