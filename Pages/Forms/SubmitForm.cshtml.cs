@@ -41,13 +41,16 @@ namespace Barangay.Pages.Forms
         // Dashboard URL based on user role
         public string DashboardUrl { get; set; } = "/User/UserDashboard";
         
+        // Return URL for redirects (used when editing from Nurse/AppointmentDetails)
+        public string? ReturnUrl { get; set; }
+        
         // Dictionary to hold prefilled values for form fields
         public Dictionary<string, string> PrefilledValues { get; set; } = new Dictionary<string, string>();
         
         // Fields that should be readonly (not editable)
         public HashSet<string> ReadonlyFields { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public async Task<IActionResult> OnGetAsync(string formKey, int? appointmentId = null)
+        public async Task<IActionResult> OnGetAsync(string formKey, int? appointmentId = null, string? returnUrl = null)
         {
             FormTemplate = await _context.FormTemplates
                 .Include(f => f.FormFields)
@@ -58,6 +61,9 @@ namespace Barangay.Pages.Forms
             {
                 return NotFound("Form not found or is not active.");
             }
+
+            // Store return URL if provided (for redirects after editing)
+            ReturnUrl = returnUrl;
 
             // Load appointment context if provided
             if (appointmentId.HasValue)
@@ -107,8 +113,12 @@ namespace Barangay.Pages.Forms
             // Load user and patient data for prefilling
             await LoadPrefillDataAsync();
             
-            // Determine dashboard URL based on user role
-            if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
+            // Determine dashboard URL - prioritize returnUrl if provided
+            if (!string.IsNullOrEmpty(ReturnUrl))
+            {
+                DashboardUrl = ReturnUrl;
+            }
+            else if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
             {
                 DashboardUrl = "/Nurse/NurseDashboard";
             }
@@ -274,11 +284,12 @@ namespace Barangay.Pages.Forms
             }
         }
 
-        public async Task<IActionResult> OnPostAsync(string formKey, int? appointmentId = null)
+        public async Task<IActionResult> OnPostAsync(string formKey, int? appointmentId = null, string? returnUrl = null)
         {
             _logger.LogInformation("=== FORM SUBMISSION START ===");
             _logger.LogInformation("FormKey received: {FormKey}", formKey);
             _logger.LogInformation("AppointmentId received: {AppointmentId}", appointmentId);
+            _logger.LogInformation("ReturnUrl received: {ReturnUrl}", returnUrl);
             _logger.LogInformation("Request.Form keys count: {Count}", Request.Form.Keys.Count);
             _logger.LogInformation("Request.Form keys: {Keys}", string.Join(", ", Request.Form.Keys));
             
@@ -606,8 +617,17 @@ namespace Barangay.Pages.Forms
                 IsSubmitted = true;
                 TempData["FormSubmitted"] = true;
                 
-                // Determine dashboard URL based on user role
-                if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
+                // Store return URL if provided
+                ReturnUrl = returnUrl;
+                _logger.LogInformation("ReturnUrl after assignment: '{ReturnUrl}'", ReturnUrl ?? "(null)");
+                
+                // Determine dashboard URL - prioritize returnUrl if provided
+                if (!string.IsNullOrEmpty(ReturnUrl))
+                {
+                    DashboardUrl = ReturnUrl;
+                    _logger.LogInformation("Using ReturnUrl for DashboardUrl: '{DashboardUrl}'", DashboardUrl);
+                }
+                else if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
                 {
                     DashboardUrl = "/Nurse/NurseDashboard";
                 }

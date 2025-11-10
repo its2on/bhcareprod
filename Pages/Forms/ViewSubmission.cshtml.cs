@@ -34,6 +34,7 @@ namespace Barangay.Pages.Forms
 
             Submission = await _context.FormSubmissions
                 .Include(s => s.FormTemplate)
+                    .ThenInclude(ft => ft.FormFields)
                 .FirstOrDefaultAsync(s => s.FormSubmissionId == id.Value);
 
             if (Submission == null)

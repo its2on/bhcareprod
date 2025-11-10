@@ -249,8 +249,8 @@
         </div>
     }
     
-    @* Show success message if form is already submitted *@
-    @if (Model.IsSubmitted)
+    @* Show success message if form is already submitted (skip if returnUrl for immediate redirect) *@
+    @if (Model.IsSubmitted && string.IsNullOrEmpty(Model.ReturnUrl))
     {
         <div class="alert alert-success text-center py-5">
             <div class="mb-4">
@@ -268,6 +268,19 @@
             <a href="@Model.DashboardUrl" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
                 <i class="fa-solid fa-home me-2"></i>Go to Dashboard
             </a>
+        </div>
+    }
+    else if (Model.IsSubmitted && !string.IsNullOrEmpty(Model.ReturnUrl))
+    {
+        @* Show loading message during immediate redirect for Nurse/Doctor edits *@
+        <div class="alert alert-info text-center py-5">
+            <div class="mb-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            <h3 class="mb-3">Saving Changes...</h3>
+            <p class="text-muted mb-4">Redirecting back to consultation...</p>
         </div>
     }
     else
@@ -318,6 +331,10 @@
         @if (Model.AppointmentId.HasValue)
         {
             <input type="hidden" name="appointmentId" value="@Model.AppointmentId.Value" />
+        }
+        @if (!string.IsNullOrEmpty(Model.ReturnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
         }
         
         @* Render each section (DYNAMIC PAGES) *@
@@ -2009,39 +2026,56 @@
         // ===== SUCCESS MODAL WITH COUNTDOWN =====
         @if (Model.IsSubmitted || TempData["FormSubmitted"] != null)
         {
-        @:// SHOW SUCCESS MODAL
-        @:window.addEventListener('load', function() {
-        @:    console.log('=== SUCCESS MODAL TRIGGER ===');
-        @:    console.log('IsSubmitted:', @Json.Serialize(Model.IsSubmitted));
-        @:    console.log('TempData:', '@TempData["FormSubmitted"]');
-        @:    
-        @:    const modalElement = document.getElementById('successModal');
-        @:    console.log('Modal element:', modalElement);
-        @:    
-        @:    if (modalElement) {
-        @:        const successModal = new bootstrap.Modal(modalElement);
-        @:        successModal.show();
-        @:        console.log('Success modal shown');
-        @:        
-        @:        let countdown = 5;
-        @:        const countdownElement = document.getElementById('countdown');
-        @:        
-        @:        const countdownInterval = setInterval(function() {
-        @:            countdown--;
-        @:            if (countdownElement) {
-        @:                countdownElement.textContent = countdown;
-        @:            }
-        @:            
-        @:            if (countdown <= 0) {
-        @:                clearInterval(countdownInterval);
-        @:                console.log('Redirecting to dashboard...');
-        @:                window.location.href = '@Model.DashboardUrl';
-        @:            }
-        @:        }, 1000);
-        @:    } else {
-        @:        console.error('Success modal element not found!');
-        @:    }
-        @:});
+            @:// Check return URL in JavaScript for more reliable detection
+            @:window.addEventListener('load', function() {
+            @:    const returnUrl = '@Html.Raw(Model.ReturnUrl)';
+            @:    const dashboardUrl = '@Html.Raw(Model.DashboardUrl)';
+            @:    
+            @:    console.log('=== CHECKING RETURN URL ===');
+            @:    console.log('ReturnUrl value:', returnUrl);
+            @:    console.log('DashboardUrl:', dashboardUrl);
+            @:    console.log('ReturnUrl is empty:', !returnUrl || returnUrl === '');
+            @:    
+            @:    // If returnUrl exists, skip modal and redirect immediately (Nurse/Doctor edits)
+            @:    if (returnUrl && returnUrl !== '') {
+            @:        console.log('=== DIRECT REDIRECT (Nurse/Doctor Edit) ===');
+            @:        console.log('Redirecting immediately to:', dashboardUrl);
+            @:        window.location.href = dashboardUrl;
+            @:        return;
+            @:    }
+            @:    
+            @:    // Otherwise, show modal (regular user submissions)
+            @:    console.log('=== SUCCESS MODAL TRIGGER ===');
+            @:    console.log('IsSubmitted:', @Json.Serialize(Model.IsSubmitted));
+            @:    console.log('TempData:', '@TempData["FormSubmitted"]');
+            @:    
+            @:    const modalElement = document.getElementById('successModal');
+            @:    console.log('Modal element:', modalElement);
+            @:    
+            @:    if (modalElement) {
+            @:        const successModal = new bootstrap.Modal(modalElement);
+            @:        successModal.show();
+            @:        console.log('Success modal shown');
+            @:        
+            @:        let countdown = 5;
+            @:        const countdownElement = document.getElementById('countdown');
+            @:        
+            @:        const countdownInterval = setInterval(function() {
+            @:            countdown--;
+            @:            if (countdownElement) {
+            @:                countdownElement.textContent = countdown;
+            @:            }
+            @:            
+            @:            if (countdown <= 0) {
+            @:                clearInterval(countdownInterval);
+            @:                console.log('Redirecting to dashboard...');
+            @:                window.location.href = dashboardUrl;
+            @:            }
+            @:        }, 1000);
+            @:    } else {
+            @:        console.error('Success modal element not found!');
+            @:    }
+            @:});
         }
     </script>
 }

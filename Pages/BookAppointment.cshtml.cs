@@ -225,8 +225,12 @@ namespace Barangay.Pages
                 await LoadAvailableDynamicFormsAsync();
 
                 // Load available consultation services from database
+                // Only show services that are active AND either:
+                // 1. Have no forms (standalone service), OR
+                // 2. Have at least one active form
                 ConsultationServices = await _context.ConsultationServices
-                    .Where(s => s.IsActive)
+                    .Include(s => s.AssociatedForms)
+                    .Where(s => s.IsActive && (!s.AssociatedForms.Any() || s.AssociatedForms.Any(f => f.IsActive)))
                     .OrderBy(s => s.DisplayOrder)
                     .ToListAsync();
 

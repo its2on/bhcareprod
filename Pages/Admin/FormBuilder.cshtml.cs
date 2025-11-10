@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace Barangay.Pages.Admin
 {
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Nurse")]
     public class FormBuilderModel : PageModel
     {
         private readonly ApplicationDbContext _context;

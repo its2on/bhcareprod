@@ -36,6 +36,7 @@ namespace Barangay.Pages.Doctor
         public ApplicationUser? CurrentUser { get; set; }
         public List<MedicalRecordViewModel> MedicalRecords { get; set; } = new();
         public List<PrescriptionMedicationViewModel> Medications { get; set; } = new();
+        public List<FormSubmissionViewModel> FormSubmissions { get; set; } = new();
         public GuardianInformation? Guardian { get; set; }
 
         public async Task<IActionResult> OnGetAsync(string id)
@@ -113,6 +114,8 @@ namespace Barangay.Pages.Doctor
                     .Include(p => p.VitalSigns)
                     .Include(p => p.Appointments)
                         .ThenInclude(a => a.Doctor)
+                    .Include(p => p.Appointments)
+                        .ThenInclude(a => a.ConsultationService)
                     .FirstOrDefaultAsync(p => p.UserId == id);
 
                 if (Patient == null)
@@ -212,6 +215,36 @@ namespace Barangay.Pages.Doctor
                     // Continue even if we can't load medications
                 }
 
+                // Try to load form submissions if available
+                try
+                {
+                    // Get all form submissions for this patient
+                    var formSubmissions = await _context.FormSubmissions
+                        .Include(fs => fs.FormTemplate)
+                            .ThenInclude(ft => ft.ConsultationService)
+                        .Include(fs => fs.Appointment)
+                        .Where(fs => fs.UserId == id && fs.Status == "Submitted")
+                        .OrderByDescending(fs => fs.SubmittedAt)
+                        .ToListAsync();
+
+                    FormSubmissions = formSubmissions.Select(fs => new FormSubmissionViewModel
+                    {
+                        Id = fs.FormSubmissionId,
+                        FormName = fs.FormTemplate?.FormName ?? "Unknown Form",
+                        ServiceName = fs.FormTemplate?.ConsultationService?.ServiceName ?? fs.FormTemplate?.FormName ?? "General",
+                        SubmittedAt = fs.SubmittedAt,
+                        AppointmentId = fs.AppointmentId,
+                        Status = fs.Status
+                    }).ToList();
+                    
+                    _logger.LogInformation("Loaded {Count} form submissions for patient {PatientId}", FormSubmissions.Count, id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error loading form submissions for patient {PatientId}", id);
+                    // Continue even if we can't load form submissions
+                }
+
                 // AUDIT: Log PHI access - CRITICAL for HIPAA compliance
                 await _auditTrail.LogAsync(
                     "View",
@@ -259,6 +292,36 @@ namespace Barangay.Pages.Doctor
             public string Instructions { get; set; } = string.Empty;
             public DateTime? CreatedAt { get; set; }
             public string DoctorName { get; set; } = string.Empty;
+        }
+        
+        public class FormSubmissionViewModel
+        {
+            public int Id { get; set; }
+            public string FormName { get; set; } = string.Empty;
+            public string ServiceName { get; set; } = string.Empty;
+            public DateTime SubmittedAt { get; set; }
+            public int? AppointmentId { get; set; }
+            public string Status { get; set; } = string.Empty;
+        }
+        
+        // Helper function to get icon for consultation type
+        public static string GetRecordIcon(string? consultationType)
+        {
+            if (string.IsNullOrEmpty(consultationType))
+                return "clipboard-pulse";
+                
+            var type = consultationType.ToLower();
+            
+            if (type.Contains("general")) return "clipboard-pulse";
+            if (type.Contains("immunization") || type.Contains("vaccine")) return "shield-check";
+            if (type.Contains("ncd") || type.Contains("diabetes") || type.Contains("hypertension")) return "heart-pulse";
+            if (type.Contains("prenatal") || type.Contains("family planning")) return "person-hearts";
+            if (type.Contains("dental")) return "tooth";
+            if (type.Contains("x-ray") || type.Contains("xray")) return "x-ray";
+            if (type.Contains("dots") || type.Contains("tuberculosis")) return "lungs";
+            if (type.Contains("heeadsss")) return "chat-heart";
+            
+            return "clipboard-pulse";
         }
     }
 } 

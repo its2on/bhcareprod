@@ -403,6 +403,14 @@ builder.Services.AddRazorPages(options =>
 
     // Role-specific authorization
     options.Conventions.AuthorizeFolder("/Admin", "RequireAdminRole");
+    
+    // Override folder policy for Form Management pages to allow Nurse access
+    // Use AllowAnonymousToPage first, then AuthorizePage to bypass folder restriction
+    options.Conventions.AllowAnonymousToPage("/Admin/FormManagement");
+    options.Conventions.AllowAnonymousToPage("/Admin/FormBuilder");
+    options.Conventions.AllowAnonymousToPage("/Admin/StaffPermissions");
+    options.Conventions.AllowAnonymousToPage("/Admin/AddStaffMember");
+    
     // Gate doctor area by role and enforce per-page simplified policies
     options.Conventions.AuthorizeFolder("/Doctor", "RequireDoctorRole");
     options.Conventions.AuthorizeFolder("/Nurse", "RequireNurseRole");

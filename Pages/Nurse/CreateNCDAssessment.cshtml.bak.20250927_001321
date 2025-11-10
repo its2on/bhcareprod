@@ -1,0 +1,366 @@
+@page
+@model Barangay.Pages.Nurse.CreateNCDAssessmentModel
+@{
+    ViewData["Title"] = "Create NCD Risk Assessment";
+    Layout = "_NurseLayout";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">Create NCD Risk Assessment</h2>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Back
+        </a>
+    </div>
+    
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert @(Model.StatusMessage.Contains("Error") ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+            @Model.StatusMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Patient: @Model.PatientName</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" id="ncdForm">
+                <div class="mb-3">
+                    <div class="progress" style="height: 8px;">
+                        <div id="wizardProgress" class="progress-bar bg-primary" role="progressbar" style="width: 20%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted mt-1">
+                        <span>1. Demographics</span>
+                        <span>2. Medical</span>
+                        <span>3. Family</span>
+                        <span>4. Risk</span>
+                        <span>5. Additional</span>
+                    </div>
+                </div>
+                <input type="hidden" asp-for="Assessment.AppointmentId" />
+                <input type="hidden" asp-for="Assessment.UserId" />
+                <input type="hidden" asp-for="Assessment.Birthday" />
+                <input type="hidden" asp-for="Assessment.Edad" value="@Model.PatientAge" />
+                
+<div class="wizard-step" data-step="1">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Health Facility</label>
+                            <input type="text" asp-for="Assessment.HealthFacility" class="form-control" value="@Model.HealthFacility" />
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Family Number</label>
+                            <input type="text" asp-for="Assessment.FamilyNo" class="form-control" value="@Model.FamilyNo" />
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Address</label>
+                            <input type="text" asp-for="Assessment.Address" class="form-control" value="@Model.PatientAddress" />
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Barangay</label>
+                            <input type="text" asp-for="Assessment.Barangay" class="form-control" value="@Model.PatientBarangay" />
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="text" asp-for="Assessment.Telepono" class="form-control" value="@Model.PatientPhone" />
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Gender</label>
+                            <select asp-for="Assessment.Kasarian" class="form-select">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Demographic Fields -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">First Name</label>
+                            <input type="text" asp-for="Assessment.FirstName" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Middle Name</label>
+                            <input type="text" asp-for="Assessment.MiddleName" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" asp-for="Assessment.LastName" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Religion</label>
+                            <input type="text" asp-for="Assessment.Relihiyon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Civil Status</label>
+                            <input type="text" asp-for="Assessment.CivilStatus" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Occupation</label>
+                            <input type="text" asp-for="Assessment.Occupation" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+</div>
+<div class="wizard-step d-none" data-step="2">
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Medical History</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasDiabetes" />
+                                <label class="form-check-label">Diabetes</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasHypertension" />
+                                <label class="form-check-label">Hypertension</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasCancer" id="hasCancer" />
+                                <label class="form-check-label">Cancer</label>
+                            </div>
+                            <div id="cancerTypeDiv" class="mb-2 d-none">
+                                <input type="text" asp-for="Assessment.CancerType" class="form-control form-control-sm" placeholder="Cancer type" />
+                                <div class="mt-2"></div>
+                                <input type="text" asp-for="Assessment.CancerYear" class="form-control form-control-sm mt-2" placeholder="Year Diagnosed" />
+                                <input type="text" asp-for="Assessment.CancerMedication" class="form-control form-control-sm mt-2" placeholder="Medication" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasCOPD" />
+                                <label class="form-check-label">COPD</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasLungDisease" />
+                                <label class="form-check-label">Lung Disease</label>
+                            <div id="lungDiseaseFields" class="row g-2 ms-4 d-none">
+                                <div class="col-sm-6">
+                                    <input type="text" asp-for="Assessment.LungDiseaseYear" class="form-control form-control-sm" placeholder="Year Diagnosed" />
+                                </div>
+                                <div class="col-sm-6">
+                                    <input type="text" asp-for="Assessment.LungDiseaseMedication" class="form-control form-control-sm" placeholder="Medication" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasEyeDisease" />
+                                <label class="form-check-label">Eye Disease</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+</div>
+<div class="wizard-step d-none" data-step="3">
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Family History</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasHypertension" />
+                                <label class="form-check-label">Hypertension</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasHeartDisease" />
+                                <label class="form-check-label">Heart Disease</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasStroke" />
+                                <label class="form-check-label">Stroke</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasDiabetes" />
+                                <label class="form-check-label">Diabetes</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasCancer" />
+                                <label class="form-check-label">Cancer</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.FamilyHasKidneyDisease" />
+                                <label class="form-check-label">Kidney Disease</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                    <div class="mt-2">
+                        <label class="form-label">Other Family Disease Details</label>
+                        <textarea asp-for="Assessment.FamilyOtherDiseaseDetails" class="form-control" rows="2" placeholder="Specify other family diseases if any"></textarea>
+                    </div>
+</div>
+<div class="wizard-step d-none" data-step="4">
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Risk Factors</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label class="form-label">Smoking Status</label>
+                                <select asp-for="Assessment.SmokingStatus" class="form-select">
+                                    <option value="Never Smoked">Never Smoked</option>
+                                    <option value="Former Smoker">Former Smoker</option>
+                                    <option value="Current Smoker">Current Smoker</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HighSaltIntake" />
+                                <label class="form-check-label">High Salt Intake</label>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasNoRegularExercise" />
+                                <label class="form-check-label">No Regular Exercise</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            
+                            <div class="form-group mb-3">
+                                <label class="form-label">Alcohol Frequency</label>
+                                <select asp-for="Assessment.AlcoholFrequency" class="form-select">
+                                    <option value="">Select Frequency</option>
+                                    <option value="Never">Never</option>
+                                    <option value="Occasionally">Occasionally</option>
+                                    <option value="Weekly">Weekly</option>
+                                    <option value="Daily">Daily</option>
+                                </select>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label class="form-label">Alcohol Consumption Details</label>
+                                <textarea asp-for="Assessment.AlcoholConsumption" class="form-control" rows="2" placeholder="e.g. 1-2 bottles per occasion"></textarea>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label class="form-label">Exercise Duration (minutes/week)</label>
+                                <input type="text" asp-for="Assessment.ExerciseDuration" class="form-control" />
+                            </div>
+                            <div class="form-group mb-3">
+                                <label class="form-label">Chest Pain</label>
+                                <input type="text" asp-for="Assessment.ChestPain" class="form-control" placeholder="Describe chest pain if any" />
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasDifficultyBreathing" />
+                                <label class="form-check-label">Difficulty Breathing</label>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" asp-for="Assessment.HasAsthma" />
+                                <label class="form-check-label">Asthma</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+</div>
+<div class="wizard-step d-none" data-step="5">
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Additional Information</h5>
+                    <div class="form-group mb-3">
+                        <label class="form-label">Appointment Type</label>
+                        <select asp-for="Assessment.AppointmentType" class="form-select">
+                            <option value="Initial Assessment">Initial Assessment</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Regular Checkup">Regular Checkup</option>
+                            <option value="Emergency">Emergency</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-3">
+                    <button type="button" class="btn btn-outline-secondary" id="btnPrev" disabled>Previous</button>
+                    <div>
+                        <button type="button" class="btn btn-primary" id="btnNext">Next</button>
+                        <button type="submit" class="btn btn-success d-none" id="btnSubmit">Save Assessment</button>
+                    </div>
+                </div>
+</div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success d-none" id="btnSubmit">Save Assessment</button>
+                    <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Toggle cancer type input visibility
+            $('#hasCancer').change(function() {
+                if($(this).is(':checked')) {
+                    $('#cancerTypeDiv').removeClass('d-none');
+                } else {
+                    $('#cancerTypeDiv').addClass('d-none');
+                    $('#Assessment_CancerType').val('');
+                }
+            });
+            function idSel(p1, p2){ return $(p1).length ? p1 : p2; }
+            function toggleSection(selector, target) {
+                const isChecked = $(selector).is(':checked');
+                if (isChecked) {
+                    $(target).removeClass('d-none');
+                } else {
+                    $(target).addClass('d-none');
+                    $(target).find('input').val('');
+                }
+            }
+            const cancerSel = idSel('#hasCancer','#Assessment_HasCancer');
+            toggleSection(cancerSel, '#cancerTypeDiv');
+            toggleSection('#Assessment_HasDiabetes', '#diabetesFields');
+            toggleSection('#Assessment_HasHypertension', '#hypertensionFields');
+            toggleSection('#Assessment_HasLungDisease', '#lungDiseaseFields');
+            $(cancerSel).on('change', function(){ toggleSection(cancerSel, '#cancerTypeDiv'); });
+            $('#Assessment_HasDiabetes').on('change', function(){ toggleSection('#Assessment_HasDiabetes', '#diabetesFields'); });
+            $('#Assessment_HasHypertension').on('change', function(){ toggleSection('#Assessment_HasHypertension', '#hypertensionFields'); });
+            $('#Assessment_HasLungDisease').on('change', function(){ toggleSection('#Assessment_HasLungDisease', '#lungDiseaseFields'); });
+            var currentStep = 1;
+            var totalSteps = 5;
+            function showStep(n) {
+                $('.wizard-step').addClass('d-none');
+                $('.wizard-step[data-step="' + n + '"]').removeClass('d-none');
+                $('#btnPrev').prop('disabled', n === 1);
+                $('#btnNext').toggle(n < totalSteps);
+                $('#btnSubmit').toggleClass('d-none', n < totalSteps);
+                var pct = Math.round((n/totalSteps)*100);
+                $('#wizardProgress').css('width', pct + '%');
+            }
+            $('#btnPrev').on('click', function(e){ e.preventDefault(); if(currentStep>1){ currentStep--; showStep(currentStep); }});
+            $('#btnNext').on('click', function(e){ e.preventDefault(); if(currentStep<totalSteps){ currentStep++; showStep(currentStep); }});
+            showStep(1);
+        });
+    </script>
+} 

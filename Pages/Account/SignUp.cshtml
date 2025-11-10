@@ -13,14 +13,13 @@
         <!-- Wizard Progress -->
         <div class="wizard-progress mb-4">
             <div class="d-flex justify-content-between align-items-center">
-                <div id="step1Indicator" class="step-indicator active">1. Personal</div>
-                <div id="step2Indicator" class="step-indicator">2. Security</div>
-                <div id="step3Indicator" class="step-indicator">3. Verification</div>
+                <div id="step1Indicator" class="step-indicator active">1. Personal & Verification</div>
+                <div id="step2Indicator" class="step-indicator">2. Security & Submit</div>
             </div>
             <div class="progress mt-2" style="height: 6px;">
                 <div id="registrationProgress" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
-            <small id="progressText" class="text-muted">Step 1: Personal Information</small>
+            <small id="progressText" class="text-muted">Step 1: Personal Information & Residency Verification</small>
         </div>
         
         <form method="post" enctype="multipart/form-data" id="signupForm" novalidate>
@@ -43,51 +42,83 @@
             <div id="section1" class="section">
                 <h4 class="text-primary"><i class="fas fa-user"></i> Personal Information</h4>
                 
-                <!-- ID Scanner Section -->
+                <!-- ID Scanner with Residency Verification -->
                 <div class="card mb-4 border-primary">
-                    <div class="card-header bg-light">
-                        <i class="fas fa-id-card me-2 text-primary"></i> Quick Fill with ID Scanner
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-id-card me-2"></i> Quick Fill ID Scanner + Residency Verification
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-2">Upload your <strong>Philippine ID</strong> to automatically fill your information</p>
-                        <p class="text-muted small mb-3">Accepted: Driver's License, National ID, PhilHealth ID, Postal ID, UMID, TIN ID</p>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Upload your Philippine ID once to:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>✅ Auto-fill your personal information (Name, Address, Birth Date, etc.)</li>
+                                <li>✅ Verify your residency in Barangay 158, 159, 160, or 161</li>
+                                <li>✅ Enable instant account approval (if eligible)</li>
+                            </ul>
+                        </div>
+                        
+                        <p class="text-muted mb-2">
+                            <strong>Accepted IDs:</strong> Driver's License, National ID (PhilSys), PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, Passport
+                        </p>
+                        <p class="text-muted small mb-3">
+                            <strong>⚠️ Important:</strong> Your ID must clearly show your address with Barangay 158, 159, 160, or 161 for auto-approval.
+                        </p>
+                        
                         <div class="row align-items-center">
                             <div class="col-md-6">
-                                <input type="file" id="idScannerInput" accept="image/*" class="form-control" capture="environment" />
-                                <small class="text-muted mt-1 d-block">Upload your Philippine ID image (JPG, PNG) - Screenshots not accepted</small>
+                                <!-- This file input serves BOTH auto-fill AND residency verification -->
+                                <input type="file" 
+                                       id="idScannerInput" 
+                                       asp-for="Input.ResidencyProof"
+                                       accept="image/jpeg,image/jpg,image/png" 
+                                       class="form-control" 
+                                       capture="environment" />
+                                <small class="text-muted mt-1 d-block">
+                                    <i class="fas fa-camera"></i> Upload your Philippine ID (JPG, PNG) - Max 10MB
+                                    <br><strong>Note:</strong> Screenshots will be rejected
+                                </small>
                             </div>
                             <div class="col-md-6">
-                                <button type="button" id="scanIdButton" class="btn btn-primary w-100">
-                                    <i class="fas fa-camera me-2"></i> Scan ID
+                                <button type="button" id="scanIdButton" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-qrcode me-2"></i> Scan ID & Verify Residency
                                 </button>
                             </div>
                         </div>
-                        <div class="mt-3 small">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="enhancedModeCheckbox" checked>
-                                <label class="form-check-label" for="enhancedModeCheckbox">
-                                    Enable enhanced recognition mode (more accurate but takes longer)
-                                </label>
-                            </div>
-                        </div>
-                        <div id="scannerStatus" class="mt-2 d-none">
+                        
+                        <!-- Enhanced mode is now ALWAYS enabled for better accuracy -->
+                        
+                        <!-- Progress Indicator -->
+                        <div id="scannerStatus" class="mt-3 d-none">
                             <div class="progress" style="height: 5px;">
-                                <div id="scanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                                <div id="scanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
                             </div>
                             <div class="d-flex align-items-center mt-2">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">Processing...</span>
                                 </div>
-                                <span class="ms-2" id="scanStatusText">Initializing scanner...</span>
+                                <span class="ms-2 text-muted" id="scanStatusText">Initializing scanner...</span>
                             </div>
                         </div>
-                        <div id="scannerResult" class="mt-2 d-none"></div>
+                        
+                        <!-- Auto-Fill Result -->
+                        <div id="scannerResult" class="mt-3 d-none"></div>
+                        
+                        <!-- Residency Verification Result (NEW!) -->
+                        <div id="residencyVerificationResult" class="mt-3 d-none"></div>
+                        
+                        <!-- Image Preview -->
                         <div id="previewContainer" class="mt-3 text-center d-none">
-                            <p class="small text-muted">Image preview (you can enhance below if text isn't clear):</p>
-                            <img id="imagePreview" class="img-fluid img-thumbnail" style="max-height: 200px;" />
+                            <p class="small text-muted">ID Preview:</p>
+                            <img id="imagePreview" class="img-fluid img-thumbnail" style="max-height: 250px; border: 2px solid #ddd;" />
                         </div>
                     </div>
                 </div>
+                
+                <!-- Hidden Fields for OCR Data (CRITICAL - DO NOT REMOVE) -->
+                <input type="hidden" asp-for="Input.OcrDetectedBarangay" id="OcrDetectedBarangay" />
+                <input type="hidden" asp-for="Input.OcrExtractedAddress" id="OcrExtractedAddress" />
+                <input type="hidden" asp-for="Input.OcrExtractedText" id="OcrExtractedText" />
                 
                 <div class="row">
                     <div class="col-md-6">
@@ -358,92 +389,74 @@
                         </div>
                     </div>
                 </div>
-                <!-- Navigation: Step 2 -->
-                <div class="d-flex justify-content-between mt-3">
-                    <button type="button" id="backToPersonal" class="btn btn-outline-secondary">Back</button>
-                    <button type="button" id="nextToVerification" class="btn btn-primary">Next</button>
+                
+                <!-- Terms and Conditions Section (MOVED FROM STEP 3) -->
+                <div class="card mt-4 border-info">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-file-contract me-2"></i> Terms & Confirmation
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" 
+                                       asp-for="Input.AgreeToTerms" 
+                                       id="privacyTerms" 
+                                       class="form-check-input" 
+                                       value="true" 
+                                       required />
+                                <label class="form-check-label" for="privacyTerms">
+                                    I have read and agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal" class="text-primary"><strong>Data Privacy Terms</strong></a> (Republic Act 10173) <span class="text-danger">*</span>
+                                </label>
+                                <div class="invalid-feedback" id="privacyTermsError">
+                                    You must agree to the Data Privacy Terms to continue
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" 
+                                       asp-for="Input.ConfirmResidency" 
+                                       id="residencyConfirm" 
+                                       class="form-check-input" 
+                                       value="true" 
+                                       required />
+                                <label class="form-check-label" for="residencyConfirm">
+                                    I confirm that I am a resident of <strong>Barangay 158, 159, 160, or 161</strong> and all information provided is accurate <span class="text-danger">*</span>
+                                </label>
+                                <div class="invalid-feedback" id="residencyConfirmError">
+                                    You must confirm your residency to continue
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="checkboxErrorContainer" class="alert alert-danger d-none">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error:</strong> <span id="checkboxErrorMessage">You must agree to the terms and confirm your residency</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation: Step 2 with Submit Button -->
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" id="backToPersonal" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg" id="signupButton">
+                        <i class="fas fa-user-check me-2"></i> Register Account
+                    </button>
+                </div>
+                
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="text-center mt-4 d-none">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-3 text-muted"><strong>Processing your registration...</strong><br>Please wait, this may take a moment.</p>
                 </div>
             </div>
             
-            <!-- Residency Verification Section -->
-            <div id="section3" class="section d-none">
-                <h4 class="text-primary"><i class="far fa-address-card"></i> Residency Verification</h4>
-                
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <span class="text-dark">Please upload your Barangay Clearance or valid ID to verify your residency in Barangay 158, 159, 160,161.</span>
-                </div>
-                
-                <div class="form-group">
-                    <label asp-for="Input.ResidencyProof" class="form-label">Residency Proof <span class="required">*</span></label>
-                    <input asp-for="Input.ResidencyProof" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg" id="residencyProofFile" aria-label="Residency proof file input" />
-                    <div class="invalid-feedback" id="fileError">Please upload your residency proof document</div>
-                    <div id="fileNameDisplay" class="file-info mt-2 d-none"></div>
-                    <div class="mt-2">
-                        <small class="form-text text-dark">
-                            <ul class="ps-3 mb-0">
-                                <li>Accepted file types: PDF, PNG, JPG, JPEG</li>
-                                <li>Maximum file size: 5MB</li>
-                                <li>Documents must clearly show your name and address</li>
-                            </ul>
-                        </small>
-                    </div>
-                </div>
-                
-                <p class="mb-2 text-dark">Your document will be reviewed by an administrator for verification.</p>
-                
-                <div class="form-group">
-                    <div class="form-check">
-                        <input type="checkbox" name="Input.AgreeToTerms" id="privacyTerms" class="form-check-input" aria-label="Agree to terms checkbox" value="true" />
-                        <label class="form-check-label text-dark" for="privacyTerms">
-                            I have read and agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Data Privacy Terms</a> (Republic Act 10173)
-                        </label>
-                        <div class="invalid-feedback" id="privacyTermsError">
-                            You must agree to the Data Privacy Terms to continue
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <div class="form-check">
-                        <input type="checkbox" name="Input.ConfirmResidency" id="residencyConfirm" class="form-check-input" aria-label="Confirm residency checkbox" value="true" />
-                        <label class="form-check-label text-dark" for="residencyConfirm">
-                            I confirm that I am a resident of Barangay 158, 159, 160, 161 and all information provided is correct
-                        </label>
-                        <div class="invalid-feedback" id="residencyConfirmError">
-                            You must confirm your residency to continue
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Hidden fields to ensure the values are submitted even when checkboxes are not checked -->
-                <input type="hidden" name="Input.AgreeToTerms" value="false" />
-                <input type="hidden" name="Input.ConfirmResidency" value="false" />
-                
-                <div id="checkboxErrorContainer" class="alert alert-danger mt-3 d-none">
-                    <strong>Error:</strong> <span id="checkboxErrorMessage">You must agree to the terms and conditions and confirm your residency</span>
-                </div>
-                <!-- Navigation + Submit: Step 3 -->
-                <div class="d-flex justify-content-between mt-3">
-                    <button type="button" id="backToSecurity" class="btn btn-outline-secondary">Back</button>
-                    <button type="submit" class="btn btn-primary" id="signupButton">
-                        <i class="fas fa-user-plus me-2"></i> Register Account
-                    </button>
-                </div>
-
-                <div id="loadingIndicator" class="text-center mt-3 d-none">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Processing your registration, please wait...</p>
-                </div>
-
-                <noscript>
-                    <button type="submit" class="btn btn-primary btn-block mt-2 w-100" id="fallbackSubmit">
-                        Register Account (No JavaScript)
-                    </button>
-                </noscript>
-            </div>
+            <!-- STEP 3 DELETED - Residency Verification moved to Step 1, Checkboxes moved to Step 2 -->
             
             <script>
                 console.log('🔧 SIGNUP FIX LOADED - Version 2.0');
@@ -564,7 +577,7 @@
                     }
 
                     setupStepNavigation() {
-                        // Step 1 to Step 2
+                        // Step 1 to Step 2 (ONLY 2 STEPS NOW)
                         document.getElementById('nextToSecurity')?.addEventListener('click', async (e) => {
                             e.preventDefault();
                             if (await this.validateStep1()) {
@@ -572,23 +585,10 @@
                             }
                         });
 
-                        // Step 2 to Step 3
-                        document.getElementById('nextToVerification')?.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            if (this.validateStep2()) {
-                                this.goToStep(3);
-                            }
-                        });
-
-                        // Back navigation
+                        // Back navigation (Step 2 to Step 1)
                         document.getElementById('backToPersonal')?.addEventListener('click', (e) => {
                             e.preventDefault();
                             this.goToStep(1);
-                        });
-
-                        document.getElementById('backToSecurity')?.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            this.goToStep(2);
                         });
                     }
 
@@ -1580,52 +1580,50 @@
                     }
 
                     goToStep(stepNumber) {
-                        // Hide all steps
-                        document.querySelectorAll('.step-content').forEach(step => {
-                            step.classList.remove('active');
-                        });
+                        // Hide all sections
+                        const section1 = document.getElementById('section1');
+                        const section2 = document.getElementById('section2');
                         
-                        // Show selected step
-                        const targetStep = document.getElementById(`step${stepNumber}`);
-                        if (targetStep) {
-                            targetStep.classList.add('active');
-                        }
-                        
-                        // Update step indicators
-                        document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
-                            if (index + 1 < stepNumber) {
-                                indicator.classList.add('completed');
-                                indicator.classList.remove('active');
-                            } else if (index + 1 === stepNumber) {
-                                indicator.classList.add('active');
-                                indicator.classList.remove('completed');
-                            } else {
-                                indicator.classList.remove('active', 'completed');
-                            }
-                        });
-                        
-                        this.currentStep = stepNumber;
-                        
-                        // Update button states based on current step
                         if (stepNumber === 1) {
-                            setTimeout(() => this.updateStep1NextButtonState(), 100);
+                            section1?.classList.remove('d-none');
+                            section2?.classList.add('d-none');
                         } else if (stepNumber === 2) {
-                            this.updateNextButtonState();
-                        } else if (stepNumber === 3) {
-                            this.updateRegisterButtonState();
+                            section1?.classList.add('d-none');
+                            section2?.classList.remove('d-none');
                         }
                         
+                        // Update step indicators (only 2 steps now)
+                        const step1Indicator = document.getElementById('step1Indicator');
+                        const step2Indicator = document.getElementById('step2Indicator');
+                        
+                        if (stepNumber === 1) {
+                            step1Indicator?.classList.add('active');
+                            step2Indicator?.classList.remove('active');
+                        } else if (stepNumber === 2) {
+                            step1Indicator?.classList.remove('active');
+                            step2Indicator?.classList.add('active');
+                        }
+                        
+                        // Update progress bar
+                        const progressBar = document.getElementById('registrationProgress');
+                        if (progressBar) {
+                            progressBar.style.width = stepNumber === 1 ? '0%' : '100%';
+                        }
+                        
+                        // Update progress text
                         const progressText = document.getElementById('progressText');
                         if (progressText) {
                             const stepTexts = {
-                                1: 'Step 1: Personal Information',
-                                2: 'Step 2: Account Security',
-                                3: 'Step 3: Residency Verification'
+                                1: 'Step 1: Personal Information & Residency Verification',
+                                2: 'Step 2: Security & Submit'
                             };
                             progressText.textContent = stepTexts[stepNumber] || '';
                         }
                         
                         this.currentStep = stepNumber;
+                        
+                        // Scroll to top
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                         
                         // Remove any existing step error alerts
                         const existingAlert = document.getElementById('stepErrorAlert');
@@ -2634,23 +2632,32 @@
                             const idSquareRatio = aspectRatio >= 0.9 && aspectRatio <= 1.1; // Square-ish (some IDs)
                             const hasIdLikeRatio = idPortraitRatio || idLandscapeRatio || idSquareRatio;
                             
-                            // Scoring system for rejection
+                            // VERY LENIENT: Only reject OBVIOUS screenshots
+                            // Let the backend OCR do the real validation
                             let rejectionScore = 0;
-                            if (isScreenshotFilename) rejectionScore += 4; // Strong indicator
-                            if (matchesCommonResolution) rejectionScore += 3; // Very likely screenshot
-                            if (isWideScreenRatio && isVeryHighRes) rejectionScore += 3; // Screen ratio + high res
-                            if (isVeryWideRatio) rejectionScore += 2; // Too extreme to be an ID
-                            if (isLargeFileForRes && isWideScreenRatio) rejectionScore += 1;
+                            if (isScreenshotFilename) rejectionScore += 2; // Reduced from 4
+                            if (matchesCommonResolution && isScreenshotFilename) rejectionScore += 3; // Only if BOTH conditions
+                            // Removed other rejection criteria - backend will validate
                             
-                            // Reject if score is high OR if it doesn't look like an ID document
-                            if (rejectionScore >= 3) {
+                            // ONLY reject if VERY high score (basically only if filename says "screenshot" + screen resolution)
+                            if (rejectionScore >= 5) {
                                 results.isValid = false;
-                                results.errors.push('⚠️ This does not appear to be an actual Philippine ID document.');
+                                results.errors.push('⚠️ This appears to be a screenshot.');
                                 results.errors.push('Please upload a photo of your actual Philippine ID (Driver\'s License, National ID, PhilHealth ID, Postal ID, etc.).');
                                 results.errors.push('Screenshots, photos of screens, or other documents are not accepted.');
                                 resolve(results);
                                 return;
                             }
+                            
+                            // Log validation details for debugging
+                            console.log('Client-side validation:', {
+                                fileName: file.name,
+                                resolution: `${img.width}x${img.height}`,
+                                aspectRatio: aspectRatio.toFixed(2),
+                                rejectionScore,
+                                isScreenshotFilename,
+                                matchesCommonResolution
+                            });
                             
                             // Warn if aspect ratio doesn't match typical ID cards (but allow it to proceed)
                             // The backend OCR will do final validation by checking for Philippine ID markers
@@ -2658,10 +2665,13 @@
                                 results.warnings.push('Image aspect ratio may not match typical ID documents. Please ensure you are uploading an actual Philippine ID.');
                             }
                             
-                            // Check resolution
-                            if (img.width < 600 || img.height < 400) {
+                            // Check resolution (VERY LENIENT - most phone cameras exceed this)
+                            if (img.width < 400 || img.height < 300) {
                                 results.isValid = false;
-                                results.errors.push(`Resolution too low (${img.width}x${img.height}). Minimum: 600x400 pixels.`);
+                                results.errors.push(`Resolution too low (${img.width}x${img.height}). Minimum: 400x300 pixels.`);
+                            }
+                            else if (img.width < 600 || img.height < 400) {
+                                results.warnings.push(`Low resolution (${img.width}x${img.height}). Recommended: 600x400 or higher.`);
                             }
                             
                             // Check file size
@@ -3263,34 +3273,92 @@
                             }
                         }
                         
-                        // Show success notification
-                        let notificationMessage = '';
-                        let alertClass = 'alert-success';
-                        
-                        if (result.isBarangayValid && result.autoApproved) {
-                            notificationMessage = `<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle me-1"></i>Eligible barangay detected (${result.barangay}) - account will be auto-approved!</small></div>`;
-                        } else if (result.barangay && !result.isBarangayValid) {
-                            alertClass = 'alert-warning';
-                            notificationMessage = `<div class="mt-1"><small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Barangay ${result.barangay} detected but not eligible (must be 158, 159, 160, or 161). Please select a valid barangay.</small></div>`;
-                        } else if (!result.barangay) {
-                            alertClass = 'alert-warning';
-                            notificationMessage = `<div class="mt-1"><small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Unable to verify residency. No valid Barangay number (158, 159, 160, 161) found in the document.</small></div>`;
-                        }
-                        
-                        if (filledFields.length > 0 || notificationMessage) {
-                            let extractedHtml = `<div class="alert ${alertClass}">`;
+                        // Show auto-fill success
                         if (filledFields.length > 0) {
-                            extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
-                            }
-                            extractedHtml += notificationMessage;
-                            extractedHtml += '<div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>';
-                            extractedHtml += '</div>';
-                            scannerResult.innerHTML = extractedHtml;
+                            let successHtml = `<div class="alert alert-success">
+                                <h6 class="mb-2"><i class="fas fa-check-circle me-2"></i>ID Scanned Successfully!</h6>
+                                <div class="small"><strong>Auto-filled:</strong> ${filledFields.join(', ')}</div>
+                                <div class="small text-muted mt-1">Please verify all information is correct</div>
+                            </div>`;
+                            scannerResult.innerHTML = successHtml;
                             scannerResult.classList.remove('d-none');
                         } else {
-                            // Hide result if nothing was filled
                             scannerResult.innerHTML = '';
                             scannerResult.classList.add('d-none');
+                        }
+                        
+                        // Show RESIDENCY VERIFICATION status (NEW!)
+                        const residencyResultDiv = document.getElementById('residencyVerificationResult');
+                        let residencyHtml = '';
+                        
+                        if (result.isBarangayValid && result.autoApproved) {
+                            // ✅ AUTO-APPROVED
+                            residencyHtml = `
+                                <div class="alert alert-success border-success">
+                                    <h5 class="mb-3"><i class="fas fa-badge-check me-2"></i>✅ Residency Verified - Auto-Approval Enabled!</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-1"><i class="fas fa-map-marker-alt text-success me-2"></i><strong>Barangay ${result.barangay} Confirmed</strong></p>
+                                            <p class="mb-1"><i class="fas fa-clock text-success me-2"></i>No waiting for approval</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-1"><i class="fas fa-shield-check text-success me-2"></i>System verified your residency</p>
+                                            <p class="mb-1"><i class="fas fa-rocket text-success me-2"></i>Instant account activation</p>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <p class="mb-0 small text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Your account will be automatically approved when you complete registration. You can log in immediately!
+                                    </p>
+                                </div>
+                            `;
+                        } else if (result.barangay && !result.isBarangayValid) {
+                            // ⚠️ NON-ELIGIBLE BARANGAY
+                            residencyHtml = `
+                                <div class="alert alert-warning border-warning">
+                                    <h6 class="mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Barangay Not Eligible for Auto-Approval</h6>
+                                    <p class="mb-2">Detected Barangay: <strong>${result.barangay}</strong></p>
+                                    <div class="bg-light p-2 rounded">
+                                        <p class="mb-1"><strong>Eligible Barangays:</strong></p>
+                                        <ul class="mb-0">
+                                            <li>Barangay 158</li>
+                                            <li>Barangay 159</li>
+                                            <li>Barangay 160</li>
+                                            <li>Barangay 161</li>
+                                        </ul>
+                                    </div>
+                                    <p class="mb-0 mt-2 small text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Your account will require manual review by an administrator.
+                                    </p>
+                                </div>
+                            `;
+                        } else {
+                            // ❌ NO BARANGAY DETECTED
+                            residencyHtml = `
+                                <div class="alert alert-info border-info">
+                                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Barangay Not Detected</h6>
+                                    <p class="mb-2">Unable to automatically verify residency from your ID.</p>
+                                    <div class="bg-light p-2 rounded">
+                                        <p class="mb-1"><strong>Please ensure:</strong></p>
+                                        <ul class="mb-0">
+                                            <li>Your ID clearly shows your complete address</li>
+                                            <li>The image is clear and not blurry</li>
+                                            <li>You reside in Barangay 158, 159, 160, or 161</li>
+                                        </ul>
+                                    </div>
+                                    <p class="mb-0 mt-2 small text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Manual review will be required. You can still proceed with registration.
+                                    </p>
+                                </div>
+                            `;
+                        }
+                        
+                        if (residencyResultDiv) {
+                            residencyResultDiv.innerHTML = residencyHtml;
+                            residencyResultDiv.classList.remove('d-none');
                         }
                     } else {
                         // Handle backend validation errors (e.g., not a Philippine ID)
@@ -3427,8 +3495,8 @@
                                 
                                 // Apply thresholding for better text contrast
                                 try {
-                                    // Only threshold if using enhanced mode
-                                    const enhancedMode = document.getElementById('enhancedModeCheckbox')?.checked;
+                                    // Enhanced mode is ALWAYS enabled for best accuracy
+                                    const enhancedMode = true; // Always use enhanced recognition
                                     if (enhancedMode) {
                                         const imageData = ctx.getImageData(0, 0, width, height);
                                         const thresholdedData = applyAdaptiveThreshold(imageData);

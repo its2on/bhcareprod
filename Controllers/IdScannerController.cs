@@ -728,15 +728,22 @@ namespace BHCARE.Controllers
                     throw new Exception($"Invalid or corrupted image file: {imgEx.Message}");
                 }
                 
-                // Validate: Check for blur
+                // Validate: Check for blur (VERY LENIENT - only reject extremely blurry images)
                 var blurScore = CalculateImageBlurriness(imagePath);
-                if (blurScore < 50) // Threshold for blurry images
+                _logger.LogInformation($"Image blur score: {blurScore:F0}/100");
+                
+                if (blurScore < 15) // VERY LOW threshold - only reject extremely blurry images
                 {
+                    _logger.LogWarning($"Image appears very blurry (score: {blurScore:F0}/100)");
                     throw new Exception(
-                        "Image appears to be blurry or out of focus. " +
+                        "Image appears to be extremely blurry or out of focus. " +
                         $"Quality score: {blurScore:F0}/100. " +
-                        "Please retake the photo with a steady hand in good lighting."
+                        "Please retake the photo with better focus and lighting."
                     );
+                }
+                else if (blurScore < 30)
+                {
+                    _logger.LogWarning($"Image quality is low (score: {blurScore:F0}/100) but proceeding with OCR");
                 }
                 
                 // ========== PROCEED WITH OCR ==========

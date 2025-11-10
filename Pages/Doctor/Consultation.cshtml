@@ -230,7 +230,6 @@
                             <h4>@patientDisplayName</h4>
                             <p><strong>Address:</strong> @(string.IsNullOrEmpty(Model.Patient?.Address) ? "Not specified" : Model.Patient.Address)</p>
                             <p><strong>Contact #:</strong> @(string.IsNullOrEmpty(Model.Patient?.ContactNumber) ? "Not specified" : Model.Patient.ContactNumber)</p>
-                            <p><strong>Emergency Contact #:</strong> @(string.IsNullOrEmpty(Model.Patient?.EmergencyContactNumber) ? "Not specified" : Model.Patient.EmergencyContactNumber)</p>
                             <p><strong>Medical History:</strong> @(string.IsNullOrEmpty(Model.Patient?.MedicalHistory) ? "Not specified" : Model.Patient.MedicalHistory)</p>
                             <p><strong>Booked By:</strong> @Model.BookedBy</p>
                         </div>
@@ -431,9 +430,9 @@
                                                    title="View Submission">
                                                     <i class="fas fa-eye"></i> View
                                                 </a>
-                                                <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.AppointmentId" 
+                                                <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.AppointmentId&returnUrl=@Uri.EscapeDataString($"/Doctor/Consultation?id={Model.AppointmentId}&startConsultation=true")" 
                                                    class="btn btn-sm btn-outline-warning" 
-                                                   title="Re-submit Form">
+                                                   title="Edit Form">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </a>
                             }

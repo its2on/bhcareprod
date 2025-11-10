@@ -18,6 +18,7 @@ namespace Barangay.Pages.Admin
         }
 
         public IEnumerable<FormTemplate> FormTemplates { get; set; } = new List<FormTemplate>();
+        public List<ConsultationService> Services { get; set; } = new List<ConsultationService>();
         public string StatusFilter { get; set; } = "";
         public string CategoryFilter { get; set; } = "";
         public string SearchQuery { get; set; } = "";
@@ -28,6 +29,13 @@ namespace Barangay.Pages.Admin
             StatusFilter = status ?? "";
             CategoryFilter = category ?? "";
             SearchQuery = search ?? "";
+
+            // Load Services
+            Services = await _context.ConsultationServices
+                .Include(s => s.AssociatedForms)
+                .OrderBy(s => s.DisplayOrder)
+                .ThenBy(s => s.ServiceName)
+                .ToListAsync();
 
             // Build query
             var query = _context.FormTemplates
@@ -206,6 +214,152 @@ namespace Barangay.Pages.Admin
             {
                 return BadRequest($"Error duplicating form: {ex.Message}");
             }
+        }
+
+        // ===== SERVICE MANAGEMENT HANDLERS =====
+
+        public async Task<IActionResult> OnPostAddServiceAsync(
+            string ServiceName,
+            string ServiceKey,
+            string? Description,
+            string? Category,
+            int DisplayOrder,
+            string? IconClass,
+            string? ColorTheme,
+            int? MinAge,
+            int? MaxAge,
+            bool IsActive = true)
+        {
+            try
+            {
+                // Validate
+                if (string.IsNullOrWhiteSpace(ServiceName) || string.IsNullOrWhiteSpace(ServiceKey))
+                {
+                    TempData["ErrorMessage"] = "Service Name and Service Key are required.";
+                    return RedirectToPage();
+                }
+
+                // Check if key exists
+                var existingService = await _context.ConsultationServices
+                    .FirstOrDefaultAsync(s => s.ServiceKey == ServiceKey.ToLower().Trim());
+
+                if (existingService != null)
+                {
+                    TempData["ErrorMessage"] = $"A service with key '{ServiceKey}' already exists.";
+                    return RedirectToPage();
+                }
+
+                // Create service
+                var service = new ConsultationService
+                {
+                    ServiceName = ServiceName.Trim(),
+                    ServiceKey = ServiceKey.Trim().ToLower().Replace(" ", "-"),
+                    Description = Description?.Trim(),
+                    Category = Category?.Trim(),
+                    DisplayOrder = DisplayOrder,
+                    IconClass = IconClass?.Trim(),
+                    ColorTheme = ColorTheme?.Trim(),
+                    MinAge = MinAge,
+                    MaxAge = MaxAge,
+                    IsActive = IsActive,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = User.Identity?.Name
+                };
+
+                _context.ConsultationServices.Add(service);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Service '{ServiceName}' created successfully. It will now appear in the Form Builder.";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error creating service: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostEditServiceAsync(
+            int ServiceId,
+            string ServiceName,
+            string ServiceKey,
+            string? Description,
+            string? Category,
+            int DisplayOrder,
+            string? IconClass,
+            string? ColorTheme,
+            int? MinAge,
+            int? MaxAge,
+            bool IsActive = false)
+        {
+            try
+            {
+                var service = await _context.ConsultationServices
+                    .FirstOrDefaultAsync(s => s.ServiceId == ServiceId);
+
+                if (service == null)
+                {
+                    TempData["ErrorMessage"] = "Service not found.";
+                    return RedirectToPage();
+                }
+
+                // Update service
+                service.ServiceName = ServiceName.Trim();
+                service.Description = Description?.Trim();
+                service.Category = Category?.Trim();
+                service.DisplayOrder = DisplayOrder;
+                service.IconClass = IconClass?.Trim();
+                service.ColorTheme = ColorTheme?.Trim();
+                service.MinAge = MinAge;
+                service.MaxAge = MaxAge;
+                service.IsActive = IsActive;
+                service.UpdatedAt = DateTime.UtcNow;
+                service.UpdatedBy = User.Identity?.Name;
+
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Service '{ServiceName}' updated successfully.";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating service: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostDeleteServiceAsync(int ServiceId)
+        {
+            try
+            {
+                var service = await _context.ConsultationServices
+                    .Include(s => s.AssociatedForms)
+                    .FirstOrDefaultAsync(s => s.ServiceId == ServiceId);
+
+                if (service == null)
+                {
+                    TempData["ErrorMessage"] = "Service not found.";
+                    return RedirectToPage();
+                }
+
+                // Check if service has associated forms
+                if (service.AssociatedForms.Any())
+                {
+                    TempData["ErrorMessage"] = $"Cannot delete service '{service.ServiceName}' because it has {service.AssociatedForms.Count} associated form(s). Please remove or reassign the forms first.";
+                    return RedirectToPage();
+                }
+
+                _context.ConsultationServices.Remove(service);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Service '{service.ServiceName}' deleted successfully.";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error deleting service: {ex.Message}";
+            }
+
+            return RedirectToPage();
         }
     }
 }

@@ -62,6 +62,113 @@
         padding: 40px;
     }
     
+    /* Section Pages - Hidden by default */
+    .section-page {
+        display: none;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    .section-page.active {
+        display: block;
+    }
+    
+    /* Section Header */
+    .section-header {
+        margin: 0 0 30px;
+        padding: 25px 30px;
+        background: linear-gradient(135deg, #ff8c42 0%, #ff6b1a 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+    }
+    
+    .section-header h3 {
+        color: white;
+        margin: 0 0 5px 0;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    
+    .section-header p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    /* Navigation Buttons */
+    .section-navigation {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px solid #e9ecef;
+    }
+    
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    /* Wizard Steps */
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .wizard-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        min-width: 100px;
+    }
+    
+    .wizard-step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+    
+    .wizard-step.completed .wizard-step-number {
+        background: #ff8c42;
+        color: white;
+    }
+    
+    .wizard-step-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-align: center;
+    }
+    
+    .wizard-step.completed .wizard-step-label {
+        color: #ff8c42;
+        font-weight: 600;
+    }
+    
+    .wizard-step-line {
+        height: 2px;
+        background: #e9ecef;
+        flex: 1;
+        margin: 0 10px;
+        position: relative;
+        top: -25px;
+    }
+    
     .form-field {
         margin-bottom: 30px;
         padding-bottom: 20px;
@@ -145,23 +252,151 @@
 
         @if (Model.SubmissionData != null && Model.SubmissionData.Any())
         {
-            @foreach (var field in Model.SubmissionData)
+            // Parse form fields to identify sections
+            var allFields = Model.FormTemplate.FormFields?.OrderBy(f => f.DisplayOrder).ToList() ?? new List<Barangay.Models.FormField>();
+            
+            @* Debug info *@
+            @if (!allFields.Any())
             {
-                // Format field name: replace underscores with spaces and capitalize words
-                string formattedFieldName = field.Key.Replace("_", " ");
-                // Capitalize first letter of each word
-                formattedFieldName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(formattedFieldName.ToLower());
-                
-                <div class="form-field">
-                    <span class="field-label">@formattedFieldName</span>
-                    <div class="field-value">
-                        @if (string.IsNullOrWhiteSpace(field.Value))
+                <div class="alert alert-danger">
+                    <i class="fa-solid fa-exclamation-circle me-2"></i>
+                    <strong>Error:</strong> No form fields found in template. The form structure may not be loaded properly.
+                    <div class="mt-2 small">
+                        <strong>Submission Data Keys:</strong> @string.Join(", ", Model.SubmissionData.Keys)
+                    </div>
+                </div>
+            }
+            var formSections = new List<(string Title, string Description, List<Barangay.Models.FormField> Fields)>();
+            var currentSectionFields = new List<Barangay.Models.FormField>();
+            string currentSectionTitle = "";
+            string currentSectionDescription = "";
+            
+            foreach (var field in allFields)
+            {
+                if (field.FieldType == "section" || field.FieldType == "divider" || field.FieldType == "heading")
+                {
+                    if (currentSectionFields.Count > 0)
+                    {
+                        formSections.Add((currentSectionTitle, currentSectionDescription, new List<Barangay.Models.FormField>(currentSectionFields)));
+                    }
+                    currentSectionTitle = field.Title ?? field.FieldLabel ?? "";
+                    currentSectionDescription = field.FieldLabel ?? "";
+                    currentSectionFields = new List<Barangay.Models.FormField>();
+                }
+                else
+                {
+                    currentSectionFields.Add(field);
+                }
+            }
+            if (currentSectionFields.Count > 0)
+            {
+                formSections.Add((currentSectionTitle, currentSectionDescription, currentSectionFields));
+            }
+            
+            var isMultiStep = formSections.Count > 1;
+            
+            @* Debug: Show if no sections found *@
+            if (formSections.Count == 0 && allFields.Any())
+            {
+                <div class="alert alert-warning">
+                    <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                    <strong>Note:</strong> Form has @allFields.Count field(s) but no sections defined. Displaying all fields in a single section.
+                </div>
+                formSections.Add(("Form Data", "", allFields));
+            }
+            
+            @* Show wizard steps *@
+            if (formSections.Count > 0)
+            {
+                <div class="wizard-steps">
+                    @for (int i = 0; i < formSections.Count; i++)
+                    {
+                        var formSection = formSections[i];
+                        var stepTitle = !string.IsNullOrEmpty(formSection.Title) ? formSection.Title : $"Step {i + 1}";
+                        
+                        <div class="wizard-step @(i == 0 ? "active" : "")" data-step="@i">
+                            <div class="wizard-step-number">@(i + 1)</div>
+                            <span class="wizard-step-label">@stepTitle</span>
+                        </div>
+                        
+                        @if (i < formSections.Count - 1)
                         {
-                            <span class="empty-value">(No response)</span>
+                            <div class="wizard-step-line"></div>
+                        }
+                    }
+                </div>
+            }
+            
+            @* Render each section as a separate page *@
+            @for (int sectionIndex = 0; sectionIndex < formSections.Count; sectionIndex++)
+            {
+                var formSection = formSections[sectionIndex];
+                var displayTitle = !string.IsNullOrEmpty(formSection.Title) 
+                    ? formSection.Title 
+                    : $"Step {sectionIndex + 1}";
+                
+                <div class="section-page @(sectionIndex == 0 ? "active" : "")" data-section="@sectionIndex">
+                    @* Section Header *@
+                    <div class="section-header">
+                        <h3>
+                            <i class="fa-solid fa-clipboard-list me-2"></i>@displayTitle
+                        </h3>
+                        @if (!string.IsNullOrEmpty(formSection.Description) && formSection.Description != formSection.Title)
+                        {
+                            <p>@formSection.Description</p>
+                        }
+                    </div>
+                    
+                    @* Render fields in this section *@
+                    @foreach (var field in formSection.Fields)
+                    {
+                        // Try to find the value for this field
+                        var fieldValue = Model.SubmissionData.FirstOrDefault(kvp => 
+                            kvp.Key.Equals(field.FieldName, StringComparison.OrdinalIgnoreCase));
+                        
+                        // Skip if no value found
+                        if (fieldValue.Key == null)
+                        {
+                            continue;
+                        }
+                        
+                        <div class="form-field">
+                            <span class="field-label">@field.FieldLabel</span>
+                            <div class="field-value">
+                                @if (string.IsNullOrWhiteSpace(fieldValue.Value))
+                                {
+                                    <span class="empty-value">(No response)</span>
+                                }
+                                else
+                                {
+                                    @Html.Raw(fieldValue.Value.Replace("\n", "<br>"))
+                                }
+                            </div>
+                        </div>
+                    }
+                    
+                    @* Navigation buttons *@
+                    <div class="section-navigation">
+                        @if (sectionIndex > 0)
+                        {
+                            <button type="button" class="btn btn-outline-secondary" onclick="navigateSection(@(sectionIndex - 1))">
+                                <i class="fa-solid fa-arrow-left me-2"></i>Previous
+                            </button>
                         }
                         else
                         {
-                            @Html.Raw(field.Value.Replace("\n", "<br>"))
+                            <div></div>
+                        }
+                        
+                        @if (sectionIndex < formSections.Count - 1)
+                        {
+                            <button type="button" class="btn btn-primary" onclick="navigateSection(@(sectionIndex + 1))">
+                                Next<i class="fa-solid fa-arrow-right ms-2"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <div></div>
                         }
                     </div>
                 </div>
@@ -213,12 +448,68 @@
 
 @section Scripts {
     <script>
+        let currentSection = 0;
+        
+        function navigateSection(sectionIndex) {
+            // Hide current section
+            const currentPage = document.querySelector('.section-page.active');
+            if (currentPage) {
+                currentPage.classList.remove('active');
+            }
+            
+            // Show target section
+            const targetPage = document.querySelector(`.section-page[data-section="${sectionIndex}"]`);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            // Update wizard steps
+            document.querySelectorAll('.wizard-step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index < sectionIndex) {
+                    step.classList.add('completed');
+                } else if (index === sectionIndex) {
+                    step.classList.add('active');
+                }
+            });
+            
+            currentSection = sectionIndex;
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            const totalSections = document.querySelectorAll('.section-page').length;
+            
+            if (e.key === 'ArrowRight' && currentSection < totalSections - 1) {
+                navigateSection(currentSection + 1);
+            } else if (e.key === 'ArrowLeft' && currentSection > 0) {
+                navigateSection(currentSection - 1);
+            }
+        });
+        
         // Print styles
         window.addEventListener('beforeprint', function() {
+            // Show all sections for printing
+            document.querySelectorAll('.section-page').forEach(page => {
+                page.style.display = 'block';
+            });
+            document.querySelectorAll('.section-navigation').forEach(nav => {
+                nav.style.display = 'none';
+            });
             document.querySelector('.action-buttons').style.display = 'none';
         });
         
         window.addEventListener('afterprint', function() {
+            // Restore section visibility
+            document.querySelectorAll('.section-page').forEach((page, index) => {
+                page.style.display = index === currentSection ? 'block' : 'none';
+            });
+            document.querySelectorAll('.section-navigation').forEach(nav => {
+                nav.style.display = 'flex';
+            });
             document.querySelector('.action-buttons').style.display = 'flex';
         });
     </script>

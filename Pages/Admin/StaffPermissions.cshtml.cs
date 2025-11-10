@@ -16,7 +16,7 @@ using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
-    [Authorize(Policy = "AccessDashboard")]
+    [Authorize(Roles = "Admin,Nurse,Doctor")]
     public class StaffPermissionsModel : PageModel
     {
         private readonly ApplicationDbContext _context;

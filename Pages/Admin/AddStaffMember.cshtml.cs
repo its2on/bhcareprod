@@ -19,7 +19,7 @@ using Newtonsoft.Json;
 
 namespace Barangay.Pages.Admin
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Nurse,Doctor")]
     public class AddStaffMemberModel : PageModel
     {
         private readonly ApplicationDbContext _context;

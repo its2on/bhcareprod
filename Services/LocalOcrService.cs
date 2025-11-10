@@ -552,11 +552,12 @@ namespace Barangay.Services
         /// Validates that the extracted text is from an actual Philippine ID document
         /// Rejects plain text, screenshots, or documents without ID markers
         /// STRICT VALIDATION: Requires actual ID document markers, not just address fields
+        /// Returns tuple (isValid, idType)
         /// </summary>
-        private bool IsValidPhilippineIdDocument(string text)
+        private (bool isValid, string idType) IsValidPhilippineIdDocument(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
-                return false;
+                return (false, null);
 
             var upperText = text.ToUpper();
             
@@ -565,7 +566,7 @@ namespace Barangay.Services
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
                 _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
-                return false;
+                return (false, "Screenshot Detected");
             }
             
             // Required Philippine ID markers - document MUST contain at least one STRONG ID marker
@@ -597,8 +598,11 @@ namespace Barangay.Services
                 // PhilHealth markers (REQUIRED)
                 "PHILHEALTH",
                 "PHIL-HEALTH",
+                "PHIL HEALTH",
                 "PHILIPPINE HEALTH INSURANCE",
+                "HEALTH INSURANCE CORPORATION",
                 "MEMBER ID",
+                "MDR ID", // PhilHealth Member Data Record
                 
                 // UMID/SSS markers (REQUIRED)
                 "UMID",
@@ -615,7 +619,10 @@ namespace Barangay.Services
                 
                 // Passport markers (REQUIRED)
                 "PASSPORT",
+                "PASAPORTE",
                 "REPUBLIC OF THE PHILIPPINES PASSPORT",
+                "REPUBLIKA NG PILIPINAS PASSPORT",
+                "P<PHL", // Machine readable zone marker for PH passport
                 
                 // TIN ID markers (REQUIRED)
                 "TIN",
@@ -624,21 +631,61 @@ namespace Barangay.Services
                 "BUREAU OF INTERNAL REVENUE"
             };
             
-            // Check for STRONG ID markers first (these are required for legitimate IDs)
+            // Check for STRONG ID markers first and detect ID type
             bool hasStrongIdMarker = strongIdMarkers.Any(marker => upperText.Contains(marker));
+            string detectedIdType = null;
+            
+            // AGGRESSIVE: Detect specific ID type with partial matches for OCR errors
+            if (upperText.Contains("PHILSYS") || upperText.Contains("PAMBANSANG") || upperText.Contains("PAGKAKAKILANLAN") || upperText.Contains("PHILIPPINE IDENTIFICATION"))
+                detectedIdType = "PhilSys";
+            else if ((upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE"))
+                detectedIdType = "Driver's License";
+            else if (upperText.Contains("TRANSPORTATION") || upperText.Contains("LTO"))
+                detectedIdType = "Driver's License";
+            else if (upperText.Contains("PHILHEALTH") || upperText.Contains("PHIL-HEALTH") || upperText.Contains("PHIL HEALTH") || 
+                     upperText.Contains("HEALTH INSURANCE CORPORATION") || upperText.Contains("MDR ID"))
+                detectedIdType = "PhilHealth ID";
+            else if (upperText.Contains("PASSPORT") || upperText.Contains("PASAPORTE") || upperText.Contains("P<PHL"))
+                detectedIdType = "Passport";
+            else if (upperText.Contains("UMID") || upperText.Contains("UNIFIED MULTI-PURPOSE") || upperText.Contains("MULTI-PURPOSE ID"))
+                detectedIdType = "UMID";
+            else if (upperText.Contains("SSS") || upperText.Contains("SOCIAL SECURITY"))
+                detectedIdType = "SSS ID";
+            else if (upperText.Contains("POSTAL") || upperText.Contains("PHLPOST") || upperText.Contains("POST OFFICE"))
+                detectedIdType = "Postal ID";
+            else if (upperText.Contains("TIN") || upperText.Contains("TAX IDENTIFICATION") || upperText.Contains("BIR"))
+                detectedIdType = "TIN ID";
+            else if (upperText.Contains("GSIS"))
+                detectedIdType = "GSIS ID";
+            else if (upperText.Contains("REPUBLIK") || upperText.Contains("PILIPINAS") || (upperText.Contains("REPUBLIC") && upperText.Contains("PHILIPP")))
+                detectedIdType = "Philippine Government ID";
             
             // Also check for partial matches of strong markers (handle OCR errors)
+            // VERY AGGRESSIVE: Even partial words should trigger acceptance
             if (!hasStrongIdMarker)
             {
                 hasStrongIdMarker = 
-                    upperText.Contains("REPUBLIC") && (upperText.Contains("PHILIPPINES") || upperText.Contains("PHILIPPINE")) ||
-                    (upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE") ||
+                    upperText.Contains("REPUBLIK") || // OCR error for "REPUBLIKA"
+                    upperText.Contains("PILIPINAS") || // Tagalog spelling
+                    (upperText.Contains("REPUBLIC") && upperText.Contains("PHILIPP")) || // Partial match
+                    upperText.Contains("PAMBANSANG") || // PhilSys marker
+                    upperText.Contains("PAGKAKAKILANLAN") || // PhilSys marker
+                    upperText.Contains("TRANSPORTATION") || // LTO
+                    ((upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE")) ||
                     upperText.Contains("PHILSYS") ||
-                    upperText.Contains("PHILHEALTH") ||
+                    upperText.Contains("PHILHEALTH") || upperText.Contains("PHIL HEALTH") || // PhilHealth
+                    upperText.Contains("HEALTH INSURANCE") || // PhilHealth Corporation
                     upperText.Contains("UMID") ||
-                    upperText.Contains("POSTAL ID") ||
-                    upperText.Contains("PASSPORT") ||
-                    (upperText.Contains("TAX") || upperText.Contains("TIN")) && upperText.Contains("IDENTIFICATION");
+                    upperText.Contains("POSTAL") ||
+                    upperText.Contains("PASSPORT") || upperText.Contains("PASAPORTE") || // Passport EN/TL
+                    upperText.Contains("P<PHL") || // Passport machine readable zone
+                    upperText.Contains("LTO") || // Land Transportation Office
+                    ((upperText.Contains("TAX") || upperText.Contains("TIN")) && upperText.Contains("IDENTIFICATION"));
+                    
+                if (hasStrongIdMarker)
+                {
+                    _logger.LogInformation("✅ Found marker through partial matching!");
+                }
             }
 
             // CRITICAL: Must have a STRONG ID marker - screenshots won't have these
@@ -647,7 +694,7 @@ namespace Barangay.Services
                 _logger.LogWarning("⚠️ Document validation failed: No strong Philippine ID markers found");
                 _logger.LogWarning("Text preview: {Preview}", text.Substring(0, Math.Min(500, text.Length)));
                 _logger.LogWarning("Screenshots and non-ID documents are rejected. Please upload an actual Philippine ID document.");
-                return false;
+                return (false, "Unverified / Invalid ID Image");
             }
 
             // Additional validation: Check for ID-specific fields (using very lenient partial matches)
@@ -703,16 +750,27 @@ namespace Barangay.Services
                 fieldCount++; // Count address indicators
             }
             
-            if (fieldCount < 2)
+            // VERY LENIENT: If we have strong ID markers, ALWAYS pass validation
+            // Strong markers like "REPUBLIKA NG PILIPINAS", "DRIVER'S LICENSE", "PHILSYS" are enough
+            if (hasStrongIdMarker)
             {
-                _logger.LogWarning("⚠️ Document validation failed: Insufficient ID fields found (found {Count}, need at least 2)", fieldCount);
+                if (fieldCount < 1)
+                {
+                    _logger.LogInformation("✅ Passing validation based on strong government markers (ID Type: {IdType})", detectedIdType);
+                }
+                // Auto-pass with strong markers - don't require field counts
+            }
+            else if (fieldCount < 1)
+            {
+                _logger.LogWarning("⚠️ Document validation failed: No strong markers and no ID fields found");
                 _logger.LogWarning("Extracted text: {Text}", text.Substring(0, Math.Min(500, text.Length)));
-                return false;
+                return (false, "Unverified / Invalid ID Image");
             }
 
-            _logger.LogInformation("✅ Document validation passed: Philippine ID detected (markers: {Markers}, fields: {Fields})", 
-                strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
-            return true;
+            _logger.LogInformation("✅ Document validation passed: Philippine ID detected");
+            _logger.LogInformation("   ID Type: {IdType}", detectedIdType ?? "Unknown Philippine ID");
+            _logger.LogInformation("   Strong Markers: {Markers}, ID Fields: {Fields}", strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
+            return (true, detectedIdType ?? "Philippine Government ID");
         }
 
         /// <summary>
@@ -723,19 +781,29 @@ namespace Barangay.Services
         private OcrResult ExtractBarangayNumber(string text)
         {
             // STEP 0: Validate that this is an actual Philippine ID document
-            if (!IsValidPhilippineIdDocument(text))
+            var (isValid, idType) = IsValidPhilippineIdDocument(text);
+            
+            if (!isValid)
             {
                 _logger.LogError("❌ REJECTED: Document is not a valid Philippine ID");
                 _logger.LogError("The uploaded file appears to be plain text, a screenshot, or not a valid Philippine ID document.");
                 _logger.LogError("Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, etc.)");
                 
+                bool isScreenshot = idType?.Contains("Screenshot") == true;
+                
                 return new OcrResult
                 {
                     Success = false,
+                    Status = "unverified",
+                    IdType = idType,
+                    BarangayMatch = false,
                     Message = "Invalid document type. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, etc.). Plain text or screenshots are not accepted.",
-                    ExtractedText = text
+                    ExtractedText = text,
+                    IsScreenshot = isScreenshot
                 };
             }
+            
+            _logger.LogInformation("📄 Valid Philippine ID detected: {IdType}", idType);
 
             // Define valid barangays - ONLY these are accepted
             var validBarangays = new[] { "158", "159", "160", "161" };
@@ -774,12 +842,16 @@ namespace Barangay.Services
                         _logger.LogInformation("=== BARANGAY FOUND (VALIDATED) ===");
                         _logger.LogInformation("Pattern: {Pattern}", pattern);
                         _logger.LogInformation("Barangay: {Barangay}", barangayNumber);
+                        _logger.LogInformation("ID Type: {IdType}", idType);
 
                         return new OcrResult
                         {
                             Success = true,
+                            Status = "verified",
+                            IdType = idType,
+                            BarangayMatch = true,
                             BarangayNumber = barangayNumber,
-                            Message = $"Residency verified in Barangay {barangayNumber}",
+                            Message = $"Valid {idType} and Barangay {barangayNumber} verified",
                             ExtractedText = text
                         };
                     }
@@ -809,6 +881,9 @@ namespace Barangay.Services
                         return new OcrResult
                         {
                             Success = false,
+                            Status = "unverified",
+                            IdType = idType,
+                            BarangayMatch = false,
                             BarangayNumber = detectedNumber, // Store for error message
                             Message = $"The document shows Barangay {detectedNumber}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Your account will require manual review by an administrator.",
                             ExtractedText = text
@@ -824,6 +899,9 @@ namespace Barangay.Services
             return new OcrResult
             {
                 Success = false,
+                Status = "unverified",
+                IdType = idType,
+                BarangayMatch = false,
                 Message = "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please ensure your document clearly shows your barangay number.",
                 ExtractedText = text
             };

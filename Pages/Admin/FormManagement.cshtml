@@ -13,7 +13,15 @@
             </h1>
             <p class="text-muted mb-0">Create and manage dynamic forms for your application</p>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+                    <i class="fa-solid fa-stethoscope me-2"></i>Add Service
+                </button>
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#manageServicesModal" title="Manage Services">
+                    <i class="fa-solid fa-cog"></i>
+                </button>
+            </div>
             <a asp-page="./FormBuilder" class="btn btn-primary">
                 <i class="fa-solid fa-plus me-2"></i>Add New Form
             </a>
@@ -95,6 +103,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Form Name</th>
+                                <th>Service</th>
                                 <th>Category</th>
                                 <th>Fields</th>
                                 <th>Submissions</th>
@@ -122,6 +131,25 @@
                                                 }
                                             </div>
                                         </div>
+                                    </td>
+                                    <td>
+                                        @{
+                                            var linkedService = Model.Services.FirstOrDefault(s => s.ServiceId == form.ServiceId);
+                                        }
+                                        @if (linkedService != null)
+                                        {
+                                            <div class="d-flex align-items-center">
+                                                @if (!string.IsNullOrEmpty(linkedService.IconClass))
+                                                {
+                                                    <i class="@linkedService.IconClass me-1" style="color: @(linkedService.ColorTheme ?? "#4e73df"); font-size: 0.9rem;"></i>
+                                                }
+                                                <span class="small text-muted">@linkedService.ServiceName</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
                                     </td>
                                     <td>
                                         @if (!string.IsNullOrEmpty(form.Category))
@@ -224,8 +252,329 @@
     </div>
 </div>
 
+<!-- Manage Services Modal -->
+<div class="modal fade" id="manageServicesModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-stethoscope me-2"></i>Manage Services</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Service</th>
+                                <th>Key</th>
+                                <th>Category</th>
+                                <th class="text-center">Forms</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Services != null && Model.Services.Any())
+                            {
+                                @foreach (var service in Model.Services.OrderBy(s => s.DisplayOrder))
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @if (!string.IsNullOrEmpty(service.IconClass))
+                                                {
+                                                    <i class="@service.IconClass me-2" style="color: @(service.ColorTheme ?? "#4e73df"); font-size: 1.2rem;"></i>
+                                                }
+                                                <div>
+                                                    <strong>@service.ServiceName</strong>
+                                                    @if (!string.IsNullOrEmpty(service.Description))
+                                                    {
+                                                        <br><small class="text-muted">@service.Description</small>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><code class="text-muted small">@service.ServiceKey</code></td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(service.Category))
+                                            {
+                                                <span class="badge bg-light text-dark border small">@service.Category</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">@service.AssociatedForms.Count</span>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (service.IsActive)
+                                            {
+                                                <span class="badge bg-success small">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary small">Inactive</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-secondary" 
+                                                        onclick='editService(@service.ServiceId, @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new { 
+                                                            service.ServiceId, service.ServiceName, service.ServiceKey, service.Description, 
+                                                            service.Category, service.DisplayOrder, service.IconClass, service.ColorTheme, 
+                                                            service.IsActive, service.MinAge, service.MaxAge 
+                                                        })))' 
+                                                        title="Edit">
+                                                    <i class="fa-solid fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger" 
+                                                        onclick="deleteService(@service.ServiceId, '@service.ServiceName', @service.AssociatedForms.Count)" 
+                                                        @(service.AssociatedForms.Count > 0 ? "disabled" : "")
+                                                        title="@(service.AssociatedForms.Count > 0 ? "Has linked forms" : "Delete")">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>
+                                        No services found
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Service Modal -->
+<div class="modal fade" id="addServiceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="AddService">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fa-solid fa-plus me-2"></i>Add New Service</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Service Name <span class="text-danger">*</span></label>
+                            <input type="text" name="ServiceName" class="form-control" required placeholder="e.g., General Consult" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Service Key <span class="text-danger">*</span></label>
+                            <input type="text" name="ServiceKey" class="form-control" required placeholder="e.g., general-consult" />
+                            <small class="text-muted">No spaces, lowercase</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="Description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Category</label>
+                            <select name="Category" class="form-select">
+                                <option value="">Select...</option>
+                                <option value="Clinical">Clinical</option>
+                                <option value="Preventive">Preventive</option>
+                                <option value="Maternal">Maternal</option>
+                                <option value="Dental">Dental</option>
+                                <option value="Specialized">Specialized</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Icon Class</label>
+                            <input type="text" name="IconClass" class="form-control" placeholder="fa-solid fa-stethoscope" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Color</label>
+                            <input type="color" name="ColorTheme" class="form-control form-control-color" value="#ff8c42" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Display Order</label>
+                            <input type="number" name="DisplayOrder" class="form-control" value="0" min="0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Min Age</label>
+                            <input type="number" name="MinAge" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Max Age</label>
+                            <input type="number" name="MaxAge" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" name="IsActive" class="form-check-input" id="addIsActive" checked />
+                                <label class="form-check-label" for="addIsActive">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save me-2"></i>Create Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Service Modal -->
+<div class="modal fade" id="editServiceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="EditService">
+                <input type="hidden" name="ServiceId" id="editServiceId" />
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="fa-solid fa-edit me-2"></i>Edit Service</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Service Name <span class="text-danger">*</span></label>
+                            <input type="text" name="ServiceName" id="editServiceName" class="form-control" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Service Key</label>
+                            <input type="text" name="ServiceKey" id="editServiceKey" class="form-control" readonly />
+                            <small class="text-muted">Cannot be changed</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="Description" id="editDescription" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Category</label>
+                            <select name="Category" id="editCategory" class="form-select">
+                                <option value="">Select...</option>
+                                <option value="Clinical">Clinical</option>
+                                <option value="Preventive">Preventive</option>
+                                <option value="Maternal">Maternal</option>
+                                <option value="Dental">Dental</option>
+                                <option value="Specialized">Specialized</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Icon Class</label>
+                            <input type="text" name="IconClass" id="editIconClass" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Color</label>
+                            <input type="color" name="ColorTheme" id="editColorTheme" class="form-control form-control-color" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Display Order</label>
+                            <input type="number" name="DisplayOrder" id="editDisplayOrder" class="form-control" min="0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Min Age</label>
+                            <input type="number" name="MinAge" id="editMinAge" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Max Age</label>
+                            <input type="number" name="MaxAge" id="editMaxAge" class="form-control" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" name="IsActive" id="editIsActive" class="form-check-input" />
+                                <label class="form-check-label" for="editIsActive">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning"><i class="fa-solid fa-save me-2"></i>Update Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Service Modal -->
+<div class="modal fade" id="deleteServiceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="DeleteService">
+                <input type="hidden" name="ServiceId" id="deleteServiceId" />
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm Delete</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the service "<strong id="deleteServiceName"></strong>"?</p>
+                    <p class="text-danger mb-0"><i class="fa-solid fa-warning me-2"></i>This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash me-2"></i>Delete Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
+        // Service Management Functions
+        function editService(id, data) {
+            // Close manage services modal if open
+            const manageModal = bootstrap.Modal.getInstance(document.getElementById('manageServicesModal'));
+            if (manageModal) {
+                manageModal.hide();
+            }
+            
+            // Populate edit form
+            document.getElementById('editServiceId').value = data.ServiceId;
+            document.getElementById('editServiceName').value = data.ServiceName;
+            document.getElementById('editServiceKey').value = data.ServiceKey;
+            document.getElementById('editDescription').value = data.Description || '';
+            document.getElementById('editCategory').value = data.Category || '';
+            document.getElementById('editDisplayOrder').value = data.DisplayOrder;
+            document.getElementById('editIconClass').value = data.IconClass || '';
+            document.getElementById('editColorTheme').value = data.ColorTheme || '#ff8c42';
+            document.getElementById('editMinAge').value = data.MinAge || '';
+            document.getElementById('editMaxAge').value = data.MaxAge || '';
+            document.getElementById('editIsActive').checked = data.IsActive;
+            
+            // Show edit modal
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('editServiceModal')).show();
+            }, 300);
+        }
+
+        function deleteService(id, name, formsCount) {
+            if (formsCount > 0) {
+                alert(`Cannot delete service "${name}" because it has ${formsCount} associated form(s). Please remove or reassign the forms first.`);
+                return;
+            }
+            
+            // Close manage services modal if open
+            const manageModal = bootstrap.Modal.getInstance(document.getElementById('manageServicesModal'));
+            if (manageModal) {
+                manageModal.hide();
+            }
+            
+            document.getElementById('deleteServiceId').value = id;
+            document.getElementById('deleteServiceName').textContent = name;
+            
+            // Show delete modal
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('deleteServiceModal')).show();
+            }, 300);
+        }
+
+        // Form Management Functions
         function confirmDelete(formId, formName) {
             document.getElementById('formIdToDelete').value = formId;
             document.getElementById('formNameToDelete').textContent = formName;

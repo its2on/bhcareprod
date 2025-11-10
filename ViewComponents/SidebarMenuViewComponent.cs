@@ -157,16 +157,25 @@ namespace Barangay.ViewComponents
                         });
                     }
                     
-// Settings - Allow nurses to access their settings
-navItems.Add(new SidebarMenuItem { 
-    Text = "Settings", 
-    Icon = "cog", 
-    Url = "/Nurse/Settings", 
-    RequiredPermissions = new List<string>(),
-    IsActive = currentPath.Contains("/nurse/settings")
-});
+                    // Form Management - Nurses perform admin duties in health center
+                    navItems.Add(new SidebarMenuItem { 
+                        Text = "Form Management", 
+                        Icon = "file-lines", 
+                        Url = "/Admin/FormManagement", 
+                        RequiredPermissions = new List<string>(),
+                        IsActive = currentPath.Contains("/admin/formmanagement")
+                    });
+                    
+                    // Settings - Allow nurses to access their settings
+                    navItems.Add(new SidebarMenuItem { 
+                        Text = "Settings", 
+                        Icon = "cog", 
+                        Url = "/Nurse/Settings", 
+                        RequiredPermissions = new List<string>(),
+                        IsActive = currentPath.Contains("/nurse/settings")
+                    });
 
-break;
+                    break;
 
                 case "doctor":
                     // Doctor simplified permissions - Check multiple permission variations
