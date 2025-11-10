@@ -125,18 +125,7 @@ namespace Barangay.ViewComponents
                         });
                     }
                     
-                    var hasVitalSignsPermission = HasPermission("VitalSigns");
-                    _logger.LogInformation($"Nurse {userId}: Vitals visible = {hasVitalSignsPermission}");
-                    if (hasVitalSignsPermission)
-                    {
-                        navItems.Add(new SidebarMenuItem { 
-                            Text = "Vitals", 
-                            Icon = "heartbeat", 
-                            Url = "/Nurse/VitalSigns", 
-                            RequiredPermissions = new List<string> { "VitalSigns" },
-                            IsActive = currentPath.Contains("/nurse/vitalsigns")
-                        });
-                    }
+                    // Removed 'Vitals' menu item from nurse sidebar per requirement
                     
                     // Removed separate 'Record Vitals' menu item; recording is handled within Vitals page
 

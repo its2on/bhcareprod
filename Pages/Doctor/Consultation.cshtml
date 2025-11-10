@@ -242,237 +242,213 @@
                         <h5 class="mb-0">Vital Signs</h5>
                     </div>
                     <div class="card-body">
-                        @if (Model.LatestVitalSigns != null)
-                        {
-                            <p><strong>BP:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.BloodPressure) ? "Not recorded" : Model.LatestVitalSigns.BloodPressure)</p>
-                            <p><strong>Temp:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.Temperature) ? "Not recorded" : $"{Model.LatestVitalSigns.Temperature} °C")</p>
-                            <p><strong>HR:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.HeartRate) ? "Not recorded" : $"{Model.LatestVitalSigns.HeartRate} bpm")</p>
-                            <p><strong>SpO2:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.SpO2) ? "Not recorded" : $"{Model.LatestVitalSigns.SpO2}%")</p>
-                            <p><strong>Weight:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.Weight) ? "Not recorded" : $"{Model.LatestVitalSigns.Weight} kg")</p>
-                            <p><strong>Height:</strong> @(string.IsNullOrEmpty(Model.LatestVitalSigns.Height) ? "Not recorded" : $"{Model.LatestVitalSigns.Height} cm")</p>
+                        @{
+                            bool hasVitalSigns = false;
+                            
+                            // Helper function to get value from form or vital signs
+                            string GetVitalSignValue(string key, string? vitalSignValue = null)
+                            {
+                                // Try form vital signs first (most recent from forms)
+                                if (Model.FormVitalSigns.ContainsKey(key) && !string.IsNullOrEmpty(Model.FormVitalSigns[key]))
+                                {
+                                    return Model.FormVitalSigns[key];
+                                }
+                                
+                                // Fall back to vital signs table
+                                if (!string.IsNullOrEmpty(vitalSignValue))
+                                {
+                                    return vitalSignValue;
+                                }
+                                
+                                return null;
+                            }
+                            
+                            // Weight
+                            var weight = GetVitalSignValue("Weight", Model.LatestVitalSigns?.Weight);
+                            if (!string.IsNullOrEmpty(weight))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Weight:</strong> @weight kg</p>
+                            }
+                            
+                            // Height
+                            var height = GetVitalSignValue("Height", Model.LatestVitalSigns?.Height);
+                            if (!string.IsNullOrEmpty(height))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Height:</strong> @height cm</p>
+                            }
+                            
+                            // BMI
+                            var bmi = GetVitalSignValue("BMI");
+                            if (!string.IsNullOrEmpty(bmi))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>BMI:</strong> @bmi</p>
+                            }
+                            
+                            // Blood Pressure - try multiple field names
+                            var bp = GetVitalSignValue("BloodPressure", Model.LatestVitalSigns?.BloodPressure) 
+                                  ?? GetVitalSignValue("BP")
+                                  ?? GetVitalSignValue("BaselineBP")
+                                  ?? GetVitalSignValue("LeftArmMeanBP")
+                                  ?? GetVitalSignValue("RightArmMeanBP");
+                            if (!string.IsNullOrEmpty(bp))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>BP:</strong> @bp</p>
+                            }
+                            
+                            // BP Status
+                            var bpStatus = GetVitalSignValue("BPStatus");
+                            if (!string.IsNullOrEmpty(bpStatus))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>BP Status:</strong> @bpStatus</p>
+                            }
+                            
+                            // Left Arm BP
+                            var leftArmBP = GetVitalSignValue("LeftArmMeanBP");
+                            if (!string.IsNullOrEmpty(leftArmBP) && leftArmBP != bp)
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Left Arm BP:</strong> @leftArmBP</p>
+                            }
+                            
+                            // Right Arm BP
+                            var rightArmBP = GetVitalSignValue("RightArmMeanBP");
+                            if (!string.IsNullOrEmpty(rightArmBP) && rightArmBP != bp)
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Right Arm BP:</strong> @rightArmBP</p>
+                            }
+                            
+                            // Temperature
+                            var temp = GetVitalSignValue("Temperature", Model.LatestVitalSigns?.Temperature) 
+                                    ?? GetVitalSignValue("Temp");
+                            if (!string.IsNullOrEmpty(temp))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Temp:</strong> @temp @(temp.Contains("°C") || temp.Contains("°") ? "" : "°C")</p>
+                            }
+                            
+                            // Heart Rate
+                            var hr = GetVitalSignValue("HeartRate", Model.LatestVitalSigns?.HeartRate) 
+                                   ?? GetVitalSignValue("HR");
+                            if (!string.IsNullOrEmpty(hr))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>HR:</strong> @hr @(hr.Contains("bpm") ? "" : " bpm")</p>
+                            }
+                            
+                            // SpO2
+                            var spo2 = GetVitalSignValue("SpO2", Model.LatestVitalSigns?.SpO2);
+                            if (!string.IsNullOrEmpty(spo2))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>SpO2:</strong> @spo2 @(spo2.Contains("%") ? "" : "%")</p>
+                            }
+                            
+                            // Respiratory Rate
+                            var respRate = GetVitalSignValue("RespiratoryRate");
+                            if (!string.IsNullOrEmpty(respRate))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Respiratory Rate:</strong> @respRate</p>
+                            }
+                            
+                            // Cholesterol
+                            var cholesterol = GetVitalSignValue("CholesterolResult") 
+                                           ?? GetVitalSignValue("Cholesterol");
+                            if (!string.IsNullOrEmpty(cholesterol))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Cholesterol:</strong> @cholesterol @(cholesterol.Contains("mg/dL") ? "" : " mg/dL")</p>
+                            }
+                            
+                            // Fasting Blood Sugar
+                            var fbs = GetVitalSignValue("FastingBloodSugar");
+                            if (!string.IsNullOrEmpty(fbs))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Fasting Blood Sugar:</strong> @fbs @(fbs.Contains("mg/dL") ? "" : " mg/dL")</p>
+                            }
+                            
+                            // Random Blood Sugar
+                            var rbs = GetVitalSignValue("RandomBloodSugar");
+                            if (!string.IsNullOrEmpty(rbs))
+                            {
+                                hasVitalSigns = true;
+                                <p><strong>Random Blood Sugar:</strong> @rbs @(rbs.Contains("mg/dL") ? "" : " mg/dL")</p>
+                            }
+                            
+                            if (!hasVitalSigns)
+                            {
+                                <p>No vital signs recorded.</p>
+                            }
                         }
-                        else
-                        {
-                            <p>No vital signs recorded.</p>
-                        }
-                    </div>
-                </div>
-
-               
-
-                <!-- HEEADSSS Assessment Card -->
-                @if (Model.HasHEEADSSSData())
-                {
-                    <div class="card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">HEEADSSS Assessment</h5>
-                            <a href="/Doctor/EditHEEADSSSAssessment?appointmentId=@Model.AppointmentId" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-edit me-1"></i> Edit
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Home Environment</h6>
-                                    <p><strong>Environment:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.HomeEnvironment) ? "Not specified" : Model.HEEADSSSAssessment.HomeEnvironment)</p>
-                                    <p><strong>Family Relationship:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.FamilyRelationship) ? "Not specified" : Model.HEEADSSSAssessment.FamilyRelationship)</p>
-                                    <p><strong>Family Problems:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.HomeFamilyProblems) ? "Not specified" : Model.HEEADSSSAssessment.HomeFamilyProblems)</p>
-                                    <p><strong>Parental Listening:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.HomeParentalListening) ? "Not specified" : Model.HEEADSSSAssessment.HomeParentalListening)</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Education & Activities</h6>
-                                    <p><strong>School Performance:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.SchoolPerformance) ? "Not specified" : Model.HEEADSSSAssessment.SchoolPerformance)</p>
-                                    <p><strong>Career Plans:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.CareerPlans) ? "Not specified" : Model.HEEADSSSAssessment.CareerPlans)</p>
-                                    <p><strong>Physical Activity:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.PhysicalActivity) ? "Not specified" : Model.HEEADSSSAssessment.PhysicalActivity)</p>
-                                    <p><strong>Attendance Issues:</strong> @(Model.HEEADSSSAssessment.AttendanceIssues == true ? "Yes" : "No")</p>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <h6>Eating & Substance Use</h6>
-                                    <p><strong>Diet Description:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.DietDescription) ? "Not specified" : Model.HEEADSSSAssessment.DietDescription)</p>
-                                    <p><strong>Weight Concerns:</strong> @(Model.HEEADSSSAssessment.WeightConcerns == true ? "Yes" : "No")</p>
-                                    <p><strong>Substance Use:</strong> @(Model.HEEADSSSAssessment.SubstanceUse == true ? "Yes" : "No")</p>
-                                    <p><strong>Drugs/Tobacco Use:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.DrugsTobaccoUse) ? "Not specified" : Model.HEEADSSSAssessment.DrugsTobaccoUse)</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Safety & Mental Health</h6>
-                                    <p><strong>Suicidal Thoughts:</strong> @(Model.HEEADSSSAssessment.SuicidalThoughts == true ? "Yes" : "No")</p>
-                                    <p><strong>Feels Safe at Home:</strong> @(Model.HEEADSSSAssessment.FeelsSafeAtHome == true ? "Yes" : "No")</p>
-                                    <p><strong>Sexual Activity:</strong> @(Model.HEEADSSSAssessment.SexualActivity == true ? "Yes" : "No")</p>
-                                    <p><strong>Sexual Orientation:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.SexualOrientation) ? "Not specified" : Model.HEEADSSSAssessment.SexualOrientation)</p>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-12">
-                                    <h6>Sexuality & Relationships</h6>
-                                    <p><strong>Pregnancy Experience:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.SexualityPregnancyExperience) ? "Not specified" : Model.HEEADSSSAssessment.SexualityPregnancyExperience)</p>
-                                    <p><strong>STI Experience:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.SexualitySTIExperience) ? "Not specified" : Model.HEEADSSSAssessment.SexualitySTIExperience)</p>
-                                    <p><strong>Protection Use:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.SexualityProtectionUse) ? "Not specified" : Model.HEEADSSSAssessment.SexualityProtectionUse)</p>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-12">
-                                    <h6>Additional Information</h6>
-                                    <p><strong>Hobbies:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.Hobbies) ? "Not specified" : Model.HEEADSSSAssessment.Hobbies)</p>
-                                    <p><strong>Assessment Notes:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.AssessmentNotes) ? "None" : Model.HEEADSSSAssessment.AssessmentNotes)</p>
-                                    <p><strong>Assessed By:</strong> @(string.IsNullOrEmpty(Model.HEEADSSSAssessment.AssessedBy) ? "Not specified" : Model.HEEADSSSAssessment.AssessedBy)</p>
-                                    <p><strong>Assessment Date:</strong> @(Model.HEEADSSSAssessment.CreatedAt.ToString("MMM dd, yyyy"))</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">HEEADSSS Assessment</h5>
-                        </div>
-                        <div class="card-body text-center py-3">
-                            <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
-                            <p class="text-muted">No HEEADSSS assessment record available for this appointment.</p>
-                            <small class="text-muted">HEEADSSS assessment is typically for patients aged 10-19 years. This patient is @Model.PatientAge years old.</small>
-                        </div>
-                    </div>
-                }
-
-                <!-- NCD Risk Assessment Card -->
-                @if (Model.HasNCDData())
-                {
-                    <div class="card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">NCD Risk Assessment</h5>
-                            <a href="/Doctor/EditNCDAssessment?appointmentId=@Model.AppointmentId" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-edit me-1"></i> Edit
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Medical History</h6>
-                                    <p><strong>Diabetes:</strong> @(Model.NCDRiskAssessment.HasDiabetes == "true" ? "Yes" : "No") 
-                                        @if (Model.NCDRiskAssessment.HasDiabetes == "true" && !string.IsNullOrEmpty(Model.NCDRiskAssessment.DiabetesYear))
-                                        {
-                                            <span class="text-muted">(Since @Model.NCDRiskAssessment.DiabetesYear)</span>
-                                        }
-                                    </p>
-                                    <p><strong>Hypertension:</strong> @(Model.NCDRiskAssessment.HasHypertension == "true" ? "Yes" : "No")
-                                        @if (Model.NCDRiskAssessment.HasHypertension == "true" && !string.IsNullOrEmpty(Model.NCDRiskAssessment.HypertensionYear))
-                                        {
-                                            <span class="text-muted">(Since @Model.NCDRiskAssessment.HypertensionYear)</span>
-                                        }
-                                    </p>
-                                    <p><strong>Cancer:</strong> @(Model.NCDRiskAssessment.HasCancer == "true" ? "Yes" : "No")
-                                        @if (Model.NCDRiskAssessment.HasCancer == "true" && !string.IsNullOrEmpty(Model.NCDRiskAssessment.CancerType))
-                                        {
-                                            <span class="text-muted">(@Model.NCDRiskAssessment.CancerType)</span>
-                                        }
-                                    </p>
-                                    <p><strong>Lung Disease:</strong> @(Model.NCDRiskAssessment.HasLungDisease == "true" ? "Yes" : "No")</p>
-                                    <p><strong>COPD:</strong> @(Model.NCDRiskAssessment.HasCOPD == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Eye Disease:</strong> @(Model.NCDRiskAssessment.HasEyeDisease == "true" ? "Yes" : "No")
-                                        @if (Model.NCDRiskAssessment.HasEyeDisease == "true" && !string.IsNullOrEmpty(Model.NCDRiskAssessment.EyeDiseaseYear))
-                                        {
-                                            <span class="text-muted">(Since @Model.NCDRiskAssessment.EyeDiseaseYear)</span>
-                                        }
-                                    </p>
-                                    <p><strong>Asthma:</strong> @(Model.NCDRiskAssessment.HasAsthma == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Difficulty Breathing:</strong> @(Model.NCDRiskAssessment.HasDifficultyBreathing == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Chest Pain:</strong> @(Model.NCDRiskAssessment.HasChestPain == "true" ? "Yes" : "No")</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Family History</h6>
-                                    <p><strong>Family Hypertension:</strong> @(Model.NCDRiskAssessment.FamilyHasHypertension == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Family Heart Disease:</strong> @(Model.NCDRiskAssessment.FamilyHasHeartDisease == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Family Stroke:</strong> @(Model.NCDRiskAssessment.FamilyHasStroke == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Family Diabetes:</strong> @(Model.NCDRiskAssessment.FamilyHasDiabetes == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Family Cancer:</strong> @(Model.NCDRiskAssessment.FamilyHasCancer == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Family Kidney Disease:</strong> @(Model.NCDRiskAssessment.FamilyHasKidneyDisease == "true" ? "Yes" : "No")</p>
-                                    
-                                    <!-- ADD: Individual Family History Details -->
-                                    <h6 class="mt-3">Individual Family History:</h6>
-                                    <p><strong>Cancer Father:</strong> @(Model.NCDRiskAssessment.FamilyHistoryCancerFather == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Cancer Mother:</strong> @(Model.NCDRiskAssessment.FamilyHistoryCancerMother == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Diabetes Father:</strong> @(Model.NCDRiskAssessment.FamilyHistoryDiabetesFather == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Diabetes Mother:</strong> @(Model.NCDRiskAssessment.FamilyHistoryDiabetesMother == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Heart Disease Father:</strong> @(Model.NCDRiskAssessment.FamilyHistoryHeartDiseaseFather == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Heart Disease Mother:</strong> @(Model.NCDRiskAssessment.FamilyHistoryHeartDiseaseMother == "true" ? "Yes" : "No")</p>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <h6>Risk Factors</h6>
-                                    <p><strong>Smoking Status:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.SmokingStatus) ? "Not specified" : Model.NCDRiskAssessment.SmokingStatus)</p>
-                                    <p><strong>Alcohol Use:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.AlcoholFrequency) ? "Not specified" : Model.NCDRiskAssessment.AlcoholFrequency)</p>
-                                    <p><strong>Alcohol Stopped Duration:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.AlcoholStoppedDuration) || Model.NCDRiskAssessment.AlcoholStoppedDuration == "None" ? "Not specified" : Model.NCDRiskAssessment.AlcoholStoppedDuration)</p>
-                                    <p><strong>Binge Drinker:</strong> @(Model.NCDRiskAssessment.IsBingeDrinker == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Physical Activity:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.ExerciseDuration) ? "Not specified" : Model.NCDRiskAssessment.ExerciseDuration)</p>
-                                    <p><strong>High Salt Intake:</strong> @(Model.NCDRiskAssessment.HighSaltIntake == "true" ? "Yes" : "No")</p>
-                                    
-                                    <!-- ADD: Additional Smoking Details -->
-                                    <p><strong>Smoked 100 Sticks:</strong> @(Model.NCDRiskAssessment.Smoked100Sticks == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Former Smoker:</strong> @(Model.NCDRiskAssessment.FormerSmoker == "true" ? "Yes" : "No")</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Physical Measurements</h6>
-                                    <p><strong>Weight:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.Weight) ? "Not recorded" : $"{Model.NCDRiskAssessment.Weight} kg")</p>
-                                    <p><strong>Height:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.Height) ? "Not recorded" : $"{Model.NCDRiskAssessment.Height} cm")</p>
-                                    <p><strong>BMI:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.BMI) ? "Not calculated" : Model.NCDRiskAssessment.BMI)</p>
-                                    <p><strong>Waist:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.Waist) ? "Not recorded" : $"{Model.NCDRiskAssessment.Waist} cm")</p>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-12">
-                                    <h6>Assessment Information</h6>
-                                    <p><strong>Risk Status:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.RiskStatus) ? "Not assessed" : Model.NCDRiskAssessment.RiskStatus)</p>
-                                    <p><strong>Chest Pain:</strong> @(Model.NCDRiskAssessment.ChestPain == "true" ? "Yes" : "No")</p>
-                                    <p><strong>Assessment Date:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.CreatedAt) ? "Not specified" : Model.NCDRiskAssessment.CreatedAt)</p>
-                                    
-                                    <!-- ADD: Medical Tests Section -->
-                                    <div class="row mt-3">
-                                        <div class="col-md-6">
-                                            <h6>Laboratory Results:</h6>
-                                            <p><strong>Fasting Blood Sugar:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.FastingBloodSugar) ? "Not tested" : $"{Model.NCDRiskAssessment.FastingBloodSugar} mg/dL")</p>
-                                            <p><strong>Random Blood Sugar:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.RandomBloodSugar) ? "Not tested" : $"{Model.NCDRiskAssessment.RandomBloodSugar} mg/dL")</p>
-                                            <p><strong>Cholesterol:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.CholesterolResult) ? "Not tested" : $"{Model.NCDRiskAssessment.CholesterolResult} mg/dL")</p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <h6>Blood Pressure Readings:</h6>
-                                            <p><strong>Left Arm BP:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.LeftArmMeanBP) ? "Not measured" : Model.NCDRiskAssessment.LeftArmMeanBP)</p>
-                                            <p><strong>Right Arm BP:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.RightArmMeanBP) ? "Not measured" : Model.NCDRiskAssessment.RightArmMeanBP)</p>
-                                            <p><strong>Baseline BP:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.BaselineBP) ? "Not measured" : Model.NCDRiskAssessment.BaselineBP)</p>
-                                            
-                                            <!-- ADD: Additional Identity Info -->
-                                            <h6 class="mt-3">Additional Information:</h6>
-                                            <p><strong>ID No:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.IDNo) ? "Not specified" : Model.NCDRiskAssessment.IDNo)</p>
-                                            <p><strong>Interviewed By:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.InterviewedBy) ? "Not specified" : Model.NCDRiskAssessment.InterviewedBy)</p>
-                                            <p><strong>Designation:</strong> @(string.IsNullOrEmpty(Model.NCDRiskAssessment.Designation) ? "Not specified" : Model.NCDRiskAssessment.Designation)</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-                else
+
+                <!-- Dynamic Forms Card -->
+                @if (Model.DynamicForms.Any())
                 {
                     <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">NCD Risk Assessment</h5>
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-clipboard-list me-2"></i>
+                                Clinical Assessment Forms
+                            </h5>
+                                </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                @foreach (var form in Model.DynamicForms)
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <i class="@form.IconClass me-2"></i>
+                                                @form.FormName
+                                            </h6>
+                                            @if (!string.IsNullOrEmpty(form.Description))
+                                            {
+                                                <small class="text-muted">@form.Description</small>
+                                            }
+                                            @if (form.IsCompleted && form.SubmittedAt.HasValue)
+                                            {
+                                                <br/>
+                                                <small class="text-success">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    Completed on @form.SubmittedAt.Value.ToString("MMM dd, yyyy")
+                                                </small>
+                                            }
                         </div>
-                        <div class="card-body text-center py-3">
-                            <i class="fas fa-heartbeat fa-2x text-muted mb-2"></i>
-                            @if (Model.PatientAge >= 20)
-                            {
-                                <p class="text-muted">No NCD risk assessment record available for this appointment.</p>
-                                <small class="text-muted">NCD risk assessment is appropriate for patients aged 20+ years.</small>
+                                        <div>
+                                            @if (form.IsCompleted)
+                                            {
+                                                <a href="/Forms/ViewSubmission?id=@form.SubmissionId" 
+                                                   class="btn btn-sm btn-outline-info me-2" 
+                                                   title="View Submission">
+                                                    <i class="fas fa-eye"></i> View
+                                                </a>
+                                                <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.AppointmentId" 
+                                                   class="btn btn-sm btn-outline-warning" 
+                                                   title="Re-submit Form">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </a>
                             }
                             else
                             {
-                                <p class="text-muted">NCD risk assessment not applicable for this patient.</p>
-                                <small class="text-muted">NCD risk assessment is only for patients aged 20+ years. This patient is @Model.PatientAge years old.</small>
-                            }
+                                                <a href="/Forms/SubmitForm/@form.FormKey?appointmentId=@Model.AppointmentId" 
+                                                   class="btn btn-sm btn-primary" 
+                                                   title="Complete Form">
+                                                    <i class="fas fa-plus-circle"></i> Complete
+                                                </a>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 }

@@ -49,11 +49,12 @@
                         <i class="fas fa-id-card me-2 text-primary"></i> Quick Fill with ID Scanner
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Upload your ID to automatically fill your information</p>
+                        <p class="text-muted mb-2">Upload your <strong>Philippine ID</strong> to automatically fill your information</p>
+                        <p class="text-muted small mb-3">Accepted: Driver's License, National ID, PhilHealth ID, Postal ID, UMID, TIN ID</p>
                         <div class="row align-items-center">
                             <div class="col-md-6">
                                 <input type="file" id="idScannerInput" accept="image/*" class="form-control" capture="environment" />
-                                <small class="text-muted mt-1 d-block">Upload your ID image (JPG, PNG)</small>
+                                <small class="text-muted mt-1 d-block">Upload your Philippine ID image (JPG, PNG) - Screenshots not accepted</small>
                             </div>
                             <div class="col-md-6">
                                 <button type="button" id="scanIdButton" class="btn btn-primary w-100">
@@ -2512,6 +2513,35 @@
             // Handle file selection change
             idScannerInput.addEventListener('change', function() {
                 if (scanIdButton && this.files && this.files[0]) {
+                    const file = this.files[0];
+                    
+                    // Early screenshot detection based on filename
+                    const fileName = file.name.toLowerCase();
+                    const screenshotPatterns = [
+                        'screenshot', 'screen shot', 'screen_capture', 'screen-capture',
+                        'snapshot', 'snap', 'capture', 'img_', 'photo_', 'image_',
+                        'scrn', 'scr', 'pic_', 'picture_'
+                    ];
+                    
+                    const isScreenshotFilename = screenshotPatterns.some(pattern => 
+                        fileName.includes(pattern)
+                    );
+                    
+                    // Show warning if screenshot filename detected
+                    if (isScreenshotFilename && scannerResult) {
+                        scannerResult.innerHTML = `<div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> 
+                            <strong>Screenshot detected!</strong>
+                            <p class="mb-0 mt-2"><strong>Only actual Philippine ID documents are accepted.</strong></p>
+                            <p class="mb-0 mt-2">Please upload a photo of your actual Philippine ID (Driver's License, National ID, PhilHealth ID, Postal ID, etc.).</p>
+                            <p class="mb-0 mt-2">Screenshots, photos of screens, or other documents will be rejected.</p>
+                        </div>`;
+                        scannerResult.classList.remove('d-none');
+                    } else if (scannerResult) {
+                        // Clear any previous warnings if not a screenshot
+                        scannerResult.classList.add('d-none');
+                    }
+                    
                     scanIdButton.disabled = false;
                     scanIdButton.innerHTML = '<i class="fas fa-camera me-2"></i> Process Selected Image';
                     
@@ -2519,7 +2549,6 @@
                     const previewContainer = document.getElementById('previewContainer');
                     const imagePreview = document.getElementById('imagePreview');
                     if (previewContainer && imagePreview) {
-                        const file = this.files[0];
                         const reader = new FileReader();
                         reader.onload = function(e) {
                             imagePreview.src = e.target.result;
@@ -2556,6 +2585,78 @@
                                 errors: [],
                                 warnings: []
                             };
+                            
+                            // ========== PHILIPPINE ID DOCUMENT VALIDATION ==========
+                            // Check filename for screenshot patterns
+                            const fileName = file.name.toLowerCase();
+                            const screenshotPatterns = [
+                                'screenshot', 'screen shot', 'screen_capture', 'screen-capture',
+                                'snapshot', 'snap', 'capture', 'img_', 'photo_', 'image_',
+                                'scrn', 'scr', 'pic_', 'picture_'
+                            ];
+                            
+                            const isScreenshotFilename = screenshotPatterns.some(pattern => 
+                                fileName.includes(pattern)
+                            );
+                            
+                            // Check image characteristics
+                            const aspectRatio = img.width / img.height;
+                            const isPortrait = img.height > img.width;
+                            const isLandscape = img.width > img.height;
+                            
+                            // Philippine ID cards typically have these aspect ratios:
+                            // - Portrait IDs: ~0.6 to 0.7 (height/width) or ~1.4 to 1.6 (width/height)
+                            // - Landscape IDs: ~1.4 to 1.6 (width/height) or ~0.6 to 0.7 (height/width)
+                            // Screenshots typically have wide ratios: 1.5 to 2.0 (16:9, 16:10)
+                            
+                            const isWideScreenRatio = aspectRatio >= 1.5 && aspectRatio <= 2.0; // Common screen ratios (reject)
+                            const isVeryWideRatio = aspectRatio > 2.0 || aspectRatio < 0.5; // Too extreme (reject)
+                            const isVeryHighRes = img.width >= 1920 || img.height >= 1080;
+                            const isLargeFileForRes = file.size > 1000000 && (img.width * img.height) < 5000000;
+                            
+                            // Check for common screen resolutions (screenshots)
+                            const commonScreenResolutions = [
+                                { w: 1920, h: 1080 }, { w: 2560, h: 1440 }, { w: 3840, h: 2160 },
+                                { w: 1366, h: 768 }, { w: 1440, h: 900 }, { w: 1680, h: 1050 },
+                                { w: 1280, h: 720 }, { w: 1600, h: 900 }, { w: 1024, h: 768 }
+                            ];
+                            
+                            const matchesCommonResolution = commonScreenResolutions.some(res => 
+                                (Math.abs(img.width - res.w) < 50 && Math.abs(img.height - res.h) < 50) ||
+                                (Math.abs(img.width - res.h) < 50 && Math.abs(img.height - res.w) < 50)
+                            );
+                            
+                            // Check for ID card-like aspect ratios (acceptable)
+                            // Portrait ID: height > width, ratio around 1.4-1.6
+                            // Landscape ID: width > height, ratio around 1.4-1.6
+                            const idPortraitRatio = isPortrait && aspectRatio >= 0.6 && aspectRatio <= 0.8;
+                            const idLandscapeRatio = isLandscape && aspectRatio >= 1.4 && aspectRatio <= 1.7;
+                            const idSquareRatio = aspectRatio >= 0.9 && aspectRatio <= 1.1; // Square-ish (some IDs)
+                            const hasIdLikeRatio = idPortraitRatio || idLandscapeRatio || idSquareRatio;
+                            
+                            // Scoring system for rejection
+                            let rejectionScore = 0;
+                            if (isScreenshotFilename) rejectionScore += 4; // Strong indicator
+                            if (matchesCommonResolution) rejectionScore += 3; // Very likely screenshot
+                            if (isWideScreenRatio && isVeryHighRes) rejectionScore += 3; // Screen ratio + high res
+                            if (isVeryWideRatio) rejectionScore += 2; // Too extreme to be an ID
+                            if (isLargeFileForRes && isWideScreenRatio) rejectionScore += 1;
+                            
+                            // Reject if score is high OR if it doesn't look like an ID document
+                            if (rejectionScore >= 3) {
+                                results.isValid = false;
+                                results.errors.push('⚠️ This does not appear to be an actual Philippine ID document.');
+                                results.errors.push('Please upload a photo of your actual Philippine ID (Driver\'s License, National ID, PhilHealth ID, Postal ID, etc.).');
+                                results.errors.push('Screenshots, photos of screens, or other documents are not accepted.');
+                                resolve(results);
+                                return;
+                            }
+                            
+                            // Warn if aspect ratio doesn't match typical ID cards (but allow it to proceed)
+                            // The backend OCR will do final validation by checking for Philippine ID markers
+                            if (!hasIdLikeRatio && !isWideScreenRatio) {
+                                results.warnings.push('Image aspect ratio may not match typical ID documents. Please ensure you are uploading an actual Philippine ID.');
+                            }
                             
                             // Check resolution
                             if (img.width < 600 || img.height < 400) {
@@ -3192,7 +3293,18 @@
                             scannerResult.classList.add('d-none');
                         }
                     } else {
-                        throw new Error(result.message || 'OCR processing failed');
+                        // Handle backend validation errors (e.g., not a Philippine ID)
+                        const errorMsg = result.message || result.errorDetails || 'OCR processing failed';
+                        const isInvalidDocument = errorMsg.includes('Invalid document') || 
+                                                  errorMsg.includes('not a valid Philippine ID') ||
+                                                  errorMsg.includes('screenshot') ||
+                                                  errorMsg.includes('actual Philippine ID');
+                        
+                        if (isInvalidDocument) {
+                            throw new Error(`PHILIPPINE_ID_REQUIRED: ${errorMsg}`);
+                        } else {
+                            throw new Error(errorMsg);
+                        }
                     }
                 } catch (error) {
                     console.error('Error processing ID:', error);
@@ -3207,7 +3319,15 @@
                     let errorMessage = error.message || 'Error processing ID. Please try again or fill the form manually.';
                     let tipMessage = '';
                     
-                    if (error.message?.includes('network') || error.message?.includes('Failed to fetch')) {
+                    // Check for Philippine ID validation errors
+                    if (error.message?.includes('PHILIPPINE_ID_REQUIRED') || 
+                        error.message?.includes('Invalid document') ||
+                        error.message?.includes('not a valid Philippine ID') ||
+                        error.message?.includes('actual Philippine ID')) {
+                        errorTitle = '⚠️ Philippine ID Required';
+                        errorMessage = error.message.replace('PHILIPPINE_ID_REQUIRED: ', '');
+                        tipMessage = '<strong>Only actual Philippine ID documents are accepted:</strong><ul class="mb-0 mt-2"><li>Driver\'s License</li><li>National ID (PhilSys)</li><li>PhilHealth ID</li><li>Postal ID</li><li>UMID</li><li>TIN ID</li></ul><p class="mb-0 mt-2">Screenshots, photos of screens, or other documents will be rejected.</p>';
+                    } else if (error.message?.includes('network') || error.message?.includes('Failed to fetch')) {
                         errorTitle = 'Connection Error';
                         errorMessage = 'Could not connect to the server.';
                         tipMessage = 'Tips: Check your internet connection, try again in a few moments.';

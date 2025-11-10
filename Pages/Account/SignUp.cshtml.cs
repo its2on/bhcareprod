@@ -1522,9 +1522,10 @@ namespace Barangay.Pages.Account
                     combinedResult.ContactNumber = parsedData.ContactNumber;
                     combinedResult.Address = parsedData.Address;
                     combinedResult.BirthDate = parsedData.BirthDate;
+                    combinedResult.Gender = parsedData.Gender;
                     
-                    _logger.LogInformation("Parsed from combined text - FirstName: {FirstName}, LastName: {LastName}, MiddleName: {MiddleName}, Suffix: {Suffix}, BirthDate: {BirthDate}",
-                        parsedData.FirstName, parsedData.LastName, parsedData.MiddleName, parsedData.Suffix, parsedData.BirthDate);
+                    _logger.LogInformation("Parsed from combined text - FirstName: {FirstName}, LastName: {LastName}, MiddleName: {MiddleName}, Suffix: {Suffix}, BirthDate: {BirthDate}, Gender: {Gender}",
+                        parsedData.FirstName, parsedData.LastName, parsedData.MiddleName, parsedData.Suffix, parsedData.BirthDate, parsedData.Gender);
                     
                     // If Azure Vision found these fields and they're better (not address words), prefer them
                     // But only if our parsed data didn't find them or found wrong values
@@ -1595,6 +1596,7 @@ namespace Barangay.Pages.Account
                     contactNumber = ocrResult.ContactNumber ?? "",
                     address = ocrResult.Address ?? "",
                     birthDate = ocrResult.BirthDate ?? "",
+                    gender = ocrResult.Gender ?? "",
                     barangay = ocrResult.BarangayNumber ?? "",
                     isBarangayValid = isBarangayValid,
                     extractedText = ocrResult.ExtractedText ?? ""

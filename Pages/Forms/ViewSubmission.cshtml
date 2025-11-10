@@ -2,7 +2,26 @@
 @model Barangay.Pages.Forms.ViewSubmissionModel
 @{
     ViewData["Title"] = "View Form Submission";
-    Layout = "~/Pages/Shared/_Layout.cshtml";
+    
+    // Dynamic layout selection based on user role (same as SubmitForm)
+    // Nurse and Head Nurse use NurseLayout
+    // Doctor, Head Doctor, and Admin use DoctorLayout
+    // Regular users/patients use UserLayout
+    var isNurse = User.IsInRole("Nurse") || User.IsInRole("Head Nurse");
+    var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+    
+    if (isNurse)
+    {
+        Layout = "~/Pages/Shared/_NurseLayout.cshtml";
+    }
+    else if (isDoctor)
+    {
+        Layout = "~/Pages/Doctor/_DoctorLayout.cshtml";
+    }
+    else
+    {
+        Layout = "~/Pages/Shared/_UserLayout.cshtml";
+    }
 }
 
 <style>
@@ -128,8 +147,13 @@
         {
             @foreach (var field in Model.SubmissionData)
             {
+                // Format field name: replace underscores with spaces and capitalize words
+                string formattedFieldName = field.Key.Replace("_", " ");
+                // Capitalize first letter of each word
+                formattedFieldName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(formattedFieldName.ToLower());
+                
                 <div class="form-field">
-                    <span class="field-label">@field.Key</span>
+                    <span class="field-label">@formattedFieldName</span>
                     <div class="field-value">
                         @if (string.IsNullOrWhiteSpace(field.Value))
                         {
@@ -153,7 +177,24 @@
     </div>
 
     <div class="action-buttons d-flex justify-content-between">
-        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+        @{
+            // Determine back button URL based on user role and appointment context
+            string backUrl = "javascript:history.back()";
+            if (Model.Appointment != null)
+            {
+                // Check role directly (isDoctor variable is in different scope)
+                bool userIsDoctor = User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+                if (userIsDoctor)
+                {
+                    backUrl = $"/Doctor/Consultation?id={Model.Appointment.Id}";
+                }
+                else
+                {
+                    backUrl = $"/Nurse/AppointmentDetails?id={Model.Appointment.Id}";
+                }
+            }
+        }
+        <a href="@backUrl" class="btn btn-outline-secondary">
             <i class="fa-solid fa-arrow-left me-2"></i>Back
         </a>
         <div>

@@ -2,7 +2,27 @@
 @model Barangay.Pages.Forms.SubmitFormModel
 @{
     ViewData["Title"] = Model.FormTemplate.FormName;
-    Layout = "~/Pages/Shared/_UserLayout.cshtml";
+    
+    // Dynamic layout selection based on user role
+    // Nurse and Head Nurse use NurseLayout
+    // Doctor, Head Doctor, and Admin use DoctorLayout
+    // Regular users/patients use UserLayout
+    var isNurse = User.IsInRole("Nurse") || User.IsInRole("Head Nurse");
+    var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Head Doctor") || User.IsInRole("Admin");
+    
+    if (isNurse)
+    {
+        Layout = "~/Pages/Shared/_NurseLayout.cshtml";
+    }
+    else if (isDoctor)
+    {
+        Layout = "~/Pages/Doctor/_DoctorLayout.cshtml";
+    }
+    else
+    {
+        Layout = "~/Pages/Shared/_UserLayout.cshtml";
+    }
+    
     ViewData["ShowDashboardNav"] = true;
 }
 
@@ -245,7 +265,7 @@
                     <span>@Model.FormTemplate.SuccessMessage</span>
                 }
             </p>
-            <a href="/User/UserDashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
+            <a href="@Model.DashboardUrl" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
                 <i class="fa-solid fa-home me-2"></i>Go to Dashboard
             </a>
         </div>
@@ -284,6 +304,7 @@
                         <div class="step-title">@stepTitle</div>
                     </div>
                     
+                    @* Add step-line between steps *@
                     @if (i < sections.Count - 1)
                     {
                         <div class="step-line"></div>
@@ -403,15 +424,58 @@
                                 break;
                                 
                             case "checkbox":
-                                @foreach (var option in ((IEnumerable<dynamic>)field.FormFieldOptions).Where(o => o.IsActive).OrderBy(o => o.DisplayOrder))
+                                // For checkboxes, prefilledValue might be comma-separated (e.g., "value1, value2, value3")
+                                var checkboxValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                if (!string.IsNullOrEmpty(prefilledValue))
+                                {
+                                    // Split by comma and trim each value
+                                    var splitValues = prefilledValue.Split(',');
+                                    foreach (var val in splitValues)
+                                    {
+                                        var trimmedVal = val.Trim();
+                                        if (!string.IsNullOrEmpty(trimmedVal))
+                                        {
+                                            checkboxValues.Add(trimmedVal);
+                                        }
+                                    }
+                                }
+                                
+                                var activeOptions = new List<dynamic>();
+                                foreach (var opt in (IEnumerable<dynamic>)field.FormFieldOptions)
+                                {
+                                    if (opt.IsActive == true)
+                                    {
+                                        activeOptions.Add(opt);
+                                    }
+                                }
+                                // Sort by DisplayOrder manually to avoid lambda with dynamic
+                                for (int i = 0; i < activeOptions.Count - 1; i++)
+                                {
+                                    for (int j = i + 1; j < activeOptions.Count; j++)
+                                    {
+                                        var orderI = activeOptions[i].DisplayOrder ?? 0;
+                                        var orderJ = activeOptions[j].DisplayOrder ?? 0;
+                                        if (orderI > orderJ)
+                                        {
+                                            var temp = activeOptions[i];
+                                            activeOptions[i] = activeOptions[j];
+                                            activeOptions[j] = temp;
+                                        }
+                                    }
+                                }
+                                
+                                @foreach (var option in activeOptions)
                                 {
                                     var checkboxId = field.FieldName + "_" + option.FormFieldOptionId;
+                                    var optionValueStr = option.OptionValue?.ToString() ?? "";
+                                    var isChecked = checkboxValues.Contains(optionValueStr);
                                     <div class="form-check">
                                         <input class="form-check-input"
                                                type="checkbox"
                                                name="@(field.FieldName)[]"
                                                id="@checkboxId"
                                                value="@option.OptionValue"
+                                               @(isChecked ? "checked" : "")
                                                onclick="@(isPrefilledReadonly ? "return false;" : "")" />
                                         <label class="form-check-label" for="@checkboxId">@option.OptionLabel</label>
                                     </div>
@@ -520,7 +584,7 @@
                 </p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="/User/UserDashboard" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
+                <a href="@Model.DashboardUrl" class="btn btn-primary" style="background: #ff8c42; border-color: #ff8c42;">
                     <i class="fa-solid fa-home me-2"></i>Go to Dashboard Now
                 </a>
             </div>
@@ -575,19 +639,27 @@
             const steps = document.querySelectorAll('.step');
             
             console.log('=== SHOW STEP ===');
-            console.log('Step:', step);
-            console.log('Total steps:', totalSteps);
+            console.log('Requested step:', step);
+            console.log('Total steps (including review):', totalSteps);
             console.log('Total sections:', totalSections);
+            console.log('Total pages found:', pages.length);
+            console.log('Total step indicators found:', steps.length);
             
             // If navigating to review page, populate it
             if (step === totalSections) {
-                console.log('Showing REVIEW page');
+                console.log('Showing REVIEW page (step ' + step + ')');
                 populateReviewPage();
+            } else if (step < totalSections) {
+                console.log('Showing SECTION ' + (step + 1) + ' (step ' + step + ')');
             }
             
             // Show/hide pages
             pages.forEach((page, index) => {
-                page.style.display = index === step ? 'block' : 'none';
+                const isVisible = index === step;
+                page.style.display = isVisible ? 'block' : 'none';
+                if (isVisible) {
+                    console.log('  Page ' + index + ' is now VISIBLE');
+                }
             });
             
             // Update step indicators (only for actual sections, not review)
@@ -595,8 +667,10 @@
                 stepEl.classList.remove('active', 'completed');
                 if (index < step && index < totalSections) {
                     stepEl.classList.add('completed');
+                    console.log('  Step indicator ' + (index + 1) + ' marked as COMPLETED');
                 } else if (index === step && index < totalSections) {
                     stepEl.classList.add('active');
+                    console.log('  Step indicator ' + (index + 1) + ' marked as ACTIVE');
                 }
             });
             
@@ -605,28 +679,59 @@
             const nextBtn = document.getElementById('nextBtn');
             const submitBtn = document.getElementById('submitBtn');
             
-            if (prevBtn) prevBtn.style.display = step === 0 ? 'none' : 'block';
-            if (nextBtn) nextBtn.style.display = step === totalSteps - 1 ? 'none' : 'block';
-            if (submitBtn) submitBtn.style.display = step === totalSteps - 1 ? 'block' : 'none';
+            if (prevBtn) {
+                prevBtn.style.display = step === 0 ? 'none' : 'block';
+                console.log('Previous button:', step === 0 ? 'HIDDEN' : 'VISIBLE');
+            }
+            if (nextBtn) {
+                nextBtn.style.display = step === totalSteps - 1 ? 'none' : 'block';
+                console.log('Next button:', step === totalSteps - 1 ? 'HIDDEN' : 'VISIBLE');
+            }
+            if (submitBtn) {
+                submitBtn.style.display = step === totalSteps - 1 ? 'block' : 'none';
+                console.log('Submit button:', step === totalSteps - 1 ? 'VISIBLE' : 'HIDDEN');
+            }
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            console.log('=== END SHOW STEP ===');
         }
         
         function changeStep(direction) {
             console.log('=== CHANGE STEP ===');
-            console.log('Current Step:', currentStep, 'Direction:', direction);
+            console.log('Current Step before change:', currentStep);
+            console.log('Direction:', direction > 0 ? 'FORWARD' : 'BACKWARD');
+            console.log('Total steps (including review):', totalSteps);
+            console.log('Total sections:', totalSections);
             
             // NOTE: Client-side validation removed - all fields are optional
             // Users can proceed through steps without filling any fields
             
             // Move to next/previous step
-            currentStep += direction;
-            if (currentStep < 0) currentStep = 0;
-            if (currentStep >= totalSteps) currentStep = totalSteps - 1;
+            const newStep = currentStep + direction;
+            console.log('Calculated new step:', newStep);
             
-            console.log('Moving to step:', currentStep);
+            if (newStep < 0) {
+                currentStep = 0;
+                console.log('Step clamped to minimum: 0');
+            } else if (newStep >= totalSteps) {
+                currentStep = totalSteps - 1;
+                console.log('Step clamped to maximum:', totalSteps - 1);
+            } else {
+                currentStep = newStep;
+                console.log('Step updated to:', currentStep);
+            }
+            
+            // Log step information
+            if (currentStep < totalSections) {
+                console.log('Navigating to SECTION ' + (currentStep + 1));
+            } else if (currentStep === totalSections) {
+                console.log('Navigating to REVIEW page');
+            }
+            
             showStep(currentStep);
+            console.log('=== END CHANGE STEP ===');
         }
         
         // Populate review page with all form data
@@ -733,10 +838,255 @@
             console.log('Review page populated');
         }
         
+        // ===== COMPREHENSIVE FIELD DEBUGGING =====
+        function debugAllFields() {
+            console.log('=== DEBUGGING ALL FORM FIELDS ===');
+            const form = document.getElementById('dynamicForm');
+            if (!form) {
+                console.error('Form not found!');
+                debugger; // Stop here if form not found
+                return;
+            }
+            
+            const allFields = {
+                textboxes: [],
+                textareas: [],
+                selects: [],
+                radios: [],
+                checkboxes: [],
+                files: []
+            };
+            
+            // Get all text inputs
+            const textInputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"]');
+            textInputs.forEach((input, index) => {
+                const fieldInfo = {
+                    index: index + 1,
+                    name: input.name,
+                    type: input.type,
+                    value: input.value,
+                    placeholder: input.placeholder,
+                    readonly: input.readOnly,
+                    label: input.closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.textboxes.push(fieldInfo);
+                
+                console.log(`TEXTBOX #${fieldInfo.index}:`, {
+                    Name: fieldInfo.name,
+                    Label: fieldInfo.label,
+                    Type: fieldInfo.type,
+                    Value: fieldInfo.value || '(empty)',
+                    Placeholder: fieldInfo.placeholder || '(none)',
+                    Readonly: fieldInfo.readonly
+                });
+                
+                // Add event listener for value changes
+                input.addEventListener('input', function() {
+                    console.log(`TEXTBOX CHANGED: ${fieldInfo.name} = "${this.value}"`);
+                    if (!this.value || this.value.trim() === '') {
+                        console.warn(`⚠️ TEXTBOX EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
+                        debugger; // Stop if empty (but continue - not required)
+                    }
+                });
+            });
+            
+            // Get all textareas
+            const textareas = form.querySelectorAll('textarea');
+            textareas.forEach((textarea, index) => {
+                const fieldInfo = {
+                    index: index + 1,
+                    name: textarea.name,
+                    value: textarea.value,
+                    placeholder: textarea.placeholder,
+                    readonly: textarea.readOnly,
+                    label: textarea.closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.textareas.push(fieldInfo);
+                
+                console.log(`TEXTAREA #${fieldInfo.index}:`, {
+                    Name: fieldInfo.name,
+                    Label: fieldInfo.label,
+                    Value: fieldInfo.value || '(empty)',
+                    Placeholder: fieldInfo.placeholder || '(none)',
+                    Readonly: fieldInfo.readonly
+                });
+                
+                textarea.addEventListener('input', function() {
+                    console.log(`TEXTAREA CHANGED: ${fieldInfo.name} = "${this.value}"`);
+                    if (!this.value || this.value.trim() === '') {
+                        console.warn(`⚠️ TEXTAREA EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
+                        debugger; // Stop if empty
+                    }
+                });
+            });
+            
+            // Get all select dropdowns
+            const selects = form.querySelectorAll('select');
+            selects.forEach((select, index) => {
+                const fieldInfo = {
+                    index: index + 1,
+                    name: select.name,
+                    value: select.value,
+                    selectedText: select.options[select.selectedIndex]?.text || '',
+                    placeholder: select.options[0]?.text || '',
+                    disabled: select.disabled,
+                    label: select.closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.selects.push(fieldInfo);
+                
+                console.log(`SELECT #${fieldInfo.index}:`, {
+                    Name: fieldInfo.name,
+                    Label: fieldInfo.label,
+                    Value: fieldInfo.value || '(empty)',
+                    SelectedText: fieldInfo.selectedText,
+                    Disabled: fieldInfo.disabled
+                });
+                
+                select.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    console.log(`SELECT CHANGED: ${fieldInfo.name} = "${this.value}" (${selectedOption?.text || ''})`);
+                    if (!this.value || this.value === '' || this.value === 'Choose...') {
+                        console.warn(`⚠️ SELECT NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                        debugger; // Stop if not selected
+                    }
+                });
+            });
+            
+            // Get all radio button groups
+            const radioGroups = new Map();
+            const radios = form.querySelectorAll('input[type="radio"]');
+            radios.forEach((radio) => {
+                if (!radioGroups.has(radio.name)) {
+                    radioGroups.set(radio.name, []);
+                }
+                radioGroups.get(radio.name).push(radio);
+            });
+            
+            radioGroups.forEach((radios, groupName) => {
+                const checkedRadio = radios.find(r => r.checked);
+                const fieldInfo = {
+                    name: groupName,
+                    checkedValue: checkedRadio?.value || null,
+                    checkedId: checkedRadio?.id || null,
+                    totalOptions: radios.length,
+                    label: radios[0].closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.radios.push(fieldInfo);
+                
+                console.log(`RADIO GROUP: ${fieldInfo.name}:`, {
+                    Label: fieldInfo.label,
+                    CheckedValue: fieldInfo.checkedValue || '(none selected)',
+                    TotalOptions: fieldInfo.totalOptions,
+                    Options: radios.map(r => ({ id: r.id, value: r.value, checked: r.checked }))
+                });
+                
+                if (!checkedRadio) {
+                    console.warn(`⚠️ RADIO NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                    debugger; // Stop if no radio selected
+                }
+                
+                // Add event listener to each radio in group
+                radios.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        console.log(`RADIO CHANGED: ${fieldInfo.name} = "${this.value}"`);
+                    });
+                });
+            });
+            
+            // Get all checkbox groups
+            const checkboxGroups = new Map();
+            const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach((checkbox) => {
+                // Remove [] from name for grouping
+                const baseName = checkbox.name.replace('[]', '');
+                if (!checkboxGroups.has(baseName)) {
+                    checkboxGroups.set(baseName, []);
+                }
+                checkboxGroups.get(baseName).push(checkbox);
+            });
+            
+            checkboxGroups.forEach((checkboxes, groupName) => {
+                const checkedBoxes = checkboxes.filter(cb => cb.checked);
+                const fieldInfo = {
+                    name: groupName,
+                    checkedValues: checkedBoxes.map(cb => cb.value),
+                    checkedCount: checkedBoxes.length,
+                    totalOptions: checkboxes.length,
+                    label: checkboxes[0].closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.checkboxes.push(fieldInfo);
+                
+                console.log(`CHECKBOX GROUP: ${fieldInfo.name}:`, {
+                    Label: fieldInfo.label,
+                    CheckedValues: fieldInfo.checkedValues.length > 0 ? fieldInfo.checkedValues.join(', ') : '(none selected)',
+                    CheckedCount: fieldInfo.checkedCount,
+                    TotalOptions: fieldInfo.totalOptions,
+                    Options: checkboxes.map(cb => ({ id: cb.id, value: cb.value, checked: cb.checked }))
+                });
+                
+                if (checkedBoxes.length === 0) {
+                    console.warn(`⚠️ CHECKBOX NONE SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                    debugger; // Stop if no checkbox selected
+                }
+                
+                // Add event listener to each checkbox in group
+                checkboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const allChecked = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+                        console.log(`CHECKBOX CHANGED: ${fieldInfo.name} = [${allChecked.join(', ')}]`);
+                    });
+                });
+            });
+            
+            // Get all file inputs
+            const fileInputs = form.querySelectorAll('input[type="file"]');
+            fileInputs.forEach((fileInput, index) => {
+                const fieldInfo = {
+                    index: index + 1,
+                    name: fileInput.name,
+                    files: fileInput.files.length,
+                    label: fileInput.closest('.mb-4')?.querySelector('label')?.textContent?.trim() || 'No label'
+                };
+                allFields.files.push(fieldInfo);
+                
+                console.log(`FILE INPUT #${fieldInfo.index}:`, {
+                    Name: fieldInfo.name,
+                    Label: fieldInfo.label,
+                    FilesSelected: fieldInfo.files
+                });
+                
+                fileInput.addEventListener('change', function() {
+                    console.log(`FILE CHANGED: ${fieldInfo.name} = ${this.files.length} file(s)`);
+                    if (this.files.length === 0) {
+                        console.warn(`⚠️ FILE NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                        debugger; // Stop if no file selected
+                    }
+                });
+            });
+            
+            console.log('=== FIELD SUMMARY ===');
+            console.log(`Total Textboxes: ${allFields.textboxes.length}`);
+            console.log(`Total Textareas: ${allFields.textareas.length}`);
+            console.log(`Total Selects: ${allFields.selects.length}`);
+            console.log(`Total Radio Groups: ${allFields.radios.length}`);
+            console.log(`Total Checkbox Groups: ${allFields.checkboxes.length}`);
+            console.log(`Total File Inputs: ${allFields.files.length}`);
+            console.log('=== END FIELD DEBUGGING ===');
+            
+            // Store for later use
+            window.formFieldsDebug = allFields;
+            
+            return allFields;
+        }
+        
         // Real-time validation removal
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('dynamicForm');
             if (!form) return;
+            
+            // Initialize field debugging
+            console.log('Initializing field debugging...');
+            debugAllFields();
             
             // Remove invalid class when user types
             form.addEventListener('input', function(e) {
@@ -759,8 +1109,13 @@
                 }
             });
             
-            // ===== BMI CALCULATOR =====
+            // ===== AUTO-CALCULATIONS FOR STEP 4 =====
             initializeBMICalculator();
+            initializeWHRatioCalculator();
+            initializeBloodSugarStatus();
+            initializeBPStatus();
+            initializeCholesterolStatus();
+            initializeUrineTestResults();
             
             // ===== FORM SUBMISSION HANDLER =====
             form.addEventListener('submit', function(e) {
@@ -779,11 +1134,151 @@
                     page.style.left = '-9999px'; // Hide visually but keep in DOM
                 });
                 
+                // ===== DEBUG ALL FIELDS BEFORE SUBMISSION =====
+                console.log('=== DEBUGGING ALL FIELDS BEFORE SUBMISSION ===');
+                debugger; // Stop here to inspect form state
+                
                 const formData = new FormData(form);
-                console.log('Form data entries:');
+                const fieldValues = {};
+                const emptyFields = [];
+                const filledFields = [];
+                const checkboxFields = new Map(); // Track checkbox groups separately
+                
+                console.log('=== FORM DATA ENTRIES ===');
                 for (let [key, value] of formData.entries()) {
-                    console.log(`  ${key}: ${value}`);
+                    // Group checkbox values (they have [] suffix)
+                    if (key.endsWith('[]')) {
+                        const baseName = key.replace('[]', '');
+                        if (!checkboxFields.has(baseName)) {
+                            checkboxFields.set(baseName, []);
+                        }
+                        checkboxFields.get(baseName).push(value);
+                    } else {
+                        fieldValues[key] = value;
+                        if (!value || value.toString().trim() === '') {
+                            emptyFields.push(key);
+                            console.warn(`⚠️ EMPTY FIELD: ${key} = "${value}"`);
+                        } else {
+                            filledFields.push({ key, value });
+                            console.log(`✓ FILLED FIELD: ${key} = "${value}"`);
+                        }
+                    }
                 }
+                
+                // Log checkbox groups separately
+                console.log('=== CHECKBOX GROUPS ===');
+                checkboxFields.forEach((values, baseName) => {
+                    const combinedValue = values.join(', ');
+                    if (values.length > 0) {
+                        console.log(`✓ CHECKBOX GROUP: ${baseName}[] = [${combinedValue}]`);
+                        fieldValues[baseName] = combinedValue; // Store with base name for backend
+                        filledFields.push({ key: baseName, value: combinedValue });
+                    } else {
+                        console.warn(`⚠️ CHECKBOX GROUP EMPTY: ${baseName}[]`);
+                        emptyFields.push(baseName);
+                    }
+                });
+                
+                console.log('=== FIELD STATUS SUMMARY ===');
+                console.log(`Total Fields: ${Object.keys(fieldValues).length}`);
+                console.log(`Filled Fields: ${filledFields.length}`);
+                console.log(`Empty Fields: ${emptyFields.length}`);
+                
+                if (emptyFields.length > 0) {
+                    console.warn('=== EMPTY FIELDS DETECTED ===');
+                    emptyFields.forEach(fieldName => {
+                        console.warn(`  - ${fieldName}`);
+                    });
+                    debugger; // Stop to inspect empty fields
+                }
+                
+                // Debug each field type specifically
+                console.log('=== DETAILED FIELD BREAKDOWN ===');
+                
+                // Textboxes
+                const textInputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"]');
+                textInputs.forEach(input => {
+                    const value = input.value || '';
+                    const status = value.trim() ? '✓ FILLED' : '⚠️ EMPTY';
+                    console.log(`TEXTBOX [${status}]: ${input.name} = "${value}"`);
+                    if (!value.trim()) {
+                        debugger; // Stop on empty textbox
+                    }
+                });
+                
+                // Textareas
+                const textareas = form.querySelectorAll('textarea');
+                textareas.forEach(textarea => {
+                    const value = textarea.value || '';
+                    const status = value.trim() ? '✓ FILLED' : '⚠️ EMPTY';
+                    console.log(`TEXTAREA [${status}]: ${textarea.name} = "${value}"`);
+                    if (!value.trim()) {
+                        debugger; // Stop on empty textarea
+                    }
+                });
+                
+                // Selects
+                const selects = form.querySelectorAll('select');
+                selects.forEach(select => {
+                    const value = select.value || '';
+                    const status = (value && value !== 'Choose...') ? '✓ SELECTED' : '⚠️ NOT SELECTED';
+                    console.log(`SELECT [${status}]: ${select.name} = "${value}"`);
+                    if (!value || value === 'Choose...') {
+                        debugger; // Stop on unselected dropdown
+                    }
+                });
+                
+                // Radio buttons
+                const radioGroups = new Map();
+                form.querySelectorAll('input[type="radio"]').forEach(radio => {
+                    if (!radioGroups.has(radio.name)) {
+                        radioGroups.set(radio.name, []);
+                    }
+                    radioGroups.get(radio.name).push(radio);
+                });
+                
+                radioGroups.forEach((radios, groupName) => {
+                    const checked = radios.find(r => r.checked);
+                    const status = checked ? '✓ SELECTED' : '⚠️ NOT SELECTED';
+                    console.log(`RADIO [${status}]: ${groupName} = "${checked?.value || '(none)'}"`);
+                    if (!checked) {
+                        debugger; // Stop on unselected radio group
+                    }
+                });
+                
+                // Checkboxes
+                const checkboxGroups = new Map();
+                form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                    const baseName = checkbox.name.replace('[]', '');
+                    if (!checkboxGroups.has(baseName)) {
+                        checkboxGroups.set(baseName, []);
+                    }
+                    checkboxGroups.get(baseName).push(checkbox);
+                });
+                
+                checkboxGroups.forEach((checkboxes, groupName) => {
+                    const checked = checkboxes.filter(cb => cb.checked);
+                    const values = checked.map(cb => cb.value);
+                    const status = checked.length > 0 ? `✓ ${checked.length} SELECTED` : '⚠️ NONE SELECTED';
+                    console.log(`CHECKBOX [${status}]: ${groupName} = [${values.join(', ') || '(none)'}]`);
+                    if (checked.length === 0) {
+                        debugger; // Stop on unchecked checkbox group
+                    }
+                });
+                
+                // File inputs
+                const fileInputs = form.querySelectorAll('input[type="file"]');
+                fileInputs.forEach(fileInput => {
+                    const fileCount = fileInput.files.length;
+                    const status = fileCount > 0 ? `✓ ${fileCount} FILE(S)` : '⚠️ NO FILE';
+                    console.log(`FILE [${status}]: ${fileInput.name}`);
+                    if (fileCount === 0) {
+                        debugger; // Stop on no file selected
+                    }
+                });
+                
+                console.log('=== END PRE-SUBMISSION DEBUGGING ===');
+                debugger; // Final stop before actual submission
                 
                 // Check if appointment ID is present
                 const appointmentIdInput = document.querySelector('input[name="appointmentId"]');
@@ -810,6 +1305,7 @@
             const weightField = findFieldByKeywords(form, ['weight', 'timbang', 'bigat']);
             const bmiField = findFieldByKeywords(form, ['bmi', 'body mass index']);
             const bmiStatusField = findFieldByKeywords(form, ['bmi status', 'bmi classification', 'weight status']);
+            const bmiStatusRadios = findRadioGroupByKeywords(form, ['bmi status']);
             
             if (!heightField || !weightField || !bmiField) {
                 console.log('BMI fields not found:', {
@@ -861,17 +1357,17 @@
                     // Set BMI value
                     bmiField.value = bmiRounded;
                     
-                    // Determine BMI status
+                    // Determine BMI status (matching form thresholds)
                     let status = '';
                     let statusColor = '';
                     
                     if (bmi < 18.5) {
                         status = 'Underweight';
                         statusColor = '#ffc107'; // Warning yellow
-                    } else if (bmi >= 18.5 && bmi < 25) {
+                    } else if (bmi >= 18.5 && bmi < 23) {
                         status = 'Normal';
                         statusColor = '#10b981'; // Success green
-                    } else if (bmi >= 25 && bmi < 30) {
+                    } else if (bmi >= 23 && bmi < 25) {
                         status = 'Overweight';
                         statusColor = '#ff8c42'; // Orange
                     } else {
@@ -880,7 +1376,26 @@
                     }
                     
                     // Set BMI status
-                    if (bmiStatusField) {
+                    // First try radio buttons
+                    if (bmiStatusRadios && bmiStatusRadios.length > 0) {
+                        let found = false;
+                        bmiStatusRadios.forEach(radio => {
+                            const radioValue = radio.value.toLowerCase();
+                            const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                            // Check both value and label text
+                            if (radioValue.includes(status.toLowerCase()) || 
+                                radioLabel.includes(status.toLowerCase())) {
+                                radio.checked = true;
+                                found = true;
+                                console.log(`BMI Status selected: ${radio.value} (${radioLabel})`);
+                            }
+                        });
+                        if (!found) {
+                            console.warn(`Could not find matching BMI Status radio for: ${status}`);
+                        }
+                    }
+                    // Then try text/select field
+                    else if (bmiStatusField) {
                         if (bmiStatusField.tagName === 'SELECT') {
                             // Try to find matching option
                             const options = Array.from(bmiStatusField.options);
@@ -902,6 +1417,11 @@
                 } else {
                     // Clear BMI if inputs are invalid
                     bmiField.value = '';
+                    // Clear radio buttons
+                    if (bmiStatusRadios) {
+                        bmiStatusRadios.forEach(r => r.checked = false);
+                    }
+                    // Clear text/select field
                     if (bmiStatusField) {
                         if (bmiStatusField.tagName === 'SELECT') {
                             bmiStatusField.selectedIndex = 0;
@@ -944,6 +1464,548 @@
             return null;
         }
         
+        // ===== HELPER FUNCTION: FIND RADIO GROUP BY KEYWORDS =====
+        function findRadioGroupByKeywords(form, keywords) {
+            const allRadios = form.querySelectorAll('input[type="radio"]');
+            const radioGroups = new Map();
+            
+            // Group radios by name
+            allRadios.forEach(radio => {
+                if (!radioGroups.has(radio.name)) {
+                    radioGroups.set(radio.name, []);
+                }
+                radioGroups.get(radio.name).push(radio);
+            });
+            
+            // Find matching group
+            for (let [groupName, radios] of radioGroups) {
+                const firstRadio = radios[0];
+                const label = firstRadio.closest('.mb-4')?.querySelector('label')?.textContent?.toLowerCase() || '';
+                
+                for (let keyword of keywords) {
+                    const lowerKeyword = keyword.toLowerCase();
+                    if (label.includes(lowerKeyword)) {
+                        return radios;
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
+        // ===== WAIST-HIP RATIO CALCULATOR =====
+        function initializeWHRatioCalculator() {
+            console.log('Initializing WH Ratio Calculator...');
+            
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            const waistField = findFieldByKeywords(form, ['waist']);
+            const hipField = findFieldByKeywords(form, ['hip']);
+            const whRatioField = findFieldByKeywords(form, ['wh ratio', 'waist-hip ratio', 'whratio']);
+            const whStatusRadios = findRadioGroupByKeywords(form, ['wh status']);
+            const genderRadios = findRadioGroupByKeywords(form, ['kasarian', 'sex', 'gender']);
+            
+            if (!waistField || !hipField || !whRatioField) {
+                console.log('WH Ratio fields not found');
+                return;
+            }
+            
+            console.log('WH Ratio Calculator initialized');
+            
+            // Make WH Ratio field readonly
+            whRatioField.readOnly = true;
+            whRatioField.style.backgroundColor = '#e9ecef';
+            whRatioField.style.cursor = 'not-allowed';
+            
+            function calculateWHRatio() {
+                const waist = parseFloat(waistField.value);
+                const hip = parseFloat(hipField.value);
+                
+                if (waist > 0 && hip > 0) {
+                    const whRatio = waist / hip;
+                    const whRatioRounded = Math.round(whRatio * 100) / 100;
+                    whRatioField.value = whRatioRounded;
+                    
+                    // Auto-select WH Status
+                    if (whStatusRadios && whStatusRadios.length > 0) {
+                        // Get gender
+                        let gender = 'Male'; // default
+                        if (genderRadios) {
+                            const checkedGender = genderRadios.find(r => r.checked);
+                            if (checkedGender) {
+                                const genderValue = checkedGender.value.toLowerCase();
+                                if (genderValue.includes('female') || genderValue.includes('babae')) {
+                                    gender = 'Female';
+                                }
+                            }
+                        }
+                        
+                        // Determine status based on gender and ratio
+                        let statusValue = '';
+                        if ((gender === 'Male' && whRatio < 1.0) || (gender === 'Female' && whRatio < 0.85)) {
+                            statusValue = 'No risk';
+                        } else {
+                            statusValue = 'At risk';
+                        }
+                        
+                        // Find and select matching radio
+                        let found = false;
+                        whStatusRadios.forEach(radio => {
+                            const radioValue = radio.value.toLowerCase();
+                            const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                            // Check both value and label text
+                            if (radioValue.includes(statusValue.toLowerCase()) || 
+                                radioLabel.includes(statusValue.toLowerCase()) ||
+                                (statusValue === 'No risk' && (radioValue.includes('no risk') || radioLabel.includes('no risk'))) ||
+                                (statusValue === 'At risk' && (radioValue.includes('at risk') || radioLabel.includes('at risk')))) {
+                                radio.checked = true;
+                                found = true;
+                                console.log(`WH Status selected: ${radio.value} (${radioLabel})`);
+                            }
+                        });
+                        if (!found) {
+                            console.warn(`Could not find matching WH Status radio for: ${statusValue}`);
+                            console.log('Available options:', whStatusRadios.map(r => ({ value: r.value, label: r.nextElementSibling?.textContent })));
+                        }
+                    }
+                    
+                    console.log(`WH Ratio calculated: ${whRatioRounded}, Status: ${statusValue || 'not set'}`);
+                } else {
+                    whRatioField.value = '';
+                    if (whStatusRadios) {
+                        whStatusRadios.forEach(r => r.checked = false);
+                    }
+                }
+            }
+            
+            waistField.addEventListener('input', calculateWHRatio);
+            hipField.addEventListener('input', calculateWHRatio);
+            if (genderRadios) {
+                genderRadios.forEach(radio => {
+                    radio.addEventListener('change', calculateWHRatio);
+                });
+            }
+            
+            // Also trigger when WH Ratio field value changes (if pre-filled)
+            whRatioField.addEventListener('input', function() {
+                // If WH Ratio is manually set or pre-filled, recalculate status
+                const whRatio = parseFloat(this.value);
+                if (whRatio > 0 && whStatusRadios && whStatusRadios.length > 0) {
+                    // Get gender
+                    let gender = 'Male';
+                    if (genderRadios) {
+                        const checkedGender = genderRadios.find(r => r.checked);
+                        if (checkedGender) {
+                            const genderValue = checkedGender.value.toLowerCase();
+                            if (genderValue.includes('female') || genderValue.includes('babae')) {
+                                gender = 'Female';
+                            }
+                        }
+                    }
+                    
+                    // Determine status
+                    let statusValue = '';
+                    if ((gender === 'Male' && whRatio < 1.0) || (gender === 'Female' && whRatio < 0.85)) {
+                        statusValue = 'No risk';
+                    } else {
+                        statusValue = 'At risk';
+                    }
+                    
+                    // Select matching radio
+                    let found = false;
+                    whStatusRadios.forEach(radio => {
+                        const radioValue = radio.value.toLowerCase();
+                        const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                        if (radioValue.includes(statusValue.toLowerCase()) || 
+                            radioLabel.includes(statusValue.toLowerCase()) ||
+                            (statusValue === 'No risk' && (radioValue.includes('no risk') || radioLabel.includes('no risk'))) ||
+                            (statusValue === 'At risk' && (radioValue.includes('at risk') || radioLabel.includes('at risk')))) {
+                            radio.checked = true;
+                            found = true;
+                        }
+                    });
+                    if (found) {
+                        console.log(`WH Status auto-selected from WH Ratio: ${statusValue}`);
+                    }
+                }
+            });
+            
+            // Calculate on page load if values exist
+            calculateWHRatio();
+            
+            // Also check if WH Ratio already has a value and update status
+            if (whRatioField.value) {
+                const whRatio = parseFloat(whRatioField.value);
+                if (whRatio > 0 && whStatusRadios && whStatusRadios.length > 0) {
+                    let gender = 'Male';
+                    if (genderRadios) {
+                        const checkedGender = genderRadios.find(r => r.checked);
+                        if (checkedGender) {
+                            const genderValue = checkedGender.value.toLowerCase();
+                            if (genderValue.includes('female') || genderValue.includes('babae')) {
+                                gender = 'Female';
+                            }
+                        }
+                    }
+                    
+                    let statusValue = '';
+                    if ((gender === 'Male' && whRatio < 1.0) || (gender === 'Female' && whRatio < 0.85)) {
+                        statusValue = 'No risk';
+                    } else {
+                        statusValue = 'At risk';
+                    }
+                    
+                    whStatusRadios.forEach(radio => {
+                        const radioValue = radio.value.toLowerCase();
+                        const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                        if (radioValue.includes(statusValue.toLowerCase()) || 
+                            radioLabel.includes(statusValue.toLowerCase()) ||
+                            (statusValue === 'No risk' && (radioValue.includes('no risk') || radioLabel.includes('no risk'))) ||
+                            (statusValue === 'At risk' && (radioValue.includes('at risk') || radioLabel.includes('at risk')))) {
+                            radio.checked = true;
+                        }
+                    });
+                }
+            }
+        }
+        
+        // ===== BLOOD SUGAR STATUS AUTO-SELECTION =====
+        function initializeBloodSugarStatus() {
+            console.log('Initializing Blood Sugar Status...');
+            
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            const fastingField = findFieldByKeywords(form, ['fasting blood sugar', 'fasting']);
+            const randomField = findFieldByKeywords(form, ['random blood sugar', 'random']);
+            const bloodSugarStatusRadios = findRadioGroupByKeywords(form, ['blood sugar status']);
+            
+            if (!fastingField && !randomField) {
+                console.log('Blood sugar fields not found');
+                return;
+            }
+            
+            console.log('Blood Sugar Status initialized');
+            
+            function updateBloodSugarStatus() {
+                if (!bloodSugarStatusRadios) return;
+                
+                const fasting = parseFloat(fastingField?.value) || 0;
+                const random = parseFloat(randomField?.value) || 0;
+                
+                let statusValue = '';
+                
+                if (fasting > 0) {
+                    if (fasting < 100) {
+                        statusValue = 'Normal';
+                    } else if (fasting <= 125) {
+                        statusValue = 'Impaired';
+                    } else {
+                        statusValue = 'DM';
+                    }
+                } else if (random > 0) {
+                    if (random < 140) {
+                        statusValue = 'Normal';
+                    } else if (random < 200) {
+                        statusValue = 'Pre-Diabetes';
+                    } else {
+                        statusValue = 'DM';
+                    }
+                }
+                
+                if (statusValue) {
+                    // Find and select matching radio
+                    let found = false;
+                    bloodSugarStatusRadios.forEach(radio => {
+                        const radioValue = radio.value.toLowerCase();
+                        const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                        // Check both value and label text
+                        if (radioValue.includes(statusValue.toLowerCase()) || 
+                            radioLabel.includes(statusValue.toLowerCase()) ||
+                            (statusValue === 'DM' && (radioValue.includes('dm') || radioLabel.includes('dm')))) {
+                            radio.checked = true;
+                            found = true;
+                            console.log(`Blood Sugar Status selected: ${radio.value} (${radioLabel})`);
+                        }
+                    });
+                    if (!found) {
+                        console.warn(`Could not find matching Blood Sugar Status radio for: ${statusValue}`);
+                    } else {
+                        console.log(`Blood Sugar Status auto-selected: ${statusValue}`);
+                    }
+                } else {
+                    // Clear selection if both fields are empty
+                    bloodSugarStatusRadios.forEach(r => r.checked = false);
+                }
+            }
+            
+            if (fastingField) {
+                fastingField.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        if (randomField) randomField.value = '';
+                    }
+                    updateBloodSugarStatus();
+                });
+            }
+            
+            if (randomField) {
+                randomField.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        if (fastingField) fastingField.value = '';
+                    }
+                    updateBloodSugarStatus();
+                });
+            }
+            
+            // Update on page load if values exist
+            updateBloodSugarStatus();
+        }
+        
+        // ===== BLOOD PRESSURE STATUS AUTO-SELECTION =====
+        function initializeBPStatus() {
+            console.log('Initializing BP Status...');
+            
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            const baselineBPField = findFieldByKeywords(form, ['baseline bp', 'baseline blood pressure']);
+            const bpStatusRadios = findRadioGroupByKeywords(form, ['bp status', 'blood pressure status']);
+            
+            if (!baselineBPField) {
+                console.log('Baseline BP field not found');
+                return;
+            }
+            
+            console.log('BP Status initialized');
+            
+            function updateBPStatus() {
+                if (!bpStatusRadios) return;
+                
+                const bpInput = baselineBPField.value || '';
+                // Parse BP format: "120/80" or "120 80" or "12080"
+                const bpMatch = bpInput.match(/(\d+)[/\s]*(\d+)/);
+                
+                if (bpMatch) {
+                    const systolic = parseInt(bpMatch[1]);
+                    const diastolic = parseInt(bpMatch[2]);
+                    
+                    let statusValue = '';
+                    
+                    if (systolic < 120 && diastolic < 80) {
+                        statusValue = 'Normal';
+                    } else if ((systolic >= 120 && systolic <= 129) && diastolic < 80) {
+                        statusValue = 'Elevated';
+                    } else if ((systolic >= 130 && systolic <= 139) || (diastolic >= 80 && diastolic <= 89)) {
+                        statusValue = 'Pre-HPN';
+                    } else if ((systolic >= 140 && systolic <= 159) || (diastolic >= 90 && diastolic <= 99)) {
+                        statusValue = 'Stage 1';
+                    } else if (systolic >= 160 || diastolic >= 100) {
+                        statusValue = 'Stage 2';
+                    }
+                    
+                    if (statusValue) {
+                        // Find and select matching radio
+                        let found = false;
+                        bpStatusRadios.forEach(radio => {
+                            const radioValue = radio.value.toLowerCase();
+                            const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                            // Check both value and label text
+                            if (radioValue.includes(statusValue.toLowerCase()) || 
+                                radioLabel.includes(statusValue.toLowerCase()) ||
+                                (statusValue === 'Pre-HPN' && (radioValue.includes('pre-hpn') || radioLabel.includes('pre-hpn')))) {
+                                radio.checked = true;
+                                found = true;
+                                console.log(`BP Status selected: ${radio.value} (${radioLabel})`);
+                            }
+                        });
+                        if (!found) {
+                            console.warn(`Could not find matching BP Status radio for: ${statusValue}`);
+                        } else {
+                            console.log(`BP Status auto-selected: ${statusValue} (${systolic}/${diastolic})`);
+                        }
+                    }
+                } else {
+                    // Clear selection if BP format is invalid
+                    bpStatusRadios.forEach(r => r.checked = false);
+                }
+            }
+            
+            baselineBPField.addEventListener('input', function() {
+                // Auto-format as user types: "120/80"
+                let value = this.value.replace(/\D/g, '');
+                if (value.length > 3) {
+                    value = value.substring(0, 3) + '/' + value.substring(3, 5);
+                }
+                this.value = value;
+                updateBPStatus();
+            });
+            
+            // Update on page load if value exists
+            updateBPStatus();
+        }
+        
+        // ===== CHOLESTEROL STATUS AUTO-SELECTION =====
+        function initializeCholesterolStatus() {
+            console.log('Initializing Cholesterol Status...');
+            
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            const cholesterolResultField = findFieldByKeywords(form, ['cholesterol result', 'cholesterol']);
+            const cholesterolStatusRadios = findRadioGroupByKeywords(form, ['cholesterol status']);
+            
+            if (!cholesterolResultField) {
+                console.log('Cholesterol Result field not found');
+                return;
+            }
+            
+            console.log('Cholesterol Status initialized');
+            
+            function updateCholesterolStatus() {
+                if (!cholesterolStatusRadios) return;
+                
+                const cholesterol = parseFloat(cholesterolResultField.value) || 0;
+                
+                let statusValue = '';
+                
+                if (cholesterol > 0) {
+                    if (cholesterol < 200) {
+                        statusValue = 'Normal';
+                    } else if (cholesterol <= 239) {
+                        statusValue = 'Elevated';
+                    } else {
+                        statusValue = 'High';
+                    }
+                    
+                    // Find and select matching radio
+                    let found = false;
+                    cholesterolStatusRadios.forEach(radio => {
+                        const radioValue = radio.value.toLowerCase();
+                        const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
+                        // Check both value and label text
+                        if (radioValue.includes(statusValue.toLowerCase()) || 
+                            radioLabel.includes(statusValue.toLowerCase())) {
+                            radio.checked = true;
+                            found = true;
+                            console.log(`Cholesterol Status selected: ${radio.value} (${radioLabel})`);
+                        }
+                    });
+                    if (!found) {
+                        console.warn(`Could not find matching Cholesterol Status radio for: ${statusValue}`);
+                    } else {
+                        console.log(`Cholesterol Status auto-selected: ${statusValue} (${cholesterol})`);
+                    }
+                } else {
+                    // Clear selection if value is invalid
+                    cholesterolStatusRadios.forEach(r => r.checked = false);
+                }
+            }
+            
+            cholesterolResultField.addEventListener('input', updateCholesterolStatus);
+            
+            // Update on page load if value exists
+            updateCholesterolStatus();
+        }
+        
+        // ===== HELPER FUNCTION: FIND CHECKBOX GROUP BY KEYWORDS =====
+        function findCheckboxGroupByKeywords(form, keywords) {
+            const allCheckboxes = form.querySelectorAll('input[type="checkbox"]');
+            const checkboxGroups = new Map();
+            
+            // Group checkboxes by base name (remove [])
+            allCheckboxes.forEach(checkbox => {
+                const baseName = checkbox.name.replace('[]', '');
+                if (!checkboxGroups.has(baseName)) {
+                    checkboxGroups.set(baseName, []);
+                }
+                checkboxGroups.get(baseName).push(checkbox);
+            });
+            
+            // Find matching group
+            for (let [groupName, checkboxes] of checkboxGroups) {
+                const firstCheckbox = checkboxes[0];
+                const label = firstCheckbox.closest('.mb-4')?.querySelector('label')?.textContent?.toLowerCase() || '';
+                
+                for (let keyword of keywords) {
+                    const lowerKeyword = keyword.toLowerCase();
+                    if (label.includes(lowerKeyword)) {
+                        return checkboxes;
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
+        // ===== URINE TEST RESULTS AUTO-SELECTION =====
+        function initializeUrineTestResults() {
+            console.log('Initializing Urine Test Results...');
+            
+            const form = document.getElementById('dynamicForm');
+            if (!form) return;
+            
+            const urineProteinField = findFieldByKeywords(form, ['urine protein']);
+            const urineKetonesField = findFieldByKeywords(form, ['urine ketones']);
+            const urineTestCheckboxes = findCheckboxGroupByKeywords(form, ['urine test results']);
+            
+            if (!urineProteinField && !urineKetonesField) {
+                console.log('Urine test fields not found');
+                return;
+            }
+            
+            console.log('Urine Test Results initialized');
+            
+            function updateUrineTestResults() {
+                if (!urineTestCheckboxes) return;
+                
+                const proteinValue = (urineProteinField?.value || '').trim().toLowerCase();
+                const ketonesValue = (urineKetonesField?.value || '').trim().toLowerCase();
+                
+                // Determine if positive or negative
+                const hasProtein = proteinValue !== '' && proteinValue !== '0' && !proteinValue.includes('neg') && !proteinValue.includes('-');
+                const hasKetones = ketonesValue !== '' && ketonesValue !== '0' && !ketonesValue.includes('neg') && !ketonesValue.includes('-');
+                
+                // Find and check/uncheck checkboxes
+                urineTestCheckboxes.forEach(checkbox => {
+                    const checkboxLabel = checkbox.nextElementSibling?.textContent?.toLowerCase() || '';
+                    const checkboxValue = checkbox.value?.toLowerCase() || '';
+                    
+                    // Check for (+) urine protein
+                    if ((checkboxLabel.includes('(+) urine protein') || checkboxValue.includes('+') && checkboxLabel.includes('protein'))) {
+                        checkbox.checked = hasProtein;
+                    }
+                    // Check for (-) urine protein
+                    else if ((checkboxLabel.includes('(-) urine protein') || checkboxLabel.includes('(–) urine protein') || 
+                             (checkboxValue.includes('-') && checkboxLabel.includes('protein')))) {
+                        checkbox.checked = !hasProtein && proteinValue !== '';
+                    }
+                    // Check for (+) urine ketones
+                    else if ((checkboxLabel.includes('(+) urine ketones') || checkboxValue.includes('+') && checkboxLabel.includes('ketones'))) {
+                        checkbox.checked = hasKetones;
+                    }
+                    // Check for (-) urine ketones
+                    else if ((checkboxLabel.includes('(-) urine ketones') || checkboxLabel.includes('(–) urine ketones') || 
+                             (checkboxValue.includes('-') && checkboxLabel.includes('ketones')))) {
+                        checkbox.checked = !hasKetones && ketonesValue !== '';
+                    }
+                });
+                
+                console.log(`Urine Test Results updated: Protein=${hasProtein ? 'Positive' : 'Negative'}, Ketones=${hasKetones ? 'Positive' : 'Negative'}`);
+            }
+            
+            if (urineProteinField) {
+                urineProteinField.addEventListener('input', updateUrineTestResults);
+            }
+            
+            if (urineKetonesField) {
+                urineKetonesField.addEventListener('input', updateUrineTestResults);
+            }
+            
+            // Update on page load if values exist
+            updateUrineTestResults();
+        }
+        
         // ===== SUCCESS MODAL WITH COUNTDOWN =====
         @if (Model.IsSubmitted || TempData["FormSubmitted"] != null)
         {
@@ -973,7 +2035,7 @@
         @:            if (countdown <= 0) {
         @:                clearInterval(countdownInterval);
         @:                console.log('Redirecting to dashboard...');
-        @:                window.location.href = '/User/UserDashboard';
+        @:                window.location.href = '@Model.DashboardUrl';
         @:            }
         @:        }, 1000);
         @:    } else {

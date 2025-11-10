@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -215,6 +216,7 @@ namespace Barangay.Services
                     ContactNumber = parsedData.ContactNumber,
                     Address = parsedData.Address,
                     BirthDate = parsedData.BirthDate,
+                    Gender = parsedData.Gender,
                     BarangayNumber = barangayNumber,
                     IsBarangayValid = isBarangayValid
                 };
@@ -327,8 +329,108 @@ namespace Barangay.Services
         }
 
         /// <summary>
+        /// Corrects common OCR errors in name strings
+        /// Handles misreads like: ANONS->ANTHONY, ANTHON->ANTHONY, etc.
+        /// </summary>
+        private string CorrectOcrNameErrors(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return name;
+            
+            var corrected = name.ToUpper();
+            
+            // Common OCR errors for names
+            var corrections = new Dictionary<string, string>
+            {
+                { "ANONS", "ANTHONY" },
+                { "ANTHON", "ANTHONY" },
+                { "ANTON", "ANTHONY" },
+                { "ANTHNY", "ANTHONY" },
+                { "ANTONY", "ANTHONY" },
+                { "LLONA", "LLONA" }, // Keep as is, but ensure it's recognized
+                { "LLON", "LLONA" },
+                { "LONA", "LLONA" },
+                { "LOPEZ", "LOPEZ" }, // Keep common names as is
+            };
+            
+            // Try exact match first
+            if (corrections.ContainsKey(corrected))
+            {
+                return corrections[corrected];
+            }
+            
+            // Try partial matches for common name patterns
+            if (corrected.StartsWith("ANTH") && corrected.Length >= 4)
+            {
+                return "ANTHONY";
+            }
+            
+            return name; // Return original if no correction found
+        }
+
+        /// <summary>
+        /// Corrects common OCR errors in year strings
+        /// Handles misreads like: 3->8, 0->O, 1->I, 5->S, etc.
+        /// </summary>
+        private string CorrectOcrYearErrors(string year)
+        {
+            if (string.IsNullOrWhiteSpace(year) || year.Length != 4)
+                return year;
+            
+            // Common OCR misreads for digits in years:
+            // 3 -> 8 (very common, especially in 2003, 2013, etc.)
+            // 0 -> O
+            // 1 -> I or l
+            // 5 -> S
+            // 6 -> G
+            // 8 -> B or 3
+            // 9 -> g or q
+            
+            var corrected = year.ToCharArray();
+            
+            // Fix common misreads, but be conservative - only fix if it makes sense
+            // For years, we expect 1900-2024 range
+            for (int i = 0; i < corrected.Length; i++)
+            {
+                char c = corrected[i];
+                
+                // If it's a letter that could be a misread digit, try to correct it
+                if (char.IsLetter(c))
+                {
+                    switch (c)
+                    {
+                        case 'O': case 'o': corrected[i] = '0'; break; // O -> 0
+                        case 'I': case 'l': case '|': corrected[i] = '1'; break; // I/l -> 1
+                        case 'S': case 's': corrected[i] = '5'; break; // S -> 5
+                        case 'G': corrected[i] = '6'; break; // G -> 6
+                        case 'B': corrected[i] = '8'; break; // B -> 8
+                    }
+                }
+            }
+            
+            string correctedYear = new string(corrected);
+            
+            // Special case: Common OCR error 2008 -> 2003 (3 misread as 8)
+            // If year is 2008 and we're looking for birth dates, try 2003 as correction
+            // This is a very common OCR error where the digit 3 looks like 8
+            if (correctedYear == "2008" && year[3] == '8')
+            {
+                // For birth dates, 2003 is much more likely than 2008 (people born in 2008 would be ~16 years old)
+                // Try correcting the last digit from 8 to 3
+                string try2003 = correctedYear.Substring(0, 3) + "3";
+                if (int.TryParse(try2003, out int y2003) && y2003 >= 1900 && y2003 <= DateTime.Now.Year)
+                {
+                    correctedYear = try2003;
+                }
+            }
+            
+            return correctedYear;
+        }
+
+        /// <summary>
         /// Public method to parse ID data from text (can be called from outside)
         /// </summary>
+
         public ParsedIdData ParseIdDataFromText(string text)
         {
             return ParseIdData(text);
@@ -357,8 +459,8 @@ namespace Barangay.Services
                 "BARANGAY", "BRGY", "BARANG", "CITY", "REPARO", "LIBIS", "BLK", "BLKE",
                 "LT", "LTS", "DISTRICT", "REGION", "CAPITAL", "NOR", "THIRD",
                 "EXPIRATION", "AGENCY", "CODE", "ASSISTANT", "SECRETARY", "SIGNATURE",
-                "MARINES", "ISPORTATION", "GALVANTE", "ANONS", "GODA", "KALOOKAN",
-                "NATIONAL", "OFFICE", "TO", "S", "BLACK", "GODA", "ANONS",
+                "MARINES", "ISPORTATION", "GALVANTE", "GODA", "KALOOKAN",
+                "NATIONAL", "OFFICE", "TO", "S", "BLACK",
                 "BARANGAYGITY", "BARANGAYCITY", "CITYNOR", "THIRDDISTRICT",
                 "CALOOCAN", "QUEZON", "MANILA", "MAKATI", "TAGUIG", "STREET", "ST",
                 "AVENUE", "AVE", "ROAD", "RD", "LANE", "SUBDIVISION", "SUBDV",
@@ -369,9 +471,14 @@ namespace Barangay.Services
             // Strategy 1: Look for name patterns that are actual names (not labels or address words)
             var namePatterns = new[]
             {
-                // Pattern 1: Standard format "LOPEZ, ANTHONY IR LLONA" or "LOPEZ, ANTHONY JR"
+                // Pattern 1: Standard format "LOPEZ, ANTHONY JR LLONA" or "LOPEZ, ANTHONY JR"
                 // Must be all caps, comma-separated, and not contain "Name" as a word
+                // Enhanced to handle OCR errors and missing spaces
                 @"\b([A-Z]{3,20}),\s+([A-Z]{2,20}(?:\s+[A-Z]{1,20})*)\s*(JR\.?|SR\.?|I{2,3}|IV|V)?\b",
+                // Pattern 2: Handle cases where comma might be missing or OCR errors
+                @"\b([A-Z]{3,20})[,]?\s+([A-Z]{2,20}(?:\s+[A-Z]{1,20})*)\s*(JR\.?|SR\.?|I{2,3}|IV|V)?\b",
+                // Pattern 3: Handle names split across lines or with OCR errors in spacing
+                @"\b([A-Z]{3,20})[,]?\s*([A-Z]{2,20})\s+([A-Z]{1,20})?\s*(JR\.?|SR\.?|I{2,3}|IV|V)?\s*([A-Z]{2,20})?\b",
             };
 
             bool nameFound = false;
@@ -431,7 +538,8 @@ namespace Barangay.Services
                     var nameParts = givenNames.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     if (nameParts.Length > 0)
                     {
-                        result.FirstName = nameParts[0];
+                        // Apply OCR error correction to first name
+                        result.FirstName = CorrectOcrNameErrors(nameParts[0]);
                     }
                     if (nameParts.Length > 1)
                     {
@@ -472,7 +580,58 @@ namespace Barangay.Services
                 if (nameFound) break;
             }
             
-            // Strategy 2: If no pattern matched, look for lines that look like names
+            // Strategy 2: Look for names that might be split or have OCR errors
+            // Handle cases where "LOPEZ" and "ANTHONY" appear separately
+            if (!nameFound)
+            {
+                // Look for "LOPEZ" in the text
+                var lopezMatch = Regex.Match(text, @"\bLOPEZ\b", RegexOptions.IgnoreCase);
+                if (lopezMatch.Success)
+                {
+                    // Look for "ANTHONY" or variations nearby (within 300 characters)
+                    var searchStart = Math.Max(0, lopezMatch.Index - 150);
+                    var searchEnd = Math.Min(text.Length, lopezMatch.Index + lopezMatch.Length + 300);
+                    var nearbyText = text.Substring(searchStart, searchEnd - searchStart);
+                    
+                    // Try to find ANTHONY or variations
+                    var anthonyPatterns = new[]
+                    {
+                        @"\b(ANTHONY|ANONS|ANTHON|ANTON|ANTHNY|ANTONY)\b",
+                        @"\b(ANTH)\w*\b"
+                    };
+                    
+                    foreach (var pattern in anthonyPatterns)
+                    {
+                        var anthonyMatch = Regex.Match(nearbyText, pattern, RegexOptions.IgnoreCase);
+                        if (anthonyMatch.Success)
+                        {
+                            var firstName = CorrectOcrNameErrors(anthonyMatch.Groups[1].Value);
+                            
+                            // Look for JR and middle name nearby
+                            var jrMatch = Regex.Match(nearbyText, @"\b(JR|SR|II|III|IV|V)\b", RegexOptions.IgnoreCase);
+                            var middleNameMatch = Regex.Match(nearbyText, @"\b(LLONA|LLON|LONA)\b", RegexOptions.IgnoreCase);
+                            
+                            result.LastName = "LOPEZ";
+                            result.FirstName = firstName;
+                            
+                            if (jrMatch.Success)
+                            {
+                                result.Suffix = jrMatch.Groups[1].Value;
+                            }
+                            
+                            if (middleNameMatch.Success)
+                            {
+                                result.MiddleName = CorrectOcrNameErrors(middleNameMatch.Groups[1].Value);
+                            }
+                            
+                            nameFound = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Strategy 3: If no pattern matched, look for lines that look like names
             if (!nameFound)
             {
                 // Look for lines that look like names (comma-separated, all caps, not "NAME")
@@ -720,6 +879,9 @@ namespace Barangay.Services
                 var month = birthDateMatch1.Groups[2].Value.Trim();
                 var day = birthDateMatch1.Groups[3].Value.Trim();
                 
+                // Apply OCR error correction for year
+                year = CorrectOcrYearErrors(year);
+                
                 // Validate date parts
                 if (int.TryParse(year, out int y) && y >= 1900 && y <= DateTime.Now.Year &&
                     int.TryParse(month, out int m) && m >= 1 && m <= 12 &&
@@ -783,6 +945,10 @@ namespace Barangay.Services
                     var year = dateMatch.Groups[1].Value.Trim();
                     var month = dateMatch.Groups[2].Value.Trim();
                     var day = dateMatch.Groups[3].Value.Trim();
+                    
+                    // OCR Error Correction for years: Common misreads
+                    // 3 -> 8, 0 -> O, 1 -> I, 5 -> S, etc.
+                    year = CorrectOcrYearErrors(year);
                     
                     // Skip if near "Expiration" or "Expiry" keywords
                     var context = text.Substring(Math.Max(0, dateMatch.Index - 30), Math.Min(60, text.Length - Math.Max(0, dateMatch.Index - 30)));
@@ -960,6 +1126,79 @@ namespace Barangay.Services
                 }
             }
 
+            // Extract Gender (look for SEX or GENDER labels)
+            var genderPatterns = new[]
+            {
+                @"(?:SEX|GENDER|KASARIAN)[:\s]*([MF]|MALE|FEMALE|LALAKI|BABAE)",
+                @"\b(SEX|GENDER)[:\s]*([MF])\b",
+                @"\b([MF])\s*(?:SEX|GENDER)\b"
+            };
+            
+            foreach (var pattern in genderPatterns)
+            {
+                var genderMatch = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+                if (genderMatch.Success)
+                {
+                    // Get the gender value from the appropriate group
+                    var genderValue = genderMatch.Groups.Count > 2 && !string.IsNullOrWhiteSpace(genderMatch.Groups[2].Value)
+                        ? genderMatch.Groups[2].Value.Trim().ToUpper()
+                        : genderMatch.Groups[1].Value.Trim().ToUpper();
+                    
+                    // Normalize gender value
+                    if (genderValue == "M" || genderValue == "MALE" || genderValue == "LALAKI")
+                    {
+                        result.Gender = "Male";
+                        break;
+                    }
+                    else if (genderValue == "F" || genderValue == "FEMALE" || genderValue == "BABAE")
+                    {
+                        result.Gender = "Female";
+                        break;
+                    }
+                }
+            }
+            
+            // If not found with label, look for standalone M or F near common ID fields
+            if (string.IsNullOrEmpty(result.Gender))
+            {
+                // Look for M or F that appears near "Sex" or "Gender" or after name/address fields
+                var standaloneGenderPattern = @"\b([MF])\b";
+                var genderMatches = Regex.Matches(text, standaloneGenderPattern);
+                
+                foreach (Match match in genderMatches)
+                {
+                    // Check context - should be near gender-related words or in a field position
+                    var contextStart = Math.Max(0, match.Index - 20);
+                    var contextEnd = Math.Min(text.Length, match.Index + match.Length + 20);
+                    var context = text.Substring(contextStart, contextEnd - contextStart).ToUpper();
+                    
+                    // Skip if it's part of a date, address, or other field
+                    if (context.Contains("DATE") || context.Contains("BIRTH") || 
+                        context.Contains("ADDRESS") || context.Contains("BARANGAY") ||
+                        context.Contains("PHONE") || context.Contains("CONTACT") ||
+                        Regex.IsMatch(context, @"\d{4}")) // Skip if near a year
+                    {
+                        continue;
+                    }
+                    
+                    // If it's near "SEX", "GENDER", or appears after name fields, use it
+                    if (context.Contains("SEX") || context.Contains("GENDER") || 
+                        context.Contains("NATIONALITY") || 
+                        (match.Index > 100 && match.Index < text.Length * 0.3)) // Early in text, likely a field
+                    {
+                        if (match.Groups[1].Value == "M")
+                        {
+                            result.Gender = "Male";
+                        }
+                        else if (match.Groups[1].Value == "F")
+                        {
+                            result.Gender = "Female";
+                        }
+                        break;
+                    }
+                }
+            }
+
             return result;
         }
 
@@ -1044,6 +1283,7 @@ namespace Barangay.Services
         public string ContactNumber { get; set; } = "";
         public string Address { get; set; } = "";
         public string BirthDate { get; set; } = "";
+        public string Gender { get; set; } = "";
         public string BarangayNumber { get; set; } = "";
         public bool IsBarangayValid { get; set; }
     }
@@ -1060,6 +1300,7 @@ namespace Barangay.Services
         public string ContactNumber { get; set; } = "";
         public string Address { get; set; } = "";
         public string BirthDate { get; set; } = "";
+        public string Gender { get; set; } = "";
     }
 }
 

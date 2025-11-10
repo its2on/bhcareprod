@@ -1461,8 +1461,25 @@
             var totalSteps = 5;
             
             function showStep(n) {
+                console.log('=== SHOW STEP ===');
+                console.log('Requested step:', n);
+                console.log('Total steps:', totalSteps);
+                
+                // Hide all steps
                 $('.wizard-step').addClass('d-none');
-                $('.wizard-step[data-step="' + n + '"]').removeClass('d-none');
+                
+                // Show the requested step
+                const stepElement = $('.wizard-step[data-step="' + n + '"]');
+                console.log('Step element found:', stepElement.length);
+                console.log('Step element:', stepElement);
+                
+                if (stepElement.length > 0) {
+                    stepElement.removeClass('d-none');
+                    console.log('Step ' + n + ' is now visible');
+                } else {
+                    console.error('ERROR: Step ' + n + ' element not found!');
+                    console.log('Available steps:', $('.wizard-step').map(function() { return $(this).attr('data-step'); }).get());
+                }
                 
                 // Update both top and bottom buttons
                 $('#btnPrev, #btnPrevTop').prop('disabled', n === 1);
@@ -1471,6 +1488,10 @@
                 
                 var pct = Math.round((n/totalSteps)*100);
                 $('#wizardProgress').css('width', pct + '%');
+                
+                console.log('Current step after update:', n);
+                console.log('Next button visible:', $('#btnNext').is(':visible'));
+                console.log('Submit button visible:', !$('#btnSubmit').hasClass('d-none'));
             }
             
             // Handle both bottom and top Previous buttons
@@ -1488,10 +1509,17 @@
             $('#btnNext, #btnNextTop').on('click', function(e){ 
                 e.preventDefault(); 
                 e.stopPropagation();
-                console.log('Next button clicked, current step:', currentStep);
+                console.log('=== NEXT BUTTON CLICKED ===');
+                console.log('Current step before increment:', currentStep);
+                console.log('Total steps:', totalSteps);
+                console.log('Can go to next step?', currentStep < totalSteps);
+                
                 if(currentStep < totalSteps){ 
                     currentStep++; 
+                    console.log('Moving to step:', currentStep);
                     showStep(currentStep); 
+                } else {
+                    console.log('Already at last step, cannot go further');
                 }
             });
             

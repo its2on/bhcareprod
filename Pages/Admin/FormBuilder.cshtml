@@ -428,6 +428,20 @@
                     <i class="fa-solid fa-grip-lines"></i>
                     <span>Section Break</span>
                 </button>
+                
+                <hr class="my-3">
+                
+                <button type="button" class="tool-btn" id="btnAddStep4Template" style="background: #10b981; color: white;">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span>Add Step 4 Template</span>
+                </button>
+                <small class="text-muted d-block mt-2 px-2">Anthropometric Measurements</small>
+                
+                <button type="button" class="tool-btn" id="btnRemoveDuplicates" style="background: #dc3545; color: white; margin-top: 10px;">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Remove Duplicates</span>
+                </button>
+                <small class="text-muted d-block mt-2 px-2">Remove duplicate fields</small>
 
                 <hr class="my-3">
                 
@@ -534,6 +548,26 @@
             if (existingFields && existingFields.length > 0) {
                 existingFields.forEach(field => {
                     loadExistingField(field);
+                });
+            }
+            
+            // Add event listener for Step 4 Template button
+            const btnAddStep4Template = document.getElementById('btnAddStep4Template');
+            if (btnAddStep4Template) {
+                btnAddStep4Template.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addStep4Template(e);
+                });
+            }
+            
+            // Add event listener for Remove Duplicates button
+            const btnRemoveDuplicates = document.getElementById('btnRemoveDuplicates');
+            if (btnRemoveDuplicates) {
+                btnRemoveDuplicates.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeDuplicates(e);
                 });
             }
         });
@@ -866,11 +900,302 @@
             document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', sectionHtml);
         }
         
+        // Flag to prevent multiple executions
+        let isAddingStep4Template = false;
+        
+        function addStep4Template(event) {
+            // Prevent multiple executions
+            if (isAddingStep4Template) {
+                console.log('Step 4 template is already being added, please wait...');
+                return;
+            }
+            
+            isAddingStep4Template = true;
+            
+            // Disable the button
+            const button = event?.target || document.getElementById('btnAddStep4Template');
+            if (button) {
+                button.disabled = true;
+                button.style.opacity = '0.6';
+                button.style.cursor = 'not-allowed';
+            }
+            
+            try {
+                // Add Section Break
+                fieldIdCounter++;
+                const sectionId = 'section_' + fieldIdCounter;
+                const sectionHtml = `
+                    <div class="my-4 p-4 bg-white rounded shadow-sm" id="${sectionId}" data-section-break="true">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-muted mb-0">
+                                <i class="fa-solid fa-grip-lines me-2"></i>Section Break
+                            </h6>
+                            <button type="button" class="btn btn-sm btn-link text-danger" onclick="document.getElementById('${sectionId}').remove()">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                        <input type="text" class="form-control mb-2" placeholder="Section Title (optional)" data-section="title" value="Part IV. Anthropometric Measurement">
+                        <textarea class="form-control" rows="2" placeholder="Section Description (optional)" data-section="description"></textarea>
+                    </div>
+                `;
+                document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', sectionHtml);
+            
+            // Helper function to add a field with label
+            function addFieldWithLabel(fieldType, label, fieldName = null) {
+                fieldIdCounter++;
+                const fieldId = 'field_' + fieldIdCounter;
+                const fieldHtml = createFieldHtml(fieldId, fieldType);
+                document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', fieldHtml);
+                const fieldCard = document.getElementById(fieldId);
+                fieldCard.querySelector('[data-field="label"]').value = label;
+                if (fieldName) {
+                    // Set a custom field name if provided
+                    const nameInput = fieldCard.querySelector('[data-field="name"]');
+                    if (nameInput) nameInput.value = fieldName;
+                }
+                return fieldId;
+            }
+            
+            // Helper function to add radio field with options
+            function addRadioField(label, options) {
+                fieldIdCounter++;
+                const fieldId = 'field_' + fieldIdCounter;
+                const fieldHtml = createFieldHtml(fieldId, 'radio');
+                document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', fieldHtml);
+                const fieldCard = document.getElementById(fieldId);
+                fieldCard.querySelector('[data-field="label"]').value = label;
+                options.forEach(option => {
+                    addOption(fieldId, option);
+                });
+                return fieldId;
+            }
+            
+            // Helper function to add checkbox field with options
+            function addCheckboxField(label, options) {
+                fieldIdCounter++;
+                const fieldId = 'field_' + fieldIdCounter;
+                const fieldHtml = createFieldHtml(fieldId, 'checkbox');
+                document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', fieldHtml);
+                const fieldCard = document.getElementById(fieldId);
+                fieldCard.querySelector('[data-field="label"]').value = label;
+                options.forEach(option => {
+                    addOption(fieldId, option);
+                });
+                return fieldId;
+            }
+            
+            // Anthropometric Measurements
+            addFieldWithLabel('number', 'Weight');
+            addFieldWithLabel('number', 'Height');
+            addFieldWithLabel('number', 'BMI');
+            addFieldWithLabel('number', 'Waist');
+            addFieldWithLabel('number', 'Hip');
+            addFieldWithLabel('number', 'WH Ratio');
+            
+            // BMI Status
+            addRadioField('BMI Status', [
+                'Underweight (<18.5)',
+                'Normal (18.5–22.9)',
+                'Overweight (23–24.9)',
+                'Obese (≥25)'
+            ]);
+            
+            // WH Status
+            addRadioField('WH Status', [
+                'No risk (Male <1.0, Female <0.85)',
+                'At risk (Male ≥1.0, Female ≥0.85)'
+            ]);
+            
+            // Blood Sugar
+            addFieldWithLabel('number', 'Fasting Blood Sugar');
+            addFieldWithLabel('number', 'Random Blood Sugar');
+            
+            // Blood Sugar Status
+            addRadioField('Blood Sugar Status', [
+                'Normal (<100)',
+                'Impaired fasting glucose (100–125)',
+                'DM (>126 or RBS ≥200 + symptoms)',
+                'Pre-Diabetes',
+                'DM'
+            ]);
+            
+            // Symptoms (Checkboxes)
+            addCheckboxField('Symptoms', [
+                'Polyuria',
+                'Polydipsia',
+                'Polyphagia',
+                'Weight loss'
+            ]);
+            
+            // Blood Pressure
+            addFieldWithLabel('text', 'Left arm mean BP');
+            addFieldWithLabel('text', 'Right arm mean BP');
+            addFieldWithLabel('text', 'Baseline BP');
+            
+            // BP Status
+            addRadioField('BP Status', [
+                'Normal (<120/80)',
+                'Pre-HPN (120–139/80–89)',
+                'Stage 1 (140–159/90–99)',
+                'Stage 2 (≥160/≥100)',
+                'Elevated BP'
+            ]);
+            
+            // Cholesterol
+            addFieldWithLabel('number', 'Cholesterol Result');
+            
+            // Cholesterol Status
+            addRadioField('Cholesterol Status', [
+                'Normal (<200)',
+                'Elevated (200–239)',
+                'High (≥240)'
+            ]);
+            
+            // Urine Dipstick Test
+            addFieldWithLabel('text', 'Urine Protein');
+            addFieldWithLabel('text', 'Urine Ketones');
+            
+            // Urine Checkboxes
+            addCheckboxField('Urine Test Results', [
+                '(+) urine protein',
+                '(–) urine protein',
+                '(+) urine ketones',
+                '(–) urine ketones'
+            ]);
+            
+            // Risk Profile (For Doctors Only)
+            addRadioField('Risk Profile (For Doctors Only)', [
+                '<5%',
+                '5–10%',
+                '10–<20%',
+                '20–<30%',
+                '≥30%'
+            ]);
+            
+            // Cancer Screening
+            addCheckboxField('Cancer Screening (Babae ≥30 years old)', [
+                'Oo (ipaalala ang next visit)',
+                'Hindi (i-refer)'
+            ]);
+            
+                // Update field orders
+                updateFieldOrders();
+                
+                // Show success message
+                alert('Step 4 Template (Anthropometric Measurements) has been added successfully!');
+            } catch (error) {
+                console.error('Error adding Step 4 template:', error);
+                alert('An error occurred while adding Step 4 template. Please try again.');
+            } finally {
+                // Re-enable the button
+                isAddingStep4Template = false;
+                if (button) {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.style.cursor = 'pointer';
+                }
+            }
+        }
+        
         function updateFieldOrders() {
             const fields = document.querySelectorAll('.question-card');
             fields.forEach((field, index) => {
                 field.dataset.order = index;
             });
+        }
+        
+        // Flag to prevent multiple executions
+        let isRemovingDuplicates = false;
+        
+        function removeDuplicates(event) {
+            // Prevent multiple executions
+            if (isRemovingDuplicates) {
+                console.log('Removing duplicates is already in progress, please wait...');
+                return;
+            }
+            
+            if (!confirm('This will remove all duplicate fields (fields with the same label). Keep only the first occurrence of each. Continue?')) {
+                return;
+            }
+            
+            isRemovingDuplicates = true;
+            
+            // Disable the button
+            const button = event?.target || document.getElementById('btnRemoveDuplicates');
+            if (button) {
+                button.disabled = true;
+                button.style.opacity = '0.6';
+                button.style.cursor = 'not-allowed';
+            }
+            
+            try {
+                const container = document.getElementById('questionsContainer');
+                const allElements = Array.from(container.children);
+                
+                // Track seen field labels and section titles
+                const seenFieldLabels = new Set();
+                const seenSectionTitles = new Set();
+                let removedCount = 0;
+                
+                allElements.forEach((element, index) => {
+                    // Check if it's a section break
+                    if (element.dataset.sectionBreak === 'true') {
+                        const sectionTitleInput = element.querySelector('[data-section="title"]');
+                        const sectionTitle = sectionTitleInput?.value?.trim() || '';
+                        
+                        if (sectionTitle) {
+                            if (seenSectionTitles.has(sectionTitle)) {
+                                // This is a duplicate section, remove it
+                                element.remove();
+                                removedCount++;
+                                console.log(`Removed duplicate section: "${sectionTitle}"`);
+                            } else {
+                                seenSectionTitles.add(sectionTitle);
+                            }
+                        }
+                    }
+                    // Check if it's a question card
+                    else if (element.classList.contains('question-card')) {
+                        const labelInput = element.querySelector('[data-field="label"]');
+                        const fieldLabel = labelInput?.value?.trim() || '';
+                        
+                        if (fieldLabel) {
+                            // Normalize the label for comparison (remove extra spaces, make lowercase)
+                            const normalizedLabel = fieldLabel.toLowerCase().replace(/\s+/g, ' ').trim();
+                            
+                            if (seenFieldLabels.has(normalizedLabel)) {
+                                // This is a duplicate field, remove it
+                                element.remove();
+                                removedCount++;
+                                console.log(`Removed duplicate field: "${fieldLabel}"`);
+                            } else {
+                                seenFieldLabels.add(normalizedLabel);
+                            }
+                        }
+                    }
+                });
+                
+                // Update field orders after removal
+                updateFieldOrders();
+                
+                // Show success message
+                if (removedCount > 0) {
+                    alert(`Successfully removed ${removedCount} duplicate field(s)!`);
+                } else {
+                    alert('No duplicates found. All fields are unique.');
+                }
+            } catch (error) {
+                console.error('Error removing duplicates:', error);
+                alert('An error occurred while removing duplicates. Please try again.');
+            } finally {
+                // Re-enable the button
+                isRemovingDuplicates = false;
+                if (button) {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.style.cursor = 'pointer';
+                }
+            }
         }
         
         function previewForm() {

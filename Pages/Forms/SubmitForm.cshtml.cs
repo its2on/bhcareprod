@@ -38,6 +38,9 @@ namespace Barangay.Pages.Forms
         public ApplicationUser? CurrentUser { get; set; }
         public Patient? PatientData { get; set; }
         
+        // Dashboard URL based on user role
+        public string DashboardUrl { get; set; } = "/User/UserDashboard";
+        
         // Dictionary to hold prefilled values for form fields
         public Dictionary<string, string> PrefilledValues { get; set; } = new Dictionary<string, string>();
         
@@ -103,8 +106,172 @@ namespace Barangay.Pages.Forms
 
             // Load user and patient data for prefilling
             await LoadPrefillDataAsync();
+            
+            // Determine dashboard URL based on user role
+            if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
+            {
+                DashboardUrl = "/Nurse/NurseDashboard";
+            }
+            else if (User.IsInRole("Doctor") || User.IsInRole("Head Doctor"))
+            {
+                DashboardUrl = "/Doctor/DoctorDashboard";
+            }
+            else if (User.IsInRole("Admin"))
+            {
+                // Admin can access both, default to Nurse dashboard if coming from appointment context
+                DashboardUrl = AppointmentId.HasValue ? "/Nurse/NurseDashboard" : "/Admin/Dashboard";
+            }
+            else
+            {
+                DashboardUrl = "/User/UserDashboard";
+            }
+            
+            // Load existing submission data if available (for editing/viewing)
+            await LoadExistingSubmissionDataAsync();
 
             return Page();
+        }
+        
+        /// <summary>
+        /// Loads existing form submission data if available (for editing/viewing previously submitted forms)
+        /// </summary>
+        private async Task LoadExistingSubmissionDataAsync()
+        {
+            try
+            {
+                // Check if there's an existing submission for this appointment/form combination
+                FormSubmission? existingSubmission = null;
+                
+                if (AppointmentId.HasValue)
+                {
+                    // Try to find existing submission by appointment ID and form template
+                    existingSubmission = await _context.FormSubmissions
+                        .Where(s => s.AppointmentId == AppointmentId.Value && 
+                                   s.FormTemplateId == FormTemplate.FormTemplateId)
+                        .OrderByDescending(s => s.SubmittedAt)
+                        .FirstOrDefaultAsync();
+                    
+                    _logger.LogInformation("=== LOADING EXISTING SUBMISSION ===");
+                    _logger.LogInformation("AppointmentId: {AppointmentId}, FormTemplateId: {FormTemplateId}", 
+                        AppointmentId.Value, FormTemplate.FormTemplateId);
+                    _logger.LogInformation("Existing submission found: {Found}", existingSubmission != null);
+                }
+                else if (User.Identity?.IsAuthenticated == true)
+                {
+                    // If no appointment, try to find by user and form template
+                    var currentUser = await _userManager.GetUserAsync(User);
+                    if (currentUser != null)
+                    {
+                        existingSubmission = await _context.FormSubmissions
+                            .Where(s => s.UserId == currentUser.Id && 
+                                       s.FormTemplateId == FormTemplate.FormTemplateId)
+                            .OrderByDescending(s => s.SubmittedAt)
+                            .FirstOrDefaultAsync();
+                        
+                        _logger.LogInformation("=== LOADING EXISTING SUBMISSION (by user) ===");
+                        _logger.LogInformation("UserId: {UserId}, FormTemplateId: {FormTemplateId}", 
+                            currentUser.Id, FormTemplate.FormTemplateId);
+                        _logger.LogInformation("Existing submission found: {Found}", existingSubmission != null);
+                    }
+                }
+                
+                if (existingSubmission != null)
+                {
+                    _logger.LogInformation("Loading submission ID: {SubmissionId}, SubmittedAt: {SubmittedAt}", 
+                        existingSubmission.FormSubmissionId, existingSubmission.SubmittedAt);
+                    
+                    // Parse the JSON form data
+                    try
+                    {
+                        var submissionData = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                            existingSubmission.FormData) ?? new Dictionary<string, string>();
+                        
+                        _logger.LogInformation("Parsed {Count} fields from submission data", submissionData.Count);
+                        
+                        // Merge submission data into PrefilledValues (submission data takes precedence)
+                        // Also create a mapping from submission field names to form template field names
+                        foreach (var kvp in submissionData)
+                        {
+                            var submissionFieldName = kvp.Key;
+                            var fieldValue = kvp.Value ?? string.Empty;
+                            
+                            // Try to find matching field in form template
+                            var matchingField = FormTemplate.FormFields.FirstOrDefault(f => 
+                                f.FieldName.Equals(submissionFieldName, StringComparison.OrdinalIgnoreCase) ||
+                                NormalizeFieldName(f.FieldName) == NormalizeFieldName(submissionFieldName));
+                            
+                            // Use the form template field name if found, otherwise use submission field name
+                            var fieldName = matchingField?.FieldName ?? submissionFieldName;
+                            
+                            // Normalize field name for matching
+                            var normalizedFieldName = NormalizeFieldName(fieldName);
+                            var normalizedSubmissionFieldName = NormalizeFieldName(submissionFieldName);
+                            
+                            // Add with form template field name (preferred)
+                            PrefilledValues[fieldName] = fieldValue;
+                            
+                            // Also add with submission field name (for backward compatibility)
+                            if (fieldName != submissionFieldName)
+                            {
+                                PrefilledValues[submissionFieldName] = fieldValue;
+                            }
+                            
+                            // Add normalized versions
+                            if (!string.IsNullOrEmpty(normalizedFieldName))
+                            {
+                                PrefilledValues[normalizedFieldName] = fieldValue;
+                            }
+                            if (!string.IsNullOrEmpty(normalizedSubmissionFieldName) && normalizedSubmissionFieldName != normalizedFieldName)
+                            {
+                                PrefilledValues[normalizedSubmissionFieldName] = fieldValue;
+                            }
+                            
+                            // For checkbox fields, also try without [] suffix
+                            if (fieldName.EndsWith("[]"))
+                            {
+                                var baseName = fieldName.Substring(0, fieldName.Length - 2);
+                                PrefilledValues[baseName] = fieldValue;
+                                var normalizedBaseName = NormalizeFieldName(baseName);
+                                if (!string.IsNullOrEmpty(normalizedBaseName))
+                                {
+                                    PrefilledValues[normalizedBaseName] = fieldValue;
+                                }
+                            }
+                            if (submissionFieldName.EndsWith("[]") && submissionFieldName != fieldName)
+                            {
+                                var baseName = submissionFieldName.Substring(0, submissionFieldName.Length - 2);
+                                PrefilledValues[baseName] = fieldValue;
+                                var normalizedBaseName = NormalizeFieldName(baseName);
+                                if (!string.IsNullOrEmpty(normalizedBaseName))
+                                {
+                                    PrefilledValues[normalizedBaseName] = fieldValue;
+                                }
+                            }
+                            
+                            _logger.LogInformation("Loaded field: {SubmissionFieldName} -> {FieldName} = '{Value}'", 
+                                submissionFieldName, fieldName, 
+                                fieldValue.Length > 50 ? fieldValue.Substring(0, 50) + "..." : fieldValue);
+                        }
+                        
+                        // Don't set IsSubmitted = true here - we want to show the form with data for editing/viewing
+                        // IsSubmitted should only be true after a successful POST submission
+                        _logger.LogInformation("Successfully loaded {Count} fields from existing submission", submissionData.Count);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to parse existing submission data for submission ID {SubmissionId}", 
+                            existingSubmission.FormSubmissionId);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("No existing submission found - this is a new form");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading existing submission data");
+            }
         }
 
         public async Task<IActionResult> OnPostAsync(string formKey, int? appointmentId = null)
@@ -156,32 +323,130 @@ namespace Barangay.Pages.Forms
 
                 _logger.LogInformation("=== FIELD-BY-FIELD DEBUGGING ===");
                 _logger.LogInformation("Total fields in template: {Count}", FormTemplate.FormFields.Count);
+                _logger.LogInformation("=== ALL REQUEST.FORM KEYS ===");
+                foreach (var key in Request.Form.Keys)
+                {
+                    var formValue = Request.Form[key].ToString();
+                    _logger.LogInformation("Request.Form['{Key}'] = '{Value}'", key, formValue ?? "(null)");
+                }
+                _logger.LogInformation("=== END REQUEST.FORM KEYS ===");
 
                 foreach (var field in FormTemplate.FormFields)
                 {
                     string value = string.Empty;
-                    bool fieldExistsInForm = Request.Form.ContainsKey(field.FieldName);
+                    // For checkboxes, also check for field name with [] brackets
+                    bool fieldExistsInForm = Request.Form.ContainsKey(field.FieldName) || 
+                        (field.FieldType == "checkbox" && Request.Form.ContainsKey(field.FieldName + "[]"));
 
                     // Debug: Log field information
                     _logger.LogInformation("--- Processing Field: {FieldName} ({FieldLabel}) ---", field.FieldName, field.FieldLabel);
                     _logger.LogInformation("Field Type: {FieldType}, IsRequired: {IsRequired}, DisplayOrder: {DisplayOrder}", 
                         field.FieldType, field.IsRequired, field.DisplayOrder);
-                    _logger.LogInformation("Field exists in Request.Form: {Exists}", fieldExistsInForm);
+                    _logger.LogInformation("Field exists in Request.Form: {Exists} (checked: {FieldName} and {FieldNameWithBrackets})", 
+                        fieldExistsInForm, field.FieldName, field.FieldType == "checkbox" ? field.FieldName + "[]" : "N/A");
 
                     // Handle different field types
                     if (field.FieldType == "checkbox")
                     {
                         // For checkbox fields, combine multiple values
-                        var values = Request.Form[field.FieldName];
+                        // ASP.NET Core automatically handles array notation, so fieldName[] becomes fieldName
+                        // But we need to check multiple variations to be sure
+                        var checkboxFieldName = field.FieldName;
+                        var checkboxFieldNameWithBrackets = field.FieldName + "[]";
+                        var normalizedFieldName = NormalizeFieldName(field.FieldName);
+                        
+                        _logger.LogInformation("CHECKBOX - Looking for field: {FieldName} (normalized: {Normalized})", 
+                            checkboxFieldName, normalizedFieldName);
+                        
+                        // Strategy 1: Try exact field name (ASP.NET Core should handle [] automatically)
+                        var values = Request.Form[checkboxFieldName];
+                        if (values.Count > 0)
+                        {
+                            _logger.LogInformation("CHECKBOX - Found {Count} values using exact field name", values.Count);
+                        }
+                        
+                        // Strategy 2: Try with brackets
+                        if (values.Count == 0)
+                        {
+                            values = Request.Form[checkboxFieldNameWithBrackets];
+                            if (values.Count > 0)
+                            {
+                                _logger.LogInformation("CHECKBOX - Found {Count} values using field name with brackets", values.Count);
+                            }
+                        }
+                        
+                        // Strategy 3: Try case-insensitive match
+                        if (values.Count == 0)
+                        {
+                            var matchingKey = Request.Form.Keys.FirstOrDefault(k => 
+                                k.Equals(checkboxFieldName, StringComparison.OrdinalIgnoreCase));
+                            if (matchingKey != null)
+                            {
+                                values = Request.Form[matchingKey];
+                                _logger.LogInformation("CHECKBOX - Found {Count} values using case-insensitive match: {Key}", 
+                                    values.Count, matchingKey);
+                            }
+                        }
+                        
+                        // Strategy 4: Try normalized match (remove special chars)
+                        if (values.Count == 0 && !string.IsNullOrEmpty(normalizedFieldName))
+                        {
+                            var matchingKey = Request.Form.Keys.FirstOrDefault(k => 
+                                NormalizeFieldName(k) == normalizedFieldName);
+                            if (matchingKey != null)
+                            {
+                                values = Request.Form[matchingKey];
+                                _logger.LogInformation("CHECKBOX - Found {Count} values using normalized match: {Key}", 
+                                    values.Count, matchingKey);
+                            }
+                        }
+                        
+                        // Strategy 5: Try with brackets and case-insensitive
+                        if (values.Count == 0)
+                        {
+                            var matchingKey = Request.Form.Keys.FirstOrDefault(k => 
+                                k.Equals(checkboxFieldNameWithBrackets, StringComparison.OrdinalIgnoreCase));
+                            if (matchingKey != null)
+                            {
+                                values = Request.Form[matchingKey];
+                                _logger.LogInformation("CHECKBOX - Found {Count} values using brackets + case-insensitive: {Key}", 
+                                    values.Count, matchingKey);
+                            }
+                        }
+                        
+                        // Debug: Log all form keys that might match
+                        var allPossibleMatches = Request.Form.Keys.Where(k => 
+                            k.Contains(checkboxFieldName, StringComparison.OrdinalIgnoreCase) ||
+                            NormalizeFieldName(k) == normalizedFieldName
+                        ).ToList();
+                        
+                        if (allPossibleMatches.Any())
+                        {
+                            _logger.LogInformation("CHECKBOX - Possible matching keys found: {Keys}", 
+                                string.Join(", ", allPossibleMatches));
+                            foreach (var key in allPossibleMatches)
+                            {
+                                var keyValues = Request.Form[key];
+                                _logger.LogInformation("CHECKBOX - Key '{Key}' has {Count} values: {Values}", 
+                                    key, keyValues.Count, string.Join(", ", keyValues));
+                            }
+                        }
+                        
                         if (values.Count > 0)
                         {
                             value = string.Join(", ", values);
-                            _logger.LogInformation("CHECKBOX - Selected values: {Values}", value);
+                            _logger.LogInformation("✓ CHECKBOX - Selected values: {Values}", value);
                         }
                         else
                         {
                             value = string.Empty; // No checkboxes selected
-                            _logger.LogInformation("CHECKBOX - No values selected (empty)");
+                            _logger.LogWarning("⚠️ CHECKBOX - No values selected (empty) for field: {FieldName}", field.FieldName);
+                            _logger.LogWarning("CHECKBOX - Searched for: {FieldName}, {FieldNameWithBrackets}, normalized: {Normalized}", 
+                                checkboxFieldName, checkboxFieldNameWithBrackets, normalizedFieldName);
+                            _logger.LogWarning("CHECKBOX - All available form keys: {Keys}", 
+                                string.Join(", ", Request.Form.Keys));
+                            // DEBUGGER: Stop here if checkbox not selected
+                            System.Diagnostics.Debugger.Break();
                         }
                     }
                     else if (field.FieldType == "radio")
@@ -191,12 +456,14 @@ namespace Barangay.Pages.Forms
                         if (!string.IsNullOrWhiteSpace(radioValue))
                         {
                             value = radioValue;
-                            _logger.LogInformation("RADIO - Selected value: {Value}", value);
+                            _logger.LogInformation("✓ RADIO - Selected value: {Value}", value);
                         }
                         else
                         {
                             value = string.Empty; // No radio button selected
-                            _logger.LogInformation("RADIO - No option selected (empty)");
+                            _logger.LogWarning("⚠️ RADIO - No option selected (empty) for field: {FieldName}", field.FieldName);
+                            // DEBUGGER: Stop here if radio not selected
+                            System.Diagnostics.Debugger.Break();
                         }
                     }
                     else if (field.FieldType == "button" || field.FieldType == "submit")
@@ -212,11 +479,14 @@ namespace Barangay.Pages.Forms
                         value = Request.Form[field.FieldName].ToString();
                         if (!string.IsNullOrWhiteSpace(value))
                         {
-                            _logger.LogInformation("TEXTBOX/SELECT - Value: {Value}", value);
+                            _logger.LogInformation("✓ TEXTBOX/SELECT/TEXTAREA - Value: {Value}", value);
                         }
                         else
                         {
-                            _logger.LogInformation("TEXTBOX/SELECT - Empty value");
+                            _logger.LogWarning("⚠️ TEXTBOX/SELECT/TEXTAREA - Empty value for field: {FieldName} (Type: {FieldType})", 
+                                field.FieldName, field.FieldType);
+                            // DEBUGGER: Stop here if text field is empty
+                            System.Diagnostics.Debugger.Break();
                         }
                     }
 
@@ -252,25 +522,64 @@ namespace Barangay.Pages.Forms
                     userId = currentUser?.Id;
                 }
 
-                // Create submission record
-                var submission = new FormSubmission
+                // Check if there's an existing submission to update
+                FormSubmission? submission = null;
+                
+                if (AppointmentId.HasValue)
                 {
-                    FormTemplateId = FormTemplate.FormTemplateId,
-                    UserId = userId, // Use actual User ID (GUID), not username
-                    AppointmentId = AppointmentId, // Link to appointment if provided
-                    FormData = JsonSerializer.Serialize(formData),
-                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    UserAgent = Request.Headers["User-Agent"].ToString(),
-                    Status = "Submitted",
-                    SubmittedAt = DateTime.UtcNow
-                };
+                    submission = await _context.FormSubmissions
+                        .Where(s => s.AppointmentId == AppointmentId.Value && 
+                                   s.FormTemplateId == FormTemplate.FormTemplateId)
+                        .OrderByDescending(s => s.SubmittedAt)
+                        .FirstOrDefaultAsync();
+                }
+                else if (userId != null)
+                {
+                    submission = await _context.FormSubmissions
+                        .Where(s => s.UserId == userId && 
+                                   s.FormTemplateId == FormTemplate.FormTemplateId)
+                        .OrderByDescending(s => s.SubmittedAt)
+                        .FirstOrDefaultAsync();
+                }
+                
+                if (submission != null)
+                {
+                    // Update existing submission
+                    _logger.LogInformation($"Updating existing form submission ID {submission.FormSubmissionId}: FormTemplateId={FormTemplate.FormTemplateId}, FormName='{FormTemplate.FormName}', UserId={userId}, AppointmentId={AppointmentId}");
+                    
+                    submission.FormData = JsonSerializer.Serialize(formData);
+                    submission.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                    submission.UserAgent = Request.Headers["User-Agent"].ToString();
+                    submission.Status = "Submitted";
+                    submission.SubmittedAt = DateTime.UtcNow; // Update timestamp
+                    
+                    _context.FormSubmissions.Update(submission);
+                    await _context.SaveChangesAsync();
+                    
+                    _logger.LogInformation($"Form submission {submission.FormSubmissionId} for form '{FormTemplate.FormName}' updated successfully with AppointmentId={submission.AppointmentId}");
+                }
+                else
+                {
+                    // Create new submission record
+                    submission = new FormSubmission
+                    {
+                        FormTemplateId = FormTemplate.FormTemplateId,
+                        UserId = userId, // Use actual User ID (GUID), not username
+                        AppointmentId = AppointmentId, // Link to appointment if provided
+                        FormData = JsonSerializer.Serialize(formData),
+                        IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                        UserAgent = Request.Headers["User-Agent"].ToString(),
+                        Status = "Submitted",
+                        SubmittedAt = DateTime.UtcNow
+                    };
 
-                _logger.LogInformation($"Creating form submission: FormTemplateId={FormTemplate.FormTemplateId}, FormName='{FormTemplate.FormName}', UserId={userId}, AppointmentId={AppointmentId}");
+                    _logger.LogInformation($"Creating new form submission: FormTemplateId={FormTemplate.FormTemplateId}, FormName='{FormTemplate.FormName}', UserId={userId}, AppointmentId={AppointmentId}");
 
-                _context.FormSubmissions.Add(submission);
-                await _context.SaveChangesAsync();
+                    _context.FormSubmissions.Add(submission);
+                    await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Form submission {submission.FormSubmissionId} for form '{FormTemplate.FormName}' saved successfully with AppointmentId={submission.AppointmentId}");
+                    _logger.LogInformation($"Form submission {submission.FormSubmissionId} for form '{FormTemplate.FormName}' saved successfully with AppointmentId={submission.AppointmentId}");
+                }
 
                 // Update appointment status to Pending after successful form submission
                 // Pending = waiting for nurse/doctor to start consultation
@@ -297,11 +606,31 @@ namespace Barangay.Pages.Forms
                 IsSubmitted = true;
                 TempData["FormSubmitted"] = true;
                 
+                // Determine dashboard URL based on user role
+                if (User.IsInRole("Nurse") || User.IsInRole("Head Nurse"))
+                {
+                    DashboardUrl = "/Nurse/NurseDashboard";
+                }
+                else if (User.IsInRole("Doctor") || User.IsInRole("Head Doctor"))
+                {
+                    DashboardUrl = "/Doctor/DoctorDashboard";
+                }
+                else if (User.IsInRole("Admin"))
+                {
+                    // Admin can access both, default to Nurse dashboard if coming from appointment context
+                    DashboardUrl = AppointmentId.HasValue ? "/Nurse/NurseDashboard" : "/Admin/Dashboard";
+                }
+                else
+                {
+                    DashboardUrl = "/User/UserDashboard";
+                }
+                
                 _logger.LogInformation("=== FORM SUBMISSION SUCCESS ===");
                 _logger.LogInformation("SubmissionId: {SubmissionId}", submission.FormSubmissionId);
                 _logger.LogInformation("FormName: {FormName}", FormTemplate.FormName);
                 _logger.LogInformation("AppointmentId: {AppointmentId}", submission.AppointmentId);
                 _logger.LogInformation("IsSubmitted: {IsSubmitted}", IsSubmitted);
+                _logger.LogInformation("DashboardUrl: {DashboardUrl}", DashboardUrl);
                 _logger.LogInformation("TempData[FormSubmitted]: {TempData}", TempData["FormSubmitted"]);
                 
                 // Reload prefill data so page can render properly

@@ -21,6 +21,7 @@ using Barangay.Attributes;
 using Barangay.Services;
 using Barangay.Extensions;
 using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace Barangay.Pages.Doctor
 {
@@ -94,6 +95,9 @@ namespace Barangay.Pages.Doctor
         public NCDRiskAssessment? NCDRiskAssessment { get; set; }
         public AdolescentHealthInfo? AdolescentHealthInfo { get; set; }
         
+        // Vital signs from form submissions
+        public Dictionary<string, string> FormVitalSigns { get; set; } = new Dictionary<string, string>();
+        
         [BindProperty]
         public int? AppointmentId { get; set; }
         
@@ -126,6 +130,22 @@ namespace Barangay.Pages.Doctor
         
         // Property to track who booked the appointment
         public string BookedBy { get; set; } = string.Empty;
+
+        // Dynamic Forms Integration
+        public List<DynamicFormInfo> DynamicForms { get; set; } = new List<DynamicFormInfo>();
+        
+        // Helper class for dynamic forms
+        public class DynamicFormInfo
+        {
+            public int FormTemplateId { get; set; }
+            public string FormName { get; set; }
+            public string FormKey { get; set; }
+            public string IconClass { get; set; }
+            public string Description { get; set; }
+            public bool IsCompleted { get; set; }
+            public int? SubmissionId { get; set; }
+            public DateTime? SubmittedAt { get; set; }
+        }
 
         public async Task<IActionResult> OnGetAsync(int? id = null, bool startConsultation = false, string? filterDate = null)
         {
@@ -455,6 +475,69 @@ namespace Barangay.Pages.Doctor
                     LatestVitalSigns.DecryptVitalSignData(_encryptionService, User);
                 }
 
+                // Extract vital signs from form submissions for this appointment
+                try
+                {
+                    var formSubmissions = await _context.FormSubmissions
+                        .Where(s => s.AppointmentId == AppointmentId.Value)
+                        .OrderByDescending(s => s.SubmittedAt)
+                        .ToListAsync();
+
+                    _logger.LogInformation("Found {Count} form submissions for appointment {AppointmentId}", formSubmissions.Count, AppointmentId);
+
+                    // Vital signs field names to look for in forms
+                    var vitalSignFields = new[] { 
+                        "Weight", "Height", "BMI", "BloodPressure", "BP", "LeftArmMeanBP", "RightArmMeanBP", 
+                        "BaselineBP", "BPStatus", "CholesterolResult", "Cholesterol", "FastingBloodSugar", 
+                        "RandomBloodSugar", "Temperature", "Temp", "HeartRate", "HR", "SpO2", "RespiratoryRate"
+                    };
+
+                    foreach (var submission in formSubmissions)
+                    {
+                        try
+                        {
+                            var formData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(submission.FormData) 
+                                         ?? new Dictionary<string, string>();
+
+                            // Extract vital signs from this form submission
+                            foreach (var field in vitalSignFields)
+                            {
+                                // Try exact match first
+                                if (formData.ContainsKey(field) && !string.IsNullOrEmpty(formData[field]))
+                                {
+                                    if (!FormVitalSigns.ContainsKey(field) || string.IsNullOrEmpty(FormVitalSigns[field]))
+                                    {
+                                        FormVitalSigns[field] = formData[field];
+                                    }
+                                }
+                                // Try case-insensitive match
+                                else
+                                {
+                                    var matchingKey = formData.Keys.FirstOrDefault(k => 
+                                        string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
+                                    if (matchingKey != null && !string.IsNullOrEmpty(formData[matchingKey]))
+                                    {
+                                        if (!FormVitalSigns.ContainsKey(field) || string.IsNullOrEmpty(FormVitalSigns[field]))
+                                        {
+                                            FormVitalSigns[field] = formData[matchingKey];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse form data for submission {SubmissionId}", submission.FormSubmissionId);
+                        }
+                    }
+
+                    _logger.LogInformation("Extracted {Count} vital signs from form submissions", FormVitalSigns.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error extracting vital signs from form submissions for appointment {AppointmentId}", AppointmentId);
+                }
+
                 MedicalRecords = await _context.MedicalRecords
                     .Where(m => m.PatientId == patientId)
                     .OrderByDescending(m => m.Date)
@@ -717,6 +800,67 @@ namespace Barangay.Pages.Doctor
                 if (MedicalRecords.Count == 0)
                 {
                     _logger.LogInformation("No medical records found for patient {PatientId}. This is normal for pending appointments.", patientId);
+                }
+
+                // Load dynamic forms for this appointment
+                try
+                {
+                    // Get all active dynamic forms that should appear in appointment flow
+                    var dynamicFormTemplates = await _context.FormTemplates
+                        .Where(f => f.IsActive && f.ShowInAppointmentFlow)
+                        .OrderBy(f => f.DisplayOrder)
+                        .ToListAsync();
+
+                    _logger.LogInformation("Found {Count} dynamic forms in workflow", dynamicFormTemplates.Count);
+
+                    foreach (var template in dynamicFormTemplates)
+                    {
+                        // Check if this form is age-appropriate
+                        bool isAgeAppropriate = true;
+                        
+                        if (template.MinAge.HasValue && PatientAge < template.MinAge.Value)
+                            isAgeAppropriate = false;
+                        
+                        if (template.MaxAge.HasValue && PatientAge > template.MaxAge.Value)
+                            isAgeAppropriate = false;
+
+                        if (!isAgeAppropriate)
+                        {
+                            _logger.LogInformation("Form '{FormName}' skipped due to age restrictions (Patient: {Age}, Min: {Min}, Max: {Max})", 
+                                template.FormName, PatientAge, template.MinAge, template.MaxAge);
+                            continue;
+                        }
+
+                        // Check if this form has been submitted for this appointment
+                        var submission = await _context.FormSubmissions
+                            .Where(s => s.FormTemplateId == template.FormTemplateId && s.AppointmentId == AppointmentId.Value)
+                            .OrderByDescending(s => s.SubmittedAt)
+                            .FirstOrDefaultAsync();
+
+                        var formInfo = new DynamicFormInfo
+                        {
+                            FormTemplateId = template.FormTemplateId,
+                            FormName = template.FormName,
+                            FormKey = template.FormKey,
+                            IconClass = template.IconClass ?? "fa-solid fa-file-medical",
+                            Description = template.Description,
+                            IsCompleted = submission != null,
+                            SubmissionId = submission?.FormSubmissionId,
+                            SubmittedAt = submission?.SubmittedAt
+                        };
+
+                        DynamicForms.Add(formInfo);
+                    }
+
+                    _logger.LogInformation("Loaded {Count} age-appropriate dynamic forms ({Completed} completed, {Available} available)", 
+                        DynamicForms.Count, 
+                        DynamicForms.Count(f => f.IsCompleted), 
+                        DynamicForms.Count(f => !f.IsCompleted));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error loading dynamic forms for appointment {AppointmentId}", AppointmentId);
+                    // Continue without breaking the page
                 }
 
                 // Set flag to indicate data is loaded successfully
