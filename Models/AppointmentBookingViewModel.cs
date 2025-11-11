@@ -51,8 +51,8 @@ namespace Barangay.Models
         [Display(Name = "Appointment Time")]
         public int? SelectedTimeSlotId { get; set; }
 
-        [Required(ErrorMessage = "Reason for visit is required")]
-        [Display(Name = "Reason for Visit")]
+        [Required(ErrorMessage = "Reason for consultation is required")]
+        [Display(Name = "Reason for Consultation")]
         public string ReasonForVisit { get; set; }
 
         [Display(Name = "Booking for Someone Else")]

@@ -11,7 +11,7 @@ namespace Barangay.Models
         [Display(Name = "Family Number")]
         public string? FamilyNumber { get; set; }
         
-        [Display(Name = "Reason for Visit")]
+        [Display(Name = "Reason for Consultation")]
         public string? ReasonForVisit { get; set; }
         
         [Display(Name = "Symptoms")]

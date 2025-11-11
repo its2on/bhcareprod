@@ -144,13 +144,14 @@ namespace Barangay.Services
                     originalWidth, originalHeight, newWidth, newHeight);
             }
             
-            // Enhance image quality for OCR
+            // Enhance image quality for OCR with improved parameters
+            // Based on recommendations: 20-50% contrast boost, unsharp mask (sigma 0.5)
             image.Mutate(x => x
-                .Grayscale()
-                .Contrast(1.8f)
-                .Brightness(1.3f)
-                .GaussianSharpen(2.0f)
-                .AutoOrient()
+                .AutoOrient() // Deskew: auto-rotate if tilted
+                .Grayscale() // Convert to grayscale to reduce noise
+                .Contrast(1.2f) // Boost contrast by 20% (reduced from 1.8f for better balance)
+                .Brightness(1.1f) // Slight brightness boost (reduced from 1.3f)
+                .GaussianSharpen(0.5f) // Unsharp mask: sigma 0.5 (as recommended)
             );
 
             // Convert back to byte array

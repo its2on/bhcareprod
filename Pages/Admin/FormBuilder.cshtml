@@ -170,28 +170,6 @@
         background-color: white;
     }
     
-    .btn-add-field {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: var(--form-builder-primary);
-        color: white;
-        border: none;
-        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.4);
-        font-size: 24px;
-        transition: all 0.3s;
-        z-index: 1000;
-    }
-    
-    .btn-add-field:hover {
-        background: var(--form-builder-hover);
-        transform: scale(1.1);
-        box-shadow: 0 6px 16px rgba(255, 140, 66, 0.5);
-        color: white;
-    }
     
     .field-type-icon {
         width: 24px;
@@ -354,11 +332,6 @@
                 <div id="questionsContainer">
                     <!-- Questions will be added here dynamically -->
                 </div>
-
-                <!-- Add Field Button -->
-                <button type="button" class="btn-add-field" onclick="addNewField()" title="Add Question">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
             </div>
         </div>
 
@@ -488,35 +461,6 @@
                             </div>
                         </div>
                         
-                        <hr class="my-2">
-                        
-                        <div class="mb-2">
-                            <label class="form-label small">Icon Class</label>
-                            <input type="text" class="form-control form-control-sm" id="formIconClass" 
-                                   placeholder="fa-solid fa-file-medical" 
-                                   list="iconList"
-                                   value="@(Model.IsEdit ? Model.FormTemplate.IconClass : "")">
-                            <datalist id="iconList">
-                                <option value="fa-solid fa-file-medical"></option>
-                                <option value="fa-solid fa-clipboard-list"></option>
-                                <option value="fa-solid fa-user-plus"></option>
-                                <option value="fa-solid fa-notes-medical"></option>
-                                <option value="fa-solid fa-heart-pulse"></option>
-                            </datalist>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="form-label small">Success Message</label>
-                            <textarea class="form-control form-control-sm" id="formSuccessMessage" rows="2" 
-                                      placeholder="Thank you for your submission!">@(Model.IsEdit ? Model.FormTemplate.SuccessMessage : "")</textarea>
-                        </div>
-                        
-                        <div class="mb-0">
-                            <label class="form-label small">Redirect URL (optional)</label>
-                            <input type="text" class="form-control form-control-sm" id="formRedirectUrl" 
-                                   placeholder="/success-page"
-                                   value="@(Model.IsEdit ? Model.FormTemplate.RedirectUrl : "")">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1214,9 +1158,6 @@
             const showInAppointmentFlow = document.getElementById('showInAppointmentFlow').checked;
             const minAge = document.getElementById('minAge').value;
             const maxAge = document.getElementById('maxAge').value;
-            const formIconClass = document.getElementById('formIconClass').value;
-            const formSuccessMessage = document.getElementById('formSuccessMessage').value;
-            const formRedirectUrl = document.getElementById('formRedirectUrl').value;
             
             const fields = [];
             const container = document.getElementById('questionsContainer');
@@ -1289,9 +1230,9 @@
                 showInAppointmentFlow: showInAppointmentFlow,
                 minAge: minAge ? parseInt(minAge) : null,
                 maxAge: maxAge ? parseInt(maxAge) : null,
-                iconClass: formIconClass,
-                successMessage: formSuccessMessage,
-                redirectUrl: formRedirectUrl,
+                iconClass: null,
+                successMessage: null,
+                redirectUrl: null,
                 fields: fields
             };
         }

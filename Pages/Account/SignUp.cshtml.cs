@@ -146,6 +146,8 @@ namespace Barangay.Pages.Account
         private readonly LocalOcrService _ocrService;
         private readonly IEmailService _emailService;
         private readonly AzureVisionOcrService _azureVisionOcrService;
+        private readonly AiVisionOcrService _aiVisionOcrService;
+        private readonly PhilippineIdParserService _idParser;
 
         public SignUpModel(
             UserManager<ApplicationUser> userManager,
@@ -159,7 +161,9 @@ namespace Barangay.Pages.Account
             IHttpClientFactory httpClientFactory,
             LocalOcrService ocrService,
             IEmailService emailService,
-            AzureVisionOcrService azureVisionOcrService)
+            AzureVisionOcrService azureVisionOcrService,
+            AiVisionOcrService aiVisionOcrService,
+            PhilippineIdParserService idParser)
         {
             _userManager = userManager;
             _logger = logger;
@@ -173,6 +177,8 @@ namespace Barangay.Pages.Account
             _ocrService = ocrService;
             _emailService = emailService;
             _azureVisionOcrService = azureVisionOcrService;
+            _aiVisionOcrService = aiVisionOcrService;
+            _idParser = idParser;
         }
 
         [BindProperty]
@@ -855,6 +861,12 @@ namespace Barangay.Pages.Account
                     }
                 }
                 
+                // PERFORMANCE FIX: Skip slow server-side email duplicate check
+                // Client-side already validates this via AJAX with 5-second timeout
+                // This check was decrypting 50+ user emails and causing 30+ second delays
+                _logger.LogInformation("Skipping server-side email duplicate check - already validated on client");
+                
+                /* COMMENTED OUT FOR PERFORMANCE - Client validates this
                 // Check if email already exists (need to check encrypted emails)
                 // Only select Email field to improve performance
                 var userEmails = await _userManager.Users
@@ -880,6 +892,7 @@ namespace Barangay.Pages.Account
                     ModelState.AddModelError(string.Empty, "An account with this email address already exists. Please use a different email or try logging in.");
                     return Page();
                 }
+                */
                 
                 var user = new ApplicationUser
                 {
@@ -1423,7 +1436,7 @@ namespace Barangay.Pages.Account
         /// Extracts: First Name, Middle Name, Last Name, Suffix, Contact Number, Address, Birth Date, Barangay
         /// </summary>
         [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> OnPostScanIdAsync(IFormFile idImage, bool usePreprocessing = true)
+        public async Task<IActionResult> OnPostScanIdAsync(IFormFile idImage, string idType = null, bool usePreprocessing = true)
         {
             try
             {
@@ -1449,10 +1462,47 @@ namespace Barangay.Pages.Account
 
                 _logger.LogInformation("Processing ID image: {FileName}, Size: {Size} bytes", idImage.FileName, idImage.Length);
 
-                // Try Local OCR first (Tesseract) as it often extracts more text including names
-                // Then try Azure Vision OCR and combine results
+                // Try AI Vision OCR first (Gemini) - most accurate for structured data
+                // Then fallback to Local OCR and Azure Vision OCR
+                IdExtractionResult aiOcrResult = null;
                 OcrResult localOcrResult = null;
                 IdExtractionResult azureOcrResult = null;
+                
+                // Try AI Vision OCR first (Gemini)
+                try
+                {
+                    using (var stream = idImage.OpenReadStream())
+                    {
+                        aiOcrResult = await _aiVisionOcrService.AnalyzeIdImageAsync(stream, idImage.FileName);
+                    }
+                    _logger.LogInformation("AI Vision OCR extracted text length: {Length}", aiOcrResult?.ExtractedText?.Length ?? 0);
+                    
+                    // If AI Vision succeeded and extracted good data, use it
+                    if (aiOcrResult?.Success == true && 
+                        !string.IsNullOrWhiteSpace(aiOcrResult.FirstName) && 
+                        !string.IsNullOrWhiteSpace(aiOcrResult.LastName))
+                    {
+                        _logger.LogInformation("✓ AI Vision OCR successfully extracted data - using AI result");
+                        return new JsonResult(new
+                        {
+                            success = true,
+                            message = "ID information extracted successfully using AI Vision",
+                            autoApproved = aiOcrResult.IsBarangayValid,
+                            firstName = aiOcrResult.FirstName ?? "",
+                            middleName = aiOcrResult.MiddleName ?? "",
+                            lastName = aiOcrResult.LastName ?? "",
+                            suffix = aiOcrResult.Suffix ?? "",
+                            contactNumber = aiOcrResult.ContactNumber ?? "",
+                            address = aiOcrResult.Address ?? "",
+                            birthDate = aiOcrResult.BirthDate ?? "",
+                            barangay = aiOcrResult.BarangayNumber ?? ""
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "AI Vision OCR failed or not configured, falling back to traditional OCR");
+                }
                 
                 // Try Local OCR first
                 try
@@ -1494,25 +1544,129 @@ namespace Barangay.Pages.Account
                     _logger.LogWarning(ex, "Azure Vision OCR failed");
                 }
                 
-                // Combine results - prefer Local OCR for name extraction (it extracts more text)
-                // Use Azure Vision for structured data if available
-                var combinedText = localOcrResult?.ExtractedText ?? azureOcrResult?.ExtractedText ?? "";
+                // Combine results - prefer AI Vision if available, then Local OCR for name extraction, then Azure Vision
+                // Use AI Vision if it has good data, otherwise combine traditional OCR results
+                var combinedText = aiOcrResult?.ExtractedText ?? localOcrResult?.ExtractedText ?? azureOcrResult?.ExtractedText ?? "";
                 
                 var combinedResult = new IdExtractionResult
                 {
-                    Success = (localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false),
-                    Message = azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document.",
+                    Success = (aiOcrResult?.Success ?? false) || (localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false),
+                    Message = aiOcrResult?.Message ?? azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document.",
                     ExtractedText = combinedText,
-                    BarangayNumber = azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "",
-                    IsBarangayValid = !string.IsNullOrEmpty(azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "") &&
-                                     new[] { "158", "159", "160", "161" }.Contains((azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "").Trim())
+                    BarangayNumber = aiOcrResult?.BarangayNumber ?? azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "",
+                    IsBarangayValid = !string.IsNullOrEmpty(aiOcrResult?.BarangayNumber ?? azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "") &&
+                                     new[] { "158", "159", "160", "161" }.Contains((aiOcrResult?.BarangayNumber ?? azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "").Trim())
                 };
+                
+                // If AI Vision extracted data, merge it into combined result
+                if (aiOcrResult != null && aiOcrResult.Success)
+                {
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.FirstName))
+                        combinedResult.FirstName = aiOcrResult.FirstName;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.LastName))
+                        combinedResult.LastName = aiOcrResult.LastName;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.MiddleName))
+                        combinedResult.MiddleName = aiOcrResult.MiddleName;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.Suffix))
+                        combinedResult.Suffix = aiOcrResult.Suffix;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.BirthDate))
+                        combinedResult.BirthDate = aiOcrResult.BirthDate;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.Address))
+                        combinedResult.Address = aiOcrResult.Address;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.Gender))
+                        combinedResult.Gender = aiOcrResult.Gender;
+                    if (!string.IsNullOrWhiteSpace(aiOcrResult.ContactNumber))
+                        combinedResult.ContactNumber = aiOcrResult.ContactNumber;
+                }
                 
                 // Parse the combined text for better name extraction (Local OCR often has more text)
                 if (!string.IsNullOrEmpty(combinedText))
                 {
                     _logger.LogInformation("Parsing combined text (length: {Length}) for name extraction", combinedText.Length);
-                    var parsedData = _azureVisionOcrService.ParseIdDataFromText(combinedText);
+                    
+                    // Use ID-specific parser if ID type is provided or detected
+                    ParsedIdData parsedData;
+                    
+                    // Try to detect ID type from Azure OCR result first (it's cleaner)
+                    var detectedIdType = !string.IsNullOrEmpty(idType) ? idType : 
+                        (!string.IsNullOrEmpty(azureOcrResult?.ExtractedText) ? _idParser.DetectIdType(azureOcrResult.ExtractedText) : null);
+                    
+                    // If not detected from Azure, try combined text
+                    if (string.IsNullOrEmpty(detectedIdType))
+                    {
+                        detectedIdType = _idParser.DetectIdType(combinedText);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(detectedIdType))
+                    {
+                        _logger.LogInformation("Using ID-specific parser for: {DetectedIdType}", detectedIdType);
+                        // Try parsing with Azure text first (cleaner), then fallback to combined
+                        if (!string.IsNullOrEmpty(azureOcrResult?.ExtractedText))
+                        {
+                            parsedData = _idParser.ParseIdByType(azureOcrResult.ExtractedText, detectedIdType);
+                            // Always also try combined text and merge results (combined text often has more data)
+                            _logger.LogInformation("Also parsing combined text for better name extraction");
+                            var combinedParsed = _idParser.ParseIdByType(combinedText, detectedIdType);
+                            
+                            // Merge results: prefer non-empty values, and prefer combined text for names if it found them
+                            if (!string.IsNullOrWhiteSpace(combinedParsed.FirstName) && !string.IsNullOrWhiteSpace(combinedParsed.LastName))
+                            {
+                                // Combined text found a complete name - use it
+                                parsedData.FirstName = combinedParsed.FirstName;
+                                parsedData.LastName = combinedParsed.LastName;
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.MiddleName))
+                                    parsedData.MiddleName = combinedParsed.MiddleName;
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.Suffix))
+                                    parsedData.Suffix = combinedParsed.Suffix;
+                                _logger.LogInformation("Using name from combined text: {FirstName} {MiddleName} {LastName} {Suffix}", 
+                                    parsedData.FirstName, parsedData.MiddleName, parsedData.LastName, parsedData.Suffix);
+                            }
+                            else if (string.IsNullOrWhiteSpace(parsedData.FirstName) || string.IsNullOrWhiteSpace(parsedData.LastName))
+                            {
+                                // Azure didn't find name, use whatever combined text found
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.FirstName))
+                                    parsedData.FirstName = combinedParsed.FirstName;
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.LastName))
+                                    parsedData.LastName = combinedParsed.LastName;
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.MiddleName))
+                                    parsedData.MiddleName = combinedParsed.MiddleName;
+                                if (!string.IsNullOrWhiteSpace(combinedParsed.Suffix))
+                                    parsedData.Suffix = combinedParsed.Suffix;
+                            }
+                            
+                            // Merge other fields - prefer combined text if it has the data
+                            if (string.IsNullOrWhiteSpace(parsedData.Address) && !string.IsNullOrWhiteSpace(combinedParsed.Address))
+                                parsedData.Address = combinedParsed.Address;
+                            if (string.IsNullOrWhiteSpace(parsedData.BirthDate) && !string.IsNullOrWhiteSpace(combinedParsed.BirthDate))
+                                parsedData.BirthDate = combinedParsed.BirthDate;
+                            if (string.IsNullOrWhiteSpace(parsedData.Gender) && !string.IsNullOrWhiteSpace(combinedParsed.Gender))
+                                parsedData.Gender = combinedParsed.Gender;
+                        }
+                        else
+                        {
+                            parsedData = _idParser.ParseIdByType(combinedText, detectedIdType);
+                        }
+                        
+                        // Fill in missing fields from generic parser if needed
+                        if (string.IsNullOrWhiteSpace(parsedData.ContactNumber))
+                            parsedData.ContactNumber = _idParser.ExtractContactNumber(combinedText);
+                        if (string.IsNullOrWhiteSpace(parsedData.Gender))
+                            parsedData.Gender = _idParser.ExtractGender(combinedText);
+                        // Try to extract birth date from combined text if not found
+                        if (string.IsNullOrWhiteSpace(parsedData.BirthDate))
+                        {
+                            // Re-parse with combined text to get birth date
+                            var combinedParsedForDate = _idParser.ParseIdByType(combinedText, detectedIdType);
+                            if (!string.IsNullOrWhiteSpace(combinedParsedForDate.BirthDate))
+                                parsedData.BirthDate = combinedParsedForDate.BirthDate;
+                        }
+                    }
+                    else
+                    {
+                        // Fallback to generic parsing
+                        _logger.LogInformation("ID type not detected, using generic parser");
+                        parsedData = _azureVisionOcrService.ParseIdDataFromText(combinedText);
+                    }
                     
                     // Use parsed data from combined text (Local OCR often extracts the name better)
                     combinedResult.FirstName = parsedData.FirstName;

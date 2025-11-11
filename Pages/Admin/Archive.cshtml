@@ -80,21 +80,6 @@
                                 <i class="fas fa-info-circle me-2 text-muted"></i>
                                 Click "Decrypt Records" to securely access Immunization, HEEADSSS, and NCD forms for this family
                             </div>
-                            
-                            <div class="record-types-preview">
-                                <span class="type-badge immunization">
-                                    <i class="fas fa-syringe me-1"></i>Immunization
-                                </span>
-                                <span class="type-badge heeadsss">
-                                    <i class="fas fa-user-md me-1"></i>HEEADSSS
-                                </span>
-                                <span class="type-badge ncd">
-                                    <i class="fas fa-heartbeat me-1"></i>NCD
-                                </span>
-                                <span class="type-badge vitals">
-                                    <i class="fas fa-stethoscope me-1"></i>Vitals
-                                </span>
-                            </div>
                         </div>
                         <div class="decrypted-content" id="decrypted-@familyId" style="display: none;">
                             <!-- Decrypted content will be loaded here -->
@@ -1018,6 +1003,14 @@
             if (isDecrypted && timerEl) {
                 this.updateFamilyTimer(familyId);
             }
+            
+            // If decrypted, try to update family number from cached data
+            if (isDecrypted) {
+                const cachedData = this.get(familyId);
+                if (cachedData && cachedData.decryptedData) {
+                    extractAndUpdateFamilyNumber(familyId, cachedData.decryptedData);
+                }
+            }
         }
 
         updateFamilyTimer(familyId) {
@@ -1114,6 +1107,41 @@
         if (familyTitle) {
             familyTitle.innerHTML = `<i class="fas fa-users me-2"></i>${realFamilyName}`;
         }
+    }
+
+    // Extract and update family number from decrypted data
+    function extractAndUpdateFamilyNumber(familyId, decryptedData) {
+        let familyNumber = null;
+        
+        // Try to find family number in decrypted data
+        for (const [recordType, records] of Object.entries(decryptedData)) {
+            if (Array.isArray(records) && records.length > 0) {
+                const firstRecord = records[0];
+                
+                // Try different possible family number fields
+                const numberFields = ['FamilyNumber', 'FamilyId', 'FamilyID', 'Family_Number', 'Family_ID'];
+                
+                for (const field of numberFields) {
+                    if (firstRecord[field] && typeof firstRecord[field] === 'string' && firstRecord[field].trim()) {
+                        familyNumber = firstRecord[field].trim();
+                        break;
+                    }
+                }
+                
+                if (familyNumber) break;
+            }
+        }
+        
+        // Update the family number display in the card
+        if (familyNumber) {
+            const familyNumberValue = document.querySelector(`[data-family-id="${familyId}"] .family-number .value`);
+            if (familyNumberValue) {
+                familyNumberValue.textContent = familyNumber;
+                familyNumberValue.title = familyNumber;
+            }
+        }
+        
+        return familyNumber;
     }
 
     // Display real decrypted content from backend
@@ -1247,6 +1275,9 @@
             
             // Store in cache
             decryptionCache.store(familyId, password, decryptResult.decryptedData);
+            
+            // Extract and update family number
+            extractAndUpdateFamilyNumber(familyId, decryptResult.decryptedData);
             
             // Update UI
             displayDecryptedData(familyId, decryptResult.decryptedData);
@@ -2093,6 +2124,23 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+        // Update family numbers for already decrypted families
+        // Check sessionStorage for cached decrypted data
+        try {
+            const cacheData = sessionStorage.getItem('bhcare_decryption_cache');
+            if (cacheData) {
+                const cache = JSON.parse(cacheData);
+                if (cache.families && Array.isArray(cache.families)) {
+                    cache.families.forEach(([familyId, entry]) => {
+                        if (entry && entry.decryptedData) {
+                            extractAndUpdateFamilyNumber(familyId, entry.decryptedData);
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load cached decrypted data:', e);
+        }
         // Set up search input listener
         const searchInput = document.getElementById('familySearchInput');
         if (searchInput) {

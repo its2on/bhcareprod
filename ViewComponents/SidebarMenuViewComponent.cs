@@ -157,13 +157,13 @@ namespace Barangay.ViewComponents
                         });
                     }
                     
-                    // Form Management - Nurses perform admin duties in health center
+                    // Control Panel - Nurses have their own control panel
                     navItems.Add(new SidebarMenuItem { 
-                        Text = "Form Management", 
-                        Icon = "file-lines", 
-                        Url = "/Admin/FormManagement", 
+                        Text = "Control Panel", 
+                        Icon = "sliders-h", 
+                        Url = "/Nurse/ControlPanel", 
                         RequiredPermissions = new List<string>(),
-                        IsActive = currentPath.Contains("/admin/formmanagement")
+                        IsActive = currentPath.Contains("/nurse/controlpanel")
                     });
                     
                     // Settings - Allow nurses to access their settings
@@ -204,7 +204,7 @@ namespace Barangay.ViewComponents
                     if (HasPermission("PatientList", "View Patient Details", "View Patients"))
                     {
                         navItems.Add(new SidebarMenuItem {
-                            Text = "Patient List",
+                            Text = "Patient Records",
                             Icon = "user-injured",
                             Url = "/Doctor/PatientList",
                             RequiredPermissions = new List<string> { "PatientList", "View Patient Details", "View Patients" },

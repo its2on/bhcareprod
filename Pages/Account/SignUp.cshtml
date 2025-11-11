@@ -26,7 +26,7 @@
 
             @if (TempData["ErrorMessage"] != null)
             {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert" id="serverValidationError">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     <strong>Validation Error!</strong>
                     <p class="mb-0">@TempData["ErrorMessage"]</p>
@@ -36,6 +36,27 @@
                     }
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
+                <script>
+                    // CRITICAL: Hide loading indicator if validation error exists
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const loadingIndicator = document.getElementById('loadingIndicator');
+                        const submitButton = document.getElementById('signupButton');
+                        if (loadingIndicator) {
+                            loadingIndicator.classList.add('d-none');
+                            console.log('❌ Validation error detected - hiding loading indicator');
+                        }
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                            console.log('❌ Re-enabling submit button after validation error');
+                        }
+                        // Scroll to error message
+                        const errorElement = document.getElementById('serverValidationError');
+                        if (errorElement) {
+                            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                </script>
             }
             
             <!-- Personal Information Section -->
@@ -48,15 +69,6 @@
                         <i class="fas fa-id-card me-2"></i> Quick Fill ID Scanner + Residency Verification
                     </div>
                     <div class="card-body">
-                        <div class="alert alert-info mb-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Upload your Philippine ID once to:</strong>
-                            <ul class="mb-0 mt-2">
-                                <li>✅ Auto-fill your personal information (Name, Address, Birth Date, etc.)</li>
-                                <li>✅ Verify your residency in Barangay 158, 159, 160, or 161</li>
-                                <li>✅ Enable instant account approval (if eligible)</li>
-                            </ul>
-                        </div>
                         
                         <p class="text-muted mb-2">
                             <strong>Accepted IDs:</strong> Driver's License, National ID (PhilSys), PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, Passport
@@ -101,11 +113,11 @@
                             </div>
                         </div>
                         
-                        <!-- Auto-Fill Result -->
-                        <div id="scannerResult" class="mt-3 d-none"></div>
+                        <!-- Auto-Fill Result - Hidden -->
+                        <div id="scannerResult" class="mt-3 d-none" style="display: none !important;"></div>
                         
-                        <!-- Residency Verification Result (NEW!) -->
-                        <div id="residencyVerificationResult" class="mt-3 d-none"></div>
+                        <!-- Residency Verification Result - Hidden -->
+                        <div id="residencyVerificationResult" class="mt-3 d-none" style="display: none !important;"></div>
                         
                         <!-- Image Preview -->
                         <div id="previewContainer" class="mt-3 text-center d-none">
@@ -132,6 +144,23 @@
                             </div>
                             <div class="invalid-feedback" id="emailError">Email address is required</div>
                         </div>
+                        <!-- OTP Delivery Method Choice -->
+                        <div id="otpMethodChoice" class="mt-3">
+                            <label class="form-label small">Choose verification method:</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="otpMethod" id="otpMethodEmail" value="Email" checked>
+                                <label class="btn btn-outline-primary" for="otpMethodEmail">
+                                    <i class="fas fa-envelope me-1"></i> Email
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="otpMethod" id="otpMethodSMS" value="SMS">
+                                <label class="btn btn-outline-primary" for="otpMethodSMS">
+                                    <i class="fas fa-sms me-1"></i> SMS
+                                </label>
+                            </div>
+                            <small class="form-text text-muted d-block mt-2">Select how you want to receive your verification code</small>
+                        </div>
+                        
                         <!-- Simplified Email Verification Status -->
                         <div id="emailVerificationStatus" class="mt-3 d-none">
                             <div class="d-flex align-items-center gap-2">
@@ -459,7 +488,29 @@
             <!-- STEP 3 DELETED - Residency Verification moved to Step 1, Checkboxes moved to Step 2 -->
             
             <script>
-                console.log('🔧 SIGNUP FIX LOADED - Version 2.0');
+                console.log('🔧 SIGNUP FIX LOADED - Version 3.0');
+                
+                // CRITICAL: Always hide loading indicator on page load/reload
+                // This handles cases where the page reloads due to server validation errors
+                window.addEventListener('DOMContentLoaded', function() {
+                    // Small delay to ensure DOM is ready
+                    setTimeout(function() {
+                        const loadingIndicator = document.getElementById('loadingIndicator');
+                        const submitButton = document.getElementById('signupButton');
+                        
+                        // If page was reloaded (not a fresh visit), hide loading
+                        if (performance.navigation.type === 1 || document.referrer.includes('SignUp')) {
+                            console.log('⚠️ Page reload detected - ensuring loading indicator is hidden');
+                            if (loadingIndicator && !loadingIndicator.classList.contains('d-none')) {
+                                loadingIndicator.classList.add('d-none');
+                            }
+                            if (submitButton && submitButton.disabled) {
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                            }
+                        }
+                    }, 100);
+                });
                 
                 // CRITICAL FIX: Make all sections visible before form submission
                 // Hidden sections (d-none) don't submit their field values!
@@ -467,6 +518,14 @@
                     console.log('=== PREPARING SIGNUP FORM FOR SUBMISSION ===');
                     const allSections = document.querySelectorAll('.section');
                     console.log(`Found ${allSections.length} sections`);
+                    
+                    // CRITICAL: Save checkbox states BEFORE DOM manipulation
+                    const checkboxStates = {};
+                    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                    checkboxes.forEach(cb => {
+                        if (cb.id) checkboxStates[cb.id] = cb.checked;
+                    });
+                    console.log('Saved checkbox states:', checkboxStates);
                     
                     allSections.forEach((section, index) => {
                         const sectionId = section.id;
@@ -486,18 +545,49 @@
                         }
                     });
                     
+                    // CRITICAL: Restore checkbox states AFTER DOM manipulation
+                    checkboxes.forEach(cb => {
+                        if (cb.id && checkboxStates.hasOwnProperty(cb.id)) {
+                            cb.checked = checkboxStates[cb.id];
+                            console.log(`Restored ${cb.id} to ${cb.checked}`);
+                        }
+                    });
+                    
                     console.log('All sections prepared for submission');
                     
-                    // Log all form fields being submitted
+                    // Verify checkbox states one more time
+                    console.log('Final checkbox verification:');
+                    const termsCheckbox = document.getElementById('privacyTerms');
+                    const residencyCheckbox = document.getElementById('residencyConfirm');
+                    console.log(`  privacyTerms.checked = ${termsCheckbox?.checked}`);
+                    console.log(`  residencyConfirm.checked = ${residencyCheckbox?.checked}`);
+                    
+                    // Log all form fields being submitted with detailed validation info
                     const formData = new FormData(document.getElementById('signupForm'));
-                    console.log('Form data entries:');
+                    console.log('=== FORM DATA BEING SUBMITTED ===');
+                    console.log('Total entries:', Array.from(formData.entries()).length);
+                    
+                    // Group by field type for better debugging
+                    const fieldData = {};
                     for (let [key, value] of formData.entries()) {
                         if (typeof value === 'string') {
-                            console.log(`  ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+                            fieldData[key] = value;
+                            console.log(`  ${key}: "${value.substring(0, 100)}${value.length > 100 ? '...' : ''}"`);
                         } else {
-                            console.log(`  ${key}: [File: ${value.name}]`);
+                            fieldData[key] = `[File: ${value.name}, Size: ${value.size} bytes]`;
+                            console.log(`  ${key}: [File: ${value.name}, Size: ${value.size} bytes]`);
                         }
                     }
+                    
+                    // Log critical validation-sensitive fields
+                    console.log('=== CRITICAL FIELDS VALIDATION CHECK ===');
+                    console.log('ContactNumber format:', fieldData['Input.ContactNumber']);
+                    console.log('BirthDate format:', fieldData['Input.BirthDate']);
+                    console.log('Gender value:', fieldData['Input.Gender']);
+                    console.log('Barangay value:', fieldData['Input.Barangay']);
+                    console.log('AgreeToTerms:', fieldData['Input.AgreeToTerms']);
+                    console.log('ConfirmResidency:', fieldData['Input.ConfirmResidency']);
+                    console.log('ResidencyProof file:', fieldData['Input.ResidencyProof']);
                 }
                 
                 // Show loading indicator on form submit
@@ -507,9 +597,19 @@
                     const submitButton = document.getElementById('signupButton');
                     
                     if (form && loadingIndicator && submitButton) {
+                        // Set a flag to track if we're submitting
+                        let isSubmitting = false;
+                        
                         // Intercept form submission
                         form.addEventListener('submit', function(e) {
                             console.log('🚀 Form submit event triggered');
+                            
+                            // Prevent double submission
+                            if (isSubmitting) {
+                                console.log('⚠️ Already submitting, preventing double submit');
+                                e.preventDefault();
+                                return false;
+                            }
                             
                             // Check if a non-eligible barangay was detected from ID
                             const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
@@ -535,11 +635,25 @@
                                 return;
                             }
                             
+                            console.log('=== CLIENT VALIDATION PASSED ===');
                             console.log('✅ All validations passed, submitting form...');
                             console.log('Showing loading indicator');
+                            isSubmitting = true;
                             loadingIndicator.classList.remove('d-none');
                             submitButton.disabled = true;
                             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+                            
+                            // Set a timeout to reset if submission fails (fallback safety)
+                            setTimeout(function() {
+                                if (isSubmitting) {
+                                    console.warn('⚠️ Submission timeout (60s) - resetting form state');
+                                    console.warn('⚠️ Server may still be processing. Check if registration succeeded before retrying.');
+                                    isSubmitting = false;
+                                    loadingIndicator.classList.add('d-none');
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                                }
+                            }, 60000); // 60 second timeout (increased from 30s)
                         });
                     }
                 });
@@ -792,9 +906,12 @@
                         const genderSelected = document.querySelector('input[name="Input.Gender"]:checked');
                         const barangay = document.getElementById('Input_Barangay')?.value;
                         
+                        // CRITICAL: Check if email is verified
+                        const isEmailVerified = window.emailVerificationState?.isVerified || false;
+                        
                         const allFieldsFilled = email && firstName && lastName && 
                                                contactNumber && address && birthDate && 
-                                               genderSelected && barangay;
+                                               genderSelected && barangay && isEmailVerified;
                         
                         // Check if any VISIBLE field has is-invalid class (exclude hidden guardian section)
                         const invalidFieldsList = document.querySelectorAll('#section1 .form-control.is-invalid, #section1 .form-select.is-invalid');
@@ -825,6 +942,7 @@
                             hasInvalidFields,
                             hasVisibleErrors,
                             email: !!email,
+                            emailVerified: isEmailVerified,
                             firstName: !!firstName,
                             lastName: !!lastName,
                             contactNumber: !!contactNumber,
@@ -842,7 +960,12 @@
                             nextButton.classList.remove('btn-secondary');
                             nextButton.classList.add('btn-primary');
                         } else {
-                            console.log('DEBUG: Disabling Next button');
+                            console.log('DEBUG: Disabling Next button', {
+                                reason: !isEmailVerified ? 'Email not verified' : 
+                                        hasInvalidFields ? 'Has invalid fields' : 
+                                        hasVisibleErrors ? 'Has visible errors' : 
+                                        'Fields not filled'
+                            });
                             nextButton.disabled = true;
                             nextButton.classList.remove('btn-primary');
                             nextButton.classList.add('btn-secondary');
@@ -880,9 +1003,15 @@
                             return false;
                         }
                         
-                        // Check if email already exists via AJAX
+                        // Check if email already exists via AJAX with timeout
                         try {
-                            const response = await fetch(`/Account/SignUp?handler=CheckEmail&email=${encodeURIComponent(value)}`);
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                            
+                            const response = await fetch(`/Account/SignUp?handler=CheckEmail&email=${encodeURIComponent(value)}`, {
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
                             const data = await response.json();
                             
                             if (data.exists) {
@@ -890,7 +1019,12 @@
                                 return false;
                             }
                         } catch (error) {
-                            console.error('Error checking email:', error);
+                            if (error.name === 'AbortError') {
+                                console.warn('Email check timed out, allowing to proceed');
+                            } else {
+                                console.error('Error checking email:', error);
+                            }
+                            // Allow to proceed on error - server will validate
                         }
                         
                         this.clearError('email');
@@ -964,9 +1098,15 @@
                             return false;
                         }
                         
-                        // Check if contact number already exists via AJAX
+                        // Check if contact number already exists via AJAX with timeout
                         try {
-                            const response = await fetch(`/Account/SignUp?handler=CheckContactNumber&contactNumber=${encodeURIComponent(value)}`);
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                            
+                            const response = await fetch(`/Account/SignUp?handler=CheckContactNumber&contactNumber=${encodeURIComponent(value)}`, {
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
                             const data = await response.json();
                             
                             if (data.exists) {
@@ -974,7 +1114,12 @@
                                 return false;
                             }
                         } catch (error) {
-                            console.error('Error checking contact number:', error);
+                            if (error.name === 'AbortError') {
+                                console.warn('Contact number check timed out, allowing to proceed');
+                            } else {
+                                console.error('Error checking contact number:', error);
+                            }
+                            // Allow to proceed on error - server will validate
                         }
                         
                         this.clearError('contactNumber');
@@ -1427,10 +1572,23 @@
 
                     // Step Validation Methods
                     async validateStep1() {
+                        // Check if email is verified FIRST
+                        const emailInput = document.getElementById('Input_Email');
+                        const emailValue = emailInput?.value;
+                        
+                        // Access the isVerified variable from the email verification script
+                        const isEmailVerified = window.emailVerificationState?.isVerified || false;
+                        
+                        if (!isEmailVerified && emailValue) {
+                            this.showError('email', 'Please verify your email address before proceeding');
+                            return false;
+                        }
+                        
                         const emailValid = await this.validateEmail();
                         const contactNumberValid = await this.validateContactNumber();
                         const isValid = 
                             emailValid &&
+                            isEmailVerified &&
                             this.validateName('FirstName') &&
                             this.validateName('LastName') &&
                             contactNumberValid &&
@@ -1636,7 +1794,7 @@
                 // Initialize validator when DOM is loaded
                 document.addEventListener('DOMContentLoaded', function() {
                     console.log('DOM Content Loaded - initializing SignUp page');
-                    new SignUpValidator();
+                    window.signupValidator = new SignUpValidator();
                 });
                 
                 // Password toggle functionality
@@ -1854,6 +2012,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="otpModalLabel">Verify Email</h5>
+                <button type="button" class="btn-close" id="otpModalCloseBtn" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-2">We sent a 6-digit code to <strong id="otpEmailDisplay"></strong>.</p>
@@ -1863,6 +2022,9 @@
                     <button type="button" class="btn btn-link p-0" id="resendEmailBtn">Resend</button>
                     <small id="resendCountdown" class="text-muted" aria-live="polite"></small>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted">Wrong email? Close this to change it.</small>
             </div>
         </div>
     </div>
@@ -2198,6 +2360,9 @@
 
                     let countdownTimer = null;
                     let isVerified = false;
+                    
+                    // Expose isVerified to window so validateStep1 can access it
+                    window.emailVerificationState = { isVerified: false };
 
                     // 30s resend countdown
                     function startResendCountdown(seconds = 30) {
@@ -2247,12 +2412,33 @@
                             // Continue with sending OTP if check fails
                         }
                         
+                        // Get selected OTP method and phone number
+                        const otpMethod = document.querySelector('input[name="otpMethod"]:checked')?.value || 'Email';
+                        const contactNumberInput = document.querySelector('input[name="Input.ContactNumber"]') || document.getElementById('Input_ContactNumber');
+                        const phoneNumber = contactNumberInput?.value || '';
+                        
+                        // Prepare request body
+                        const requestBody = {
+                            email: emailInput.value,
+                            sendVia: otpMethod
+                        };
+                        
+                        // Add phone number if SMS is selected
+                        if (otpMethod === 'SMS') {
+                            if (!phoneNumber || phoneNumber.trim() === '') {
+                                showEmailError('Please enter your contact number to receive OTP via SMS');
+                                if (contactNumberInput) contactNumberInput.focus();
+                                return;
+                            }
+                            requestBody.phoneNumber = phoneNumber.trim();
+                        }
+                        
                         fetch('/api/OTP/send', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({ email: emailInput.value })
+                            body: JSON.stringify(requestBody)
                         })
                         .then(response => response.json())
                         .then(data => {
@@ -2317,6 +2503,7 @@
                         .then(data => {
                             if (data.success) {
                                 isVerified = true;
+                                window.emailVerificationState.isVerified = true;
                                 
                                 // Show verification status
                                 verificationStatus.classList.remove('d-none');
@@ -2327,6 +2514,11 @@
                                 emailInput.classList.remove('is-invalid');
                                 emailInput.classList.add('is-valid');
                                 emailInput.readOnly = true;
+                                
+                                // CRITICAL: Update button state to enable Next button
+                                if (window.signupValidator) {
+                                    window.signupValidator.updateStep1NextButtonState();
+                                }
                                 
                                 // Hide any error messages
                                 const emailError = document.getElementById('emailError');
@@ -2444,6 +2636,29 @@
                         });
                     }
 
+                    // Handle OTP modal close button
+                    const otpModalCloseBtn = document.getElementById('otpModalCloseBtn');
+                    if (otpModalCloseBtn) {
+                        otpModalCloseBtn.addEventListener('click', () => {
+                            const modalEl = document.getElementById('otpModal');
+                            if (modalEl && typeof bootstrap !== 'undefined') {
+                                const modal = bootstrap.Modal.getInstance(modalEl);
+                                if (modal) modal.hide();
+                            }
+                            
+                            // Reset email input if not verified (allow user to change email)
+                            if (!isVerified && emailInput) {
+                                emailInput.readOnly = false;
+                                emailInput.classList.remove('is-valid', 'is-invalid');
+                                emailInput.focus();
+                                
+                                // Clear the OTP input
+                                const otpModalInput = document.getElementById('otpModalInput');
+                                if (otpModalInput) otpModalInput.value = '';
+                            }
+                        });
+                    }
+                    
                     // Send verification email when page loads if email is already filled
                     if (emailInput && emailInput.value && !isVerified) {
                         sendVerificationEmail();
@@ -3365,10 +3580,15 @@
                         const errorMsg = result.message || result.errorDetails || 'OCR processing failed';
                         const isInvalidDocument = errorMsg.includes('Invalid document') || 
                                                   errorMsg.includes('not a valid Philippine ID') ||
+                                                  errorMsg.includes('not a recognized Philippine ID') ||
                                                   errorMsg.includes('screenshot') ||
+                                                  errorMsg.includes('illustration') ||
+                                                  errorMsg.includes('non-ID document') ||
                                                   errorMsg.includes('actual Philippine ID');
                         
                         if (isInvalidDocument) {
+                            // Show prominent alert dialog
+                            alert('⚠️ Invalid Document\n\n' + errorMsg + '\n\nPlease upload an actual Philippine ID document such as:\n• Driver\'s License\n• National ID (PhilSys)\n• PhilHealth ID\n• Postal ID\n• UMID\n• TIN ID\n• SSS ID\n• Passport');
                             throw new Error(`PHILIPPINE_ID_REQUIRED: ${errorMsg}`);
                         } else {
                             throw new Error(errorMsg);

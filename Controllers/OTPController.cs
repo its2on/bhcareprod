@@ -17,17 +17,23 @@ namespace Barangay.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly ISmsService _smsService;
+        private readonly IEncryptionService _encryptionService;
         private readonly ILogger<OTPController> _logger;
 
         public OTPController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             IEmailSender emailSender,
+            ISmsService smsService,
+            IEncryptionService encryptionService,
             ILogger<OTPController> logger)
         {
             _context = context;
             _userManager = userManager;
             _emailSender = emailSender;
+            _smsService = smsService;
+            _encryptionService = encryptionService;
             _logger = logger;
         }
 
@@ -37,9 +43,27 @@ namespace Barangay.Controllers
         {
             try
             {
+                // Validate request
+                if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
+                {
+                    return BadRequest(new { success = false, message = "Email or Phone Number is required" });
+                }
+
+                if (request.SendVia == "SMS" && string.IsNullOrWhiteSpace(request.PhoneNumber))
+                {
+                    return BadRequest(new { success = false, message = "Phone Number is required for SMS" });
+                }
+
+                if (request.SendVia == "Email" && string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new { success = false, message = "Email is required for Email verification" });
+                }
+
+                // For storage, always use email (EmailVerifications table uses email as key)
+                // Even if sending via SMS, we need email for storage and lookup
                 if (string.IsNullOrWhiteSpace(request.Email))
                 {
-                    return BadRequest(new { success = false, message = "Email is required" });
+                    return BadRequest(new { success = false, message = "Email is required for OTP storage and verification" });
                 }
 
                 // Check if email is suspended (with fallback if table doesn't exist)
@@ -79,6 +103,7 @@ namespace Barangay.Controllers
                 try
                 {
                     // Store the OTP with the email and expiry time (10 minutes)
+                    // Always use email for storage (EmailVerifications table uses email as key)
                     var otpEntry = await _context.EmailVerifications
                         .FirstOrDefaultAsync(e => e.Email == request.Email);
 
@@ -131,23 +156,56 @@ namespace Barangay.Controllers
                     _logger.LogError(dbEx, "Database error when storing OTP. Continuing with email send.");
                 }
 
-                // Send OTP to email
-                string message = $@"
-                    <h3>Your Email Verification Code</h3>
-                    <p>Please use the following code to verify your email address:</p>
-                    <h2 style='background-color: #f5f5f5; padding: 10px; font-family: monospace; letter-spacing: 5px;'>{otp}</h2>
-                    <p>This code will expire in 10 minutes.</p>
-                    <p>If you did not request this code, please ignore this email.</p>";
+                // Send OTP via selected method
+                bool sent = false;
+                string sendMethod = request.SendVia ?? "Email"; // Default to Email if not specified
 
-                try
+                if (sendMethod == "SMS" && !string.IsNullOrWhiteSpace(request.PhoneNumber))
                 {
-                    await _emailSender.SendEmailAsync(request.Email, "Email Verification Code", message);
-                    return Ok(new { success = true, message = "Verification code sent successfully" });
+                    // Send OTP via SMS
+                    string smsMessage = $"Your verification code is: {otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+                    
+                    try
+                    {
+                        sent = await _smsService.SendSmsAsync(request.PhoneNumber, smsMessage);
+                        if (sent)
+                        {
+                            _logger.LogInformation("OTP sent via SMS to {PhoneNumber}", request.PhoneNumber);
+                            return Ok(new { success = true, message = "Verification code sent successfully via SMS" });
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to send OTP via SMS to {PhoneNumber}", request.PhoneNumber);
+                            return StatusCode(500, new { success = false, message = "Failed to send verification code via SMS. Please try again or use Email option." });
+                        }
+                    }
+                    catch (Exception smsEx)
+                    {
+                        _logger.LogError(smsEx, "Error sending SMS to {PhoneNumber}", request.PhoneNumber);
+                        return StatusCode(500, new { success = false, message = "Failed to send verification code via SMS. Please try again or use Email option." });
+                    }
                 }
-                catch (Exception emailEx)
+                else
                 {
-                    _logger.LogError(emailEx, "Error sending email to {Email}", request.Email);
-                    return StatusCode(500, new { success = false, message = "Failed to send verification code. Please check your email settings." });
+                    // Send OTP via Email (default)
+                    string emailMessage = $@"
+                        <h3>Your Email Verification Code</h3>
+                        <p>Please use the following code to verify your email address:</p>
+                        <h2 style='background-color: #f5f5f5; padding: 10px; font-family: monospace; letter-spacing: 5px;'>{otp}</h2>
+                        <p>This code will expire in 10 minutes.</p>
+                        <p>If you did not request this code, please ignore this email.</p>";
+
+                    try
+                    {
+                        await _emailSender.SendEmailAsync(request.Email, "Email Verification Code", emailMessage);
+                        _logger.LogInformation("OTP sent via Email to {Email}", request.Email);
+                        return Ok(new { success = true, message = "Verification code sent successfully via Email" });
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "Error sending email to {Email}", request.Email);
+                        return StatusCode(500, new { success = false, message = "Failed to send verification code. Please check your email settings." });
+                    }
                 }
             }
             catch (Exception ex)
@@ -187,11 +245,19 @@ namespace Barangay.Controllers
                         return BadRequest(new { success = false, message = "Verification code has expired" });
                     }
 
-                    // Verify OTP
-                    if (otpEntry.VerificationCode != request.Otp)
+                    // Verify OTP (trim both values and compare)
+                    var storedOtp = otpEntry.VerificationCode?.Trim() ?? "";
+                    var providedOtp = request.Otp?.Trim() ?? "";
+                    
+                    _logger.LogInformation("OTP Comparison for {Email}: Stored='{StoredOtp}', Provided='{ProvidedOtp}'", 
+                        request.Email, storedOtp, providedOtp);
+                    
+                    if (storedOtp != providedOtp)
                     {
                         // Track verification failure
                         await HandleVerificationFailure(request.Email);
+                        _logger.LogWarning("OTP verification failed for {Email}. Expected '{Expected}', got '{Actual}'", 
+                            request.Email, storedOtp, providedOtp);
                         return BadRequest(new { success = false, message = "Invalid verification code" });
                     }
 
@@ -325,6 +391,8 @@ namespace Barangay.Controllers
     public class SendOtpRequest
     {
         public string Email { get; set; }
+        public string PhoneNumber { get; set; }
+        public string SendVia { get; set; } = "Email"; // "Email" or "SMS"
     }
 
     public class VerifyOtpRequest

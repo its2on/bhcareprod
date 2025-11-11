@@ -197,6 +197,27 @@
             opacity: 0.5;
         }
     }
+    
+    /* Disabled Radio Buttons and Checkboxes (Auto-calculated) */
+    input[type="radio"][disabled],
+    input[type="checkbox"][disabled] {
+        cursor: not-allowed !important;
+        opacity: 0.6;
+    }
+    
+    input[type="radio"][disabled] + label,
+    input[type="checkbox"][disabled] + label {
+        cursor: not-allowed !important;
+        opacity: 0.6;
+        color: #6c757d;
+    }
+    
+    /* Prevent pointer events on disabled radio/checkbox labels */
+    label:has(input[type="radio"][disabled]),
+    label:has(input[type="checkbox"][disabled]) {
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
 </style>
 
 <div class="form-container">
@@ -610,6 +631,8 @@
 </div>
 
 @section Scripts {
+    <!-- SweetAlert2 for form submission confirmation -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         console.log('=== FORM PAGE LOADED ===');
         console.log('JavaScript file loaded successfully!');
@@ -1134,12 +1157,81 @@
             initializeCholesterolStatus();
             initializeUrineTestResults();
             
+            // Prevent clicks on labels of disabled radio buttons and checkboxes
+            function preventDisabledInputClicks() {
+                const form = document.getElementById('dynamicForm');
+                if (!form) return;
+                
+                // Add click prevention for disabled radio/checkbox labels
+                form.addEventListener('click', function(e) {
+                    const target = e.target;
+                    // If clicking on a label
+                    if (target.tagName === 'LABEL') {
+                        const input = target.querySelector('input[type="radio"], input[type="checkbox"]');
+                        if (input && input.disabled) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return false;
+                        }
+                    }
+                    // If clicking on a disabled input itself
+                    if ((target.type === 'radio' || target.type === 'checkbox') && target.disabled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }, true); // Use capture phase to catch early
+            }
+            
+            preventDisabledInputClicks();
+            
             // ===== FORM SUBMISSION HANDLER =====
             form.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                
                 console.log('=== FORM SUBMIT EVENT FIRED ===');
                 console.log('Form action:', form.action);
                 console.log('Form method:', form.method);
                 console.log('Form ID:', form.id);
+                
+                // Show SweetAlert confirmation dialog
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Submit Form?',
+                        text: 'Are you sure you want to submit this form? Once submitted, you will not be able to edit it without assistance.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '<i class="fa-solid fa-check me-2"></i>Yes, Submit',
+                        cancelButtonText: '<i class="fa-solid fa-times me-2"></i>Cancel',
+                        reverseButtons: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // User confirmed, proceed with submission
+                            submitForm();
+                        } else {
+                            // User cancelled, do nothing
+                            console.log('Form submission cancelled by user');
+                        }
+                    });
+                } else {
+                    // Fallback to native confirm if SweetAlert2 is not loaded
+                    if (confirm('Are you sure you want to submit this form? Once submitted, you will not be able to edit it without assistance.')) {
+                        submitForm();
+                    }
+                }
+            });
+            
+            // Function to actually submit the form
+            function submitForm() {
+                const form = document.getElementById('dynamicForm');
+                if (!form) return;
+                
+                // Call prepareFormForSubmission to ensure all fields are included
+                prepareFormForSubmission();
                 
                 // CRITICAL FIX: Show all pages temporarily so all fields are included in submission
                 // Hidden pages (display:none) don't submit their fields!
@@ -1149,6 +1241,31 @@
                     page.style.display = 'block';
                     page.style.position = 'absolute';
                     page.style.left = '-9999px'; // Hide visually but keep in DOM
+                });
+                
+                // CRITICAL FIX: Temporarily enable disabled radio buttons and checkboxes
+                // Disabled form elements are NOT included in form submissions!
+                const disabledRadios = form.querySelectorAll('input[type="radio"][disabled]');
+                const disabledCheckboxes = form.querySelectorAll('input[type="checkbox"][disabled]');
+                
+                console.log(`Found ${disabledRadios.length} disabled radio buttons and ${disabledCheckboxes.length} disabled checkboxes`);
+                
+                // Store which ones were disabled and temporarily enable them
+                const disabledInputs = [];
+                disabledRadios.forEach(radio => {
+                    if (radio.checked) { // Only enable checked disabled radios
+                        disabledInputs.push(radio);
+                        radio.disabled = false;
+                        console.log(`Temporarily enabled disabled radio: ${radio.name} = ${radio.value}`);
+                    }
+                });
+                
+                disabledCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) { // Only enable checked disabled checkboxes
+                        disabledInputs.push(checkbox);
+                        checkbox.disabled = false;
+                        console.log(`Temporarily enabled disabled checkbox: ${checkbox.name} = ${checkbox.value}`);
+                    }
                 });
                 
                 // ===== DEBUG ALL FIELDS BEFORE SUBMISSION =====
@@ -1303,8 +1420,14 @@
                 console.log('AppointmentId value:', appointmentIdInput?.value);
                 
                 console.log('Submitting form naturally with ALL fields included...');
-                // Let the form submit naturally, backend will handle it
-            });
+                
+                // Submit the form
+                form.submit();
+                
+                // Note: After form.submit(), the page will navigate away, so we don't need to
+                // re-disable the inputs. But if submission fails, we could restore them here.
+                // For now, the form submission will proceed with all fields enabled.
+            }
         });
         
         // ===== BMI CALCULATOR FUNCTION =====
@@ -1407,6 +1530,13 @@
                                 console.log(`BMI Status selected: ${radio.value} (${radioLabel})`);
                             }
                         });
+                        // Disable all BMI Status radio buttons after auto-selection
+                        if (found) {
+                            bmiStatusRadios.forEach(radio => {
+                                radio.disabled = true;
+                            });
+                            console.log('BMI Status radio buttons disabled (auto-calculated)');
+                        }
                         if (!found) {
                             console.warn(`Could not find matching BMI Status radio for: ${status}`);
                         }
@@ -1581,6 +1711,13 @@
                                 console.log(`WH Status selected: ${radio.value} (${radioLabel})`);
                             }
                         });
+                        // Disable all WH Status radio buttons after auto-selection
+                        if (found) {
+                            whStatusRadios.forEach(radio => {
+                                radio.disabled = true;
+                            });
+                            console.log('WH Status radio buttons disabled (auto-calculated)');
+                        }
                         if (!found) {
                             console.warn(`Could not find matching WH Status radio for: ${statusValue}`);
                             console.log('Available options:', whStatusRadios.map(r => ({ value: r.value, label: r.nextElementSibling?.textContent })));
@@ -1642,7 +1779,12 @@
                             found = true;
                         }
                     });
+                    // Disable all WH Status radio buttons after auto-selection
                     if (found) {
+                        whStatusRadios.forEach(radio => {
+                            radio.disabled = true;
+                        });
+                        console.log('WH Status radio buttons disabled (auto-calculated)');
                         console.log(`WH Status auto-selected from WH Ratio: ${statusValue}`);
                     }
                 }
@@ -1673,6 +1815,7 @@
                         statusValue = 'At risk';
                     }
                     
+                    let found = false;
                     whStatusRadios.forEach(radio => {
                         const radioValue = radio.value.toLowerCase();
                         const radioLabel = radio.nextElementSibling?.textContent?.toLowerCase() || '';
@@ -1681,8 +1824,16 @@
                             (statusValue === 'No risk' && (radioValue.includes('no risk') || radioLabel.includes('no risk'))) ||
                             (statusValue === 'At risk' && (radioValue.includes('at risk') || radioLabel.includes('at risk')))) {
                             radio.checked = true;
+                            found = true;
                         }
                     });
+                    // Disable all WH Status radio buttons after auto-selection
+                    if (found) {
+                        whStatusRadios.forEach(radio => {
+                            radio.disabled = true;
+                        });
+                        console.log('WH Status radio buttons disabled (auto-calculated)');
+                    }
                 }
             }
         }
@@ -1746,6 +1897,13 @@
                             console.log(`Blood Sugar Status selected: ${radio.value} (${radioLabel})`);
                         }
                     });
+                    // Disable all Blood Sugar Status radio buttons after auto-selection
+                    if (found) {
+                        bloodSugarStatusRadios.forEach(radio => {
+                            radio.disabled = true;
+                        });
+                        console.log('Blood Sugar Status radio buttons disabled (auto-calculated)');
+                    }
                     if (!found) {
                         console.warn(`Could not find matching Blood Sugar Status radio for: ${statusValue}`);
                     } else {
@@ -1836,6 +1994,13 @@
                                 console.log(`BP Status selected: ${radio.value} (${radioLabel})`);
                             }
                         });
+                        // Disable all BP Status radio buttons after auto-selection
+                        if (found) {
+                            bpStatusRadios.forEach(radio => {
+                                radio.disabled = true;
+                            });
+                            console.log('BP Status radio buttons disabled (auto-calculated)');
+                        }
                         if (!found) {
                             console.warn(`Could not find matching BP Status radio for: ${statusValue}`);
                         } else {
@@ -1908,6 +2073,13 @@
                             console.log(`Cholesterol Status selected: ${radio.value} (${radioLabel})`);
                         }
                     });
+                    // Disable all Cholesterol Status radio buttons after auto-selection
+                    if (found) {
+                        cholesterolStatusRadios.forEach(radio => {
+                            radio.disabled = true;
+                        });
+                        console.log('Cholesterol Status radio buttons disabled (auto-calculated)');
+                    }
                     if (!found) {
                         console.warn(`Could not find matching Cholesterol Status radio for: ${statusValue}`);
                     } else {
@@ -1984,6 +2156,7 @@
                 const hasKetones = ketonesValue !== '' && ketonesValue !== '0' && !ketonesValue.includes('neg') && !ketonesValue.includes('-');
                 
                 // Find and check/uncheck checkboxes
+                let anyUpdated = false;
                 urineTestCheckboxes.forEach(checkbox => {
                     const checkboxLabel = checkbox.nextElementSibling?.textContent?.toLowerCase() || '';
                     const checkboxValue = checkbox.value?.toLowerCase() || '';
@@ -1991,22 +2164,34 @@
                     // Check for (+) urine protein
                     if ((checkboxLabel.includes('(+) urine protein') || checkboxValue.includes('+') && checkboxLabel.includes('protein'))) {
                         checkbox.checked = hasProtein;
+                        anyUpdated = true;
                     }
                     // Check for (-) urine protein
                     else if ((checkboxLabel.includes('(-) urine protein') || checkboxLabel.includes('(–) urine protein') || 
                              (checkboxValue.includes('-') && checkboxLabel.includes('protein')))) {
                         checkbox.checked = !hasProtein && proteinValue !== '';
+                        anyUpdated = true;
                     }
                     // Check for (+) urine ketones
                     else if ((checkboxLabel.includes('(+) urine ketones') || checkboxValue.includes('+') && checkboxLabel.includes('ketones'))) {
                         checkbox.checked = hasKetones;
+                        anyUpdated = true;
                     }
                     // Check for (-) urine ketones
                     else if ((checkboxLabel.includes('(-) urine ketones') || checkboxLabel.includes('(–) urine ketones') || 
                              (checkboxValue.includes('-') && checkboxLabel.includes('ketones')))) {
                         checkbox.checked = !hasKetones && ketonesValue !== '';
+                        anyUpdated = true;
                     }
                 });
+                
+                // Disable all Urine Test Results checkboxes after auto-selection
+                if (anyUpdated && (proteinValue !== '' || ketonesValue !== '')) {
+                    urineTestCheckboxes.forEach(checkbox => {
+                        checkbox.disabled = true;
+                    });
+                    console.log('Urine Test Results checkboxes disabled (auto-calculated)');
+                }
                 
                 console.log(`Urine Test Results updated: Protein=${hasProtein ? 'Positive' : 'Negative'}, Ketones=${hasKetones ? 'Positive' : 'Negative'}`);
             }

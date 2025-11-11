@@ -472,6 +472,8 @@ builder.Services.AddHostedService<TokenCleanupService>();
 // Register Notification Service
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationEmailService, NotificationEmailService>();
+builder.Services.AddHttpClient<ISmsService, SmsService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
 
 // Add notification background service
 builder.Services.AddHostedService<NotificationBackgroundService>();
@@ -497,9 +499,25 @@ builder.Services.AddHttpClient("GoogleVision", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Register HTTP client for Gemini AI Vision
+builder.Services.AddHttpClient("GeminiVision", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+});
+
+// Register Philippine ID Parser Service
+builder.Services.AddScoped<PhilippineIdParserService>();
+
 // Register Local OCR Service for automatic residency verification (using Tesseract)
 // Register Azure Vision OCR Service
 builder.Services.AddScoped<AzureVisionOcrService>();
+
+// Register AI Vision OCR Service (Gemini)
+builder.Services.AddScoped<AiVisionOcrService>();
+
+// Register Azure OCR Service (legacy service still used by some pages)
+builder.Services.AddHttpClient<AzureOcrService>();
 
 builder.Services.AddScoped<LocalOcrService>(sp =>
 {

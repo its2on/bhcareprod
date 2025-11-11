@@ -1061,6 +1061,35 @@ namespace Barangay.Pages.Doctor
                     _logger.LogError(notifEx, "Failed to create in-app notification for consultation completion, appointment {AppointmentId}", appointment.Id);
                 }
                 
+                // Send SMS notification for consultation completion
+                try
+                {
+                    var patient = await _context.Patients
+                        .Include(p => p.User)
+                        .FirstOrDefaultAsync(p => p.UserId == appointment.PatientId);
+                    
+                    if (patient != null && !string.IsNullOrWhiteSpace(patient.ContactNumber))
+                    {
+                        var decryptedPhone = _encryptionService.Decrypt(patient.ContactNumber);
+                        var patientName = _encryptionService.Decrypt(appointment.PatientName);
+                        var formattedDate = appointment.AppointmentDate.ToString("MMMM dd, yyyy");
+                        var formattedTime = appointment.AppointmentTime.ToString("hh:mm tt");
+                        
+                        var smsMessage = $"Your consultation on {formattedDate} at {formattedTime} has been completed. Please check your prescription details. - Baesa Health Center";
+                        
+                        var smsService = HttpContext.RequestServices.GetService<ISmsService>();
+                        if (smsService != null)
+                        {
+                            await smsService.SendSmsAsync(decryptedPhone, smsMessage);
+                            _logger.LogInformation("SMS notification sent for consultation completion to {PhoneNumber}, appointment {AppointmentId}", decryptedPhone, appointment.Id);
+                        }
+                    }
+                }
+                catch (Exception smsEx)
+                {
+                    _logger.LogError(smsEx, "Failed to send SMS notification for consultation completion, appointment {AppointmentId}", appointment.Id);
+                }
+                
                 // Log to audit trail
                 try
                 {

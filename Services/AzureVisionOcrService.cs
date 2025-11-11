@@ -20,13 +20,15 @@ namespace Barangay.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AzureVisionOcrService> _logger;
+        private readonly PhilippineIdParserService _idParser;
         private readonly string _endpoint;
         private readonly string _key;
 
-        public AzureVisionOcrService(IConfiguration configuration, ILogger<AzureVisionOcrService> logger)
+        public AzureVisionOcrService(IConfiguration configuration, ILogger<AzureVisionOcrService> logger, PhilippineIdParserService idParser)
         {
             _configuration = configuration;
             _logger = logger;
+            _idParser = idParser;
 
             // Get Azure Vision credentials from configuration
             // Priority: Environment variables > IConfiguration (which includes appsettings.json)
@@ -187,8 +189,42 @@ namespace Barangay.Services
                 _logger.LogInformation("Extracted text length: {Length} characters", extractedText.Length);
                 _logger.LogInformation("Full extracted text:\n{FullText}", extractedText);
 
-                // Parse extracted text to extract structured fields
-                var parsedData = ParseIdData(extractedText);
+                // CRITICAL: Validate that this is an actual Philippine ID document
+                var (isValidId, idType) = IsValidPhilippineIdDocument(extractedText);
+                if (!isValidId)
+                {
+                    _logger.LogWarning("⚠️ Invalid document: Not a recognized Philippine ID. ID Type detected: {IdType}", idType ?? "None");
+                    return new IdExtractionResult
+                    {
+                        Success = false,
+                        Message = "Invalid document type. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, or Passport). Screenshots, illustrations, or non-ID documents are not accepted.",
+                        ExtractedText = extractedText
+                    };
+                }
+                
+                _logger.LogInformation("✅ Valid Philippine ID detected: {IdType}", idType);
+
+                // Use ID-specific parser for better accuracy
+                ParsedIdData parsedData;
+                var detectedIdType = _idParser.DetectIdType(extractedText);
+                if (!string.IsNullOrEmpty(detectedIdType))
+                {
+                    _logger.LogInformation("Using ID-specific parser for: {DetectedIdType}", detectedIdType);
+                    parsedData = _idParser.ParseIdByType(extractedText, detectedIdType);
+                    
+                    // Fill in missing fields from generic parser if needed
+                    if (string.IsNullOrWhiteSpace(parsedData.ContactNumber))
+                        parsedData.ContactNumber = _idParser.ExtractContactNumber(extractedText);
+                    if (string.IsNullOrWhiteSpace(parsedData.Gender))
+                        parsedData.Gender = _idParser.ExtractGender(extractedText);
+                }
+                else
+                {
+                    // Fallback to generic parsing
+                    _logger.LogInformation("ID type not detected, using generic parser");
+                    parsedData = ParseIdData(extractedText);
+                }
+                
                 _logger.LogInformation("Parsed data - FirstName: {FirstName}, LastName: {LastName}, MiddleName: {MiddleName}, Suffix: {Suffix}, ContactNumber: {ContactNumber}, Address: {Address}, BirthDate: {BirthDate}",
                     parsedData.FirstName, parsedData.LastName, parsedData.MiddleName, parsedData.Suffix, parsedData.ContactNumber, parsedData.Address, parsedData.BirthDate);
 
@@ -279,18 +315,18 @@ namespace Barangay.Services
                             gray = scaled;
                         }
 
-                        // Apply CLAHE for better contrast
+                        // Apply CLAHE for better contrast (enhanced parameters)
                         Mat claheResult = new Mat();
-                        using (var clahe = Cv2.CreateCLAHE(2.0, new OpenCvSharp.Size(8, 8)))
+                        using (var clahe = Cv2.CreateCLAHE(3.0, new OpenCvSharp.Size(8, 8))) // Increased clip limit for better contrast
                         {
                             clahe.Apply(gray, claheResult);
                         }
 
-                        // Apply sharpening using unsharp masking
+                        // Apply sharpening using unsharp masking (radius 1-2, sigma 0.5 as recommended)
                         Mat blurred = new Mat();
-                        Cv2.GaussianBlur(claheResult, blurred, new OpenCvSharp.Size(0, 0), 3);
+                        Cv2.GaussianBlur(claheResult, blurred, new OpenCvSharp.Size(0, 0), 0.5); // Sigma 0.5
                         Mat sharpened = new Mat();
-                        Cv2.AddWeighted(claheResult, 1.5, blurred, -0.5, 0, sharpened);
+                        Cv2.AddWeighted(claheResult, 2.0, blurred, -1.0, 0, sharpened); // Stronger sharpening
 
                         // Apply adaptive thresholding for better text extraction
                         Mat thresholded = new Mat();
@@ -1265,6 +1301,120 @@ namespace Barangay.Services
             }
 
             return "";
+        }
+
+        /// <summary>
+        /// Validates that the extracted text is from an actual Philippine ID document
+        /// Rejects plain text, screenshots, illustrations, or documents without ID markers
+        /// Returns tuple (isValid, idType)
+        /// </summary>
+        private (bool isValid, string idType) IsValidPhilippineIdDocument(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return (false, null);
+
+            var upperText = text.ToUpper();
+            
+            _logger.LogInformation("📝 Validating document with text length: {Length} characters", upperText.Length);
+            
+            // CRITICAL: Check for screenshot or illustration indicators
+            var invalidIndicators = new[] 
+            { 
+                "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", 
+                "WINDOWS", "MACOS", "ANDROID", "IOS",
+                "CHATGPT", "ILLUSTRATION", "CARTOON", "DRAWING",
+                "GENERATED", "ARTIFICIAL", "FAKE"
+            };
+            if (invalidIndicators.Any(indicator => upperText.Contains(indicator)))
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Invalid content indicators found");
+                return (false, "Invalid Image");
+            }
+            
+            // Required Philippine ID markers - must contain at least one
+            var strongIdMarkers = new[]
+            {
+                // Republic markers
+                "REPUBLIC OF THE PHILIPPINES",
+                "REPUBLIKA NG PILIPINAS",
+                
+                // Driver's License
+                "DRIVER'S LICENSE", "DRIVERS LICENSE", "DRIVER LICENSE",
+                "LAND TRANSPORTATION OFFICE", "LTO",
+                
+                // National ID
+                "PHILSYS", "PHILIPPINE IDENTIFICATION SYSTEM",
+                "NATIONAL ID", "PAMBANSANG PAGKAKAKILANLAN",
+                
+                // PhilHealth
+                "PHILHEALTH", "PHIL-HEALTH", "PHIL HEALTH",
+                "PHILIPPINE HEALTH INSURANCE",
+                
+                // UMID/SSS
+                "UMID", "UNIFIED MULTI-PURPOSE ID",
+                "SSS", "SOCIAL SECURITY",
+                
+                // Postal ID
+                "POSTAL ID", "PHILIPPINE POSTAL", "PHLPOST",
+                
+                // Passport
+                "PASSPORT", "PASAPORTE", "P<PHL",
+                
+                // TIN
+                "TIN", "TAX IDENTIFICATION NUMBER", "BIR"
+            };
+
+            bool hasStrongIdMarker = strongIdMarkers.Any(marker => upperText.Contains(marker));
+            string detectedIdType = null;
+            
+            // Detect specific ID type
+            if (upperText.Contains("PHILSYS") || upperText.Contains("PAMBANSANG"))
+                detectedIdType = "PhilSys National ID";
+            else if ((upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE"))
+                detectedIdType = "Driver's License";
+            else if (upperText.Contains("LTO") || upperText.Contains("TRANSPORTATION"))
+                detectedIdType = "Driver's License";
+            else if (upperText.Contains("PHILHEALTH") || upperText.Contains("PHIL HEALTH"))
+                detectedIdType = "PhilHealth ID";
+            else if (upperText.Contains("PASSPORT") || upperText.Contains("PASAPORTE"))
+                detectedIdType = "Passport";
+            else if (upperText.Contains("UMID"))
+                detectedIdType = "UMID";
+            else if (upperText.Contains("SSS") || upperText.Contains("SOCIAL SECURITY"))
+                detectedIdType = "SSS ID";
+            else if (upperText.Contains("POSTAL"))
+                detectedIdType = "Postal ID";
+            else if (upperText.Contains("TIN") || upperText.Contains("TAX IDENTIFICATION"))
+                detectedIdType = "TIN ID";
+            else if (upperText.Contains("REPUBLIK") || upperText.Contains("PILIPINAS"))
+                detectedIdType = "Philippine Government ID";
+            
+            // Check for partial matches to handle OCR errors
+            if (!hasStrongIdMarker)
+            {
+                hasStrongIdMarker = 
+                    upperText.Contains("REPUBLIK") || 
+                    upperText.Contains("PILIPINAS") ||
+                    (upperText.Contains("REPUBLIC") && upperText.Contains("PHILIPP")) ||
+                    upperText.Contains("PAMBANSANG") ||
+                    ((upperText.Contains("DRIVER") || upperText.Contains("DRIVERS")) && upperText.Contains("LICENSE")) ||
+                    upperText.Contains("PHILSYS") ||
+                    upperText.Contains("PHILHEALTH") ||
+                    upperText.Contains("HEALTH INSURANCE") ||
+                    upperText.Contains("UMID") ||
+                    upperText.Contains("POSTAL") ||
+                    upperText.Contains("PASSPORT") ||
+                    upperText.Contains("P<PHL");
+            }
+            
+            if (!hasStrongIdMarker)
+            {
+                _logger.LogWarning("⚠️ Document validation failed: No Philippine ID markers found");
+                return (false, "Unverified Document");
+            }
+
+            _logger.LogInformation("✅ Valid Philippine ID markers found: {IdType}", detectedIdType ?? "Unknown Philippine ID");
+            return (true, detectedIdType ?? "Philippine Government ID");
         }
     }
 

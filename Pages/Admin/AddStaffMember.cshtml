@@ -300,7 +300,7 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
                                 <input asp-for="Password" type="password" class="form-control" id="password" />
-                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Show password" aria-pressed="false" tabindex="0">
                                     <i class="fa-solid fa-eye"></i>
                                 </button>
                             </div>
@@ -855,6 +855,49 @@
         color: #FF8C42 !important;
         opacity: 0.8;
     }
+
+    /* Password toggle button styling */
+    #togglePassword {
+        cursor: pointer;
+        border-left: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        position: relative;
+        z-index: 1;
+        min-width: 45px;
+    }
+
+    #togglePassword:hover {
+        background-color: #e9ecef;
+        border-color: #ced4da;
+    }
+
+    #togglePassword:active {
+        background-color: #dee2e6;
+        transform: scale(0.98);
+    }
+
+    #togglePassword:focus {
+        box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+        outline: none;
+        z-index: 2;
+    }
+
+    #togglePassword:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* Ensure input group doesn't block button clicks */
+    .input-group #togglePassword {
+        position: relative;
+    }
+
+    /* Prevent any overlay from blocking the button */
+    .input-group > #togglePassword {
+        pointer-events: auto;
+    }
 </style>
 
 @section Scripts {
@@ -1008,17 +1051,26 @@
             });
 
             // Global select/deselect
-            document.getElementById('selectAllPermissions').addEventListener('click', function () {
-                document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = true);
-                updatePermissionCounts();
-            });
-            document.getElementById('deselectAllPermissions').addEventListener('click', function () {
-                document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = false);
-                updatePermissionCounts();
-            });
+            const selectAllBtn = document.getElementById('selectAllPermissions');
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', function () {
+                    document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = true);
+                    updatePermissionCounts();
+                });
+            }
+            
+            const deselectAllBtn = document.getElementById('deselectAllPermissions');
+            if (deselectAllBtn) {
+                deselectAllBtn.addEventListener('click', function () {
+                    document.querySelectorAll('.permission-checkbox').forEach(cb => cb.checked = false);
+                    updatePermissionCounts();
+                });
+            }
 
             // Grant essential permissions
-            document.getElementById('grantEssentialPermissions').addEventListener('click', async function () {
+            const grantEssentialBtn = document.getElementById('grantEssentialPermissions');
+            if (grantEssentialBtn) {
+                grantEssentialBtn.addEventListener('click', async function () {
                 const selectedRole = roleSelect.value;
                 
                 if (!selectedRole) {
@@ -1053,7 +1105,8 @@
                 } catch (err) {
                     console.error('Error granting essential permissions:', err);
                 }
-            });
+                });
+            }
 
             // Bootstrap-style validation on submit
             form.addEventListener('submit', function (event) {
@@ -1087,23 +1140,105 @@
                 }
             }, false);
 
-            // Password visibility toggle
-            const togglePassword = document.getElementById('togglePassword');
-            const password = document.getElementById('password');
+            // Password visibility toggle - Simple and reliable implementation
+            console.log('=== Password Toggle Debug ===');
+            const passwordInput = document.getElementById('password');
+            const togglePasswordBtn = document.getElementById('togglePassword');
             
-            if (togglePassword && password) {
-                togglePassword.addEventListener('click', function (e) {
+            console.log('Password input element:', passwordInput);
+            console.log('Toggle button element:', togglePasswordBtn);
+            console.log('Password input type:', passwordInput ? passwordInput.type : 'N/A');
+            console.log('Toggle button classes:', togglePasswordBtn ? togglePasswordBtn.className : 'N/A');
+            console.log('Toggle button style:', togglePasswordBtn ? window.getComputedStyle(togglePasswordBtn).pointerEvents : 'N/A');
+            
+            if (!passwordInput) {
+                console.error('ERROR: Password input not found!');
+                debugger; // Breakpoint if password input is missing
+            }
+            
+            if (!togglePasswordBtn) {
+                console.error('ERROR: Toggle button not found!');
+                debugger; // Breakpoint if toggle button is missing
+            }
+            
+            if (passwordInput && togglePasswordBtn) {
+                console.log('Both elements found, attaching event listeners...');
+                
+                // Test if button is clickable
+                console.log('Button computed styles:', {
+                    pointerEvents: window.getComputedStyle(togglePasswordBtn).pointerEvents,
+                    cursor: window.getComputedStyle(togglePasswordBtn).cursor,
+                    zIndex: window.getComputedStyle(togglePasswordBtn).zIndex,
+                    position: window.getComputedStyle(togglePasswordBtn).position
+                });
+                
+                // Add click handler with debugger
+                togglePasswordBtn.addEventListener('click', function(e) {
+                    debugger; // BREAKPOINT: Click event fired
+                    console.log('=== TOGGLE BUTTON CLICKED ===');
+                    console.log('Event:', e);
+                    console.log('Event target:', e.target);
+                    console.log('Event currentTarget:', e.currentTarget);
+                    console.log('Button element:', this);
+                    
                     e.preventDefault();
-                    const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                    password.setAttribute('type', type);
+                    e.stopPropagation();
                     
                     const icon = this.querySelector('i');
+                    console.log('Icon element:', icon);
+                    
+                    const isPassword = passwordInput.type === 'password';
+                    console.log('Current password type:', passwordInput.type);
+                    console.log('Will change to:', isPassword ? 'text' : 'password');
+                    
+                    // Toggle password visibility
+                    passwordInput.type = isPassword ? 'text' : 'password';
+                    console.log('Password type changed to:', passwordInput.type);
+                    
+                    // Update icon
                     if (icon) {
-                        icon.classList.toggle('fa-eye');
-                        icon.classList.toggle('fa-eye-slash');
+                        if (isPassword) {
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                            console.log('Icon changed to eye-slash');
+                        } else {
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                            console.log('Icon changed to eye');
+                        }
+                    } else {
+                        console.warn('Icon element not found!');
+                    }
+                    
+                    // Update accessibility attributes
+                    this.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+                    this.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
+                    console.log('Accessibility attributes updated');
+                }, { capture: true }); // Use capture phase to catch early
+                
+                // Also add mousedown handler for debugging
+                togglePasswordBtn.addEventListener('mousedown', function(e) {
+                    console.log('=== MOUSEDOWN on toggle button ===');
+                    console.log('Event:', e);
+                    debugger; // BREAKPOINT: Mousedown event
+                }, { capture: true });
+                
+                // Accessibility: allow keyboard activation (Enter or Space)
+                togglePasswordBtn.addEventListener('keydown', function(e) {
+                    console.log('=== KEYDOWN on toggle button ===', e.key);
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.click();
                     }
                 });
+                
+                console.log('Event listeners attached successfully');
+            } else {
+                console.error('ERROR: Cannot attach event listeners - elements missing!');
+                debugger; // Breakpoint if elements are missing
             }
+            
+            console.log('=== End Password Toggle Debug ===');
 
             // Initial state - update permission counts
             updatePermissionCounts();
