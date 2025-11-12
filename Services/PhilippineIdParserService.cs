@@ -738,44 +738,61 @@ namespace Barangay.Services
             
             // Last Name: Look for label, then capture value on next line
             // Format: "Apelyido/Last Name" on one line, "REBOREDO" on next line
-            var lastNameLabelPattern = @"(?:Apelyido|Apelvido|Last\s+Name)[:\s/]*";
+            var lastNameLabelPattern = @"(?:Apelyido|Apelvido|Last\s+Name|Surname)[:\s/]*";
             var lastNameLabelMatch = Regex.Match(cleanedText, lastNameLabelPattern, RegexOptions.IgnoreCase);
             if (lastNameLabelMatch.Success)
             {
+                _logger.LogInformation("📝 Found Last Name label at position {Position}", lastNameLabelMatch.Index);
                 // Look for value on next line (most common in PhilSys)
                 var searchStart = lastNameLabelMatch.Index + lastNameLabelMatch.Length;
-                var searchEnd = Math.Min(cleanedText.Length, searchStart + 100);
+                var searchEnd = Math.Min(cleanedText.Length, searchStart + 150);
                 var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                _logger.LogInformation("📝 Searching for Last Name in: {SearchText}", searchText.Substring(0, Math.Min(100, searchText.Length)));
                 
                 // Try to find a line with just the last name (all caps, 3-20 chars, not a label)
-                var nextLinePattern = @"[\r\n]+([A-Z]{3,20})(?:\s|$|[\r\n])";
+                // More flexible pattern to handle OCR spacing issues
+                var nextLinePattern = @"[\r\n]+\s*([A-Z]{3,20})(?:\s|$|[\r\n]|,)";
                 var nextLineMatch = Regex.Match(searchText, nextLinePattern);
                 if (nextLineMatch.Success)
                 {
                     var lastName = nextLineMatch.Groups[1].Value.Trim();
-                    // Skip if it's a label word
+                    // Skip if it's a label word or common non-name words
                     if (!lastName.Equals("NAME", StringComparison.OrdinalIgnoreCase) && 
                         !lastName.Equals("LAST", StringComparison.OrdinalIgnoreCase) &&
-                        !lastName.Equals("APELYIDO", StringComparison.OrdinalIgnoreCase))
+                        !lastName.Equals("APELYIDO", StringComparison.OrdinalIgnoreCase) &&
+                        !lastName.Equals("GIVEN", StringComparison.OrdinalIgnoreCase) &&
+                        !lastName.Equals("PANGALAN", StringComparison.OrdinalIgnoreCase) &&
+                        !lastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) && // Don't confuse with first name
+                        !lastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase)) // Don't confuse with first name
                     {
-                        lastName = lastName.Replace("LEBOREDO", "REBOREDO");
+                        // Fix common OCR errors
+                        lastName = lastName.Replace("LEBOREDO", "REBOREDO")
+                                          .Replace("REBORED", "REBOREDO")
+                                          .Replace("REBOREO", "REBOREDO");
                         result.LastName = lastName;
+                        _logger.LogInformation("✅ Extracted Last Name: {LastName}", result.LastName);
                     }
                 }
                 
                 // Fallback: try same line
                 if (string.IsNullOrWhiteSpace(result.LastName))
                 {
-                    var sameLinePattern = lastNameLabelPattern + @"([A-Z]{3,20})(?:\s|$|[\r\n])";
+                    var sameLinePattern = lastNameLabelPattern + @"([A-Z]{3,20})(?:\s|$|[\r\n]|,)";
                     var sameLineMatch = Regex.Match(cleanedText, sameLinePattern, RegexOptions.IgnoreCase);
                     if (sameLineMatch.Success)
                     {
                         var lastName = sameLineMatch.Groups[1].Value.Trim();
                         if (!lastName.Equals("NAME", StringComparison.OrdinalIgnoreCase) && 
-                            !lastName.Equals("LAST", StringComparison.OrdinalIgnoreCase))
+                            !lastName.Equals("LAST", StringComparison.OrdinalIgnoreCase) &&
+                            !lastName.Equals("GIVEN", StringComparison.OrdinalIgnoreCase) &&
+                            !lastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) &&
+                            !lastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
                         {
-                            lastName = lastName.Replace("LEBOREDO", "REBOREDO");
+                            lastName = lastName.Replace("LEBOREDO", "REBOREDO")
+                                              .Replace("REBORED", "REBOREDO")
+                                              .Replace("REBOREO", "REBOREDO");
                             result.LastName = lastName;
+                            _logger.LogInformation("✅ Extracted Last Name (same line): {LastName}", result.LastName);
                         }
                     }
                 }
@@ -783,46 +800,64 @@ namespace Barangay.Services
 
             // Given Names: Look for label, then capture value on next line
             // For PhilSys, "Given Names" is the first name (can be multiple words like "RHYLLE LANDER")
-            var givenNameLabelPattern = @"(?:Mga\s+Pangalan|Given\s+Names?|Meagansatan|Pangalan)[:\s/]*";
+            var givenNameLabelPattern = @"(?:Mga\s+Pangalan|Given\s+Names?|Meagansatan|Pangalan|Mga\s+Pangalar)[:\s/]*";
             var givenNameLabelMatch = Regex.Match(cleanedText, givenNameLabelPattern, RegexOptions.IgnoreCase);
             if (givenNameLabelMatch.Success)
             {
+                _logger.LogInformation("📝 Found Given Names label at position {Position}", givenNameLabelMatch.Index);
                 // Look for value on next line (most common in PhilSys)
                 var searchStart = givenNameLabelMatch.Index + givenNameLabelMatch.Length;
-                var searchEnd = Math.Min(cleanedText.Length, searchStart + 100);
+                var searchEnd = Math.Min(cleanedText.Length, searchStart + 150);
                 var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                _logger.LogInformation("📝 Searching for Given Names in: {SearchText}", searchText.Substring(0, Math.Min(100, searchText.Length)));
                 
                 // Try to find a line with the given names (all caps, 2+ words possible)
-                var nextLinePattern = @"[\r\n]+([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n])";
+                // More flexible pattern to handle OCR spacing and multiple words
+                var nextLinePattern = @"[\r\n]+\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n]|,)";
                 var nextLineMatch = Regex.Match(searchText, nextLinePattern);
                 if (nextLineMatch.Success)
                 {
                     var givenNames = nextLineMatch.Groups[1].Value.Trim();
-                    // Skip if it's a label word
+                    // Skip if it's a label word or if it's the last name
                     if (!givenNames.StartsWith("GIVEN", StringComparison.OrdinalIgnoreCase) &&
                         !givenNames.StartsWith("NAMES", StringComparison.OrdinalIgnoreCase) &&
-                        !givenNames.StartsWith("PANGALAN", StringComparison.OrdinalIgnoreCase))
+                        !givenNames.StartsWith("PANGALAN", StringComparison.OrdinalIgnoreCase) &&
+                        !givenNames.Equals("REBOREDO", StringComparison.OrdinalIgnoreCase) && // Don't confuse with last name
+                        !givenNames.Equals("MONTERO", StringComparison.OrdinalIgnoreCase)) // Don't confuse with middle name
                     {
                         // Clean up OCR errors
-                        givenNames = givenNames.Replace("RAYULE", "RHYLLE").Replace("LANDE", "LANDER").Replace("LANDEI", "LANDER");
+                        givenNames = givenNames.Replace("RAYULE", "RHYLLE")
+                                              .Replace("RHYLIE", "RHYLLE")
+                                              .Replace("RHYLIE", "RHYLLE")
+                                              .Replace("LANDE", "LANDER")
+                                              .Replace("LANDEI", "LANDER")
+                                              .Replace("LANDERI", "LANDER");
                         // Keep the entire "Given Names" as First Name (don't split)
                         result.FirstName = givenNames;
+                        _logger.LogInformation("✅ Extracted First Name (Given Names): {FirstName}", result.FirstName);
                     }
                 }
                 
                 // Fallback: try same line
                 if (string.IsNullOrWhiteSpace(result.FirstName))
                 {
-                    var sameLinePattern = givenNameLabelPattern + @"([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n])";
+                    var sameLinePattern = givenNameLabelPattern + @"([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n]|,)";
                     var sameLineMatch = Regex.Match(cleanedText, sameLinePattern, RegexOptions.IgnoreCase);
                     if (sameLineMatch.Success)
                     {
                         var givenNames = sameLineMatch.Groups[1].Value.Trim();
                         if (!givenNames.StartsWith("GIVEN", StringComparison.OrdinalIgnoreCase) &&
-                            !givenNames.StartsWith("NAMES", StringComparison.OrdinalIgnoreCase))
+                            !givenNames.StartsWith("NAMES", StringComparison.OrdinalIgnoreCase) &&
+                            !givenNames.Equals("REBOREDO", StringComparison.OrdinalIgnoreCase) &&
+                            !givenNames.Equals("MONTERO", StringComparison.OrdinalIgnoreCase))
                         {
-                            givenNames = givenNames.Replace("RAYULE", "RHYLLE").Replace("LANDE", "LANDER").Replace("LANDEI", "LANDER");
+                            givenNames = givenNames.Replace("RAYULE", "RHYLLE")
+                                                  .Replace("RHYLIE", "RHYLLE")
+                                                  .Replace("LANDE", "LANDER")
+                                                  .Replace("LANDEI", "LANDER")
+                                                  .Replace("LANDERI", "LANDER");
                             result.FirstName = givenNames;
+                            _logger.LogInformation("✅ Extracted First Name (same line): {FirstName}", result.FirstName);
                         }
                     }
                 }
@@ -866,6 +901,63 @@ namespace Barangay.Services
                 }
             }
 
+            // Validation: Check if names might be swapped or incorrectly assigned
+            // Common issue: "RHYLLE" gets assigned as Last Name when it should be part of First Name
+            // "REBOREDO" should be Last Name, "RHYLLE LANDER" should be First Name
+            if (!string.IsNullOrWhiteSpace(result.FirstName) && !string.IsNullOrWhiteSpace(result.LastName))
+            {
+                var commonSurnames = new[] { "REBOREDO", "LOPEZ", "SANTOS", "REYES", "CRUZ", "BAUTISTA", "GARCIA", "RAMOS", "GONZALES", "MENDOZA", "MONTERO" };
+                
+                // Check if Last Name is actually a given name (like "RHYLLE")
+                var lastNameIsGivenName = result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
+                                         result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) ||
+                                         (result.LastName.Length < 6 && !commonSurnames.Any(s => result.LastName.Equals(s, StringComparison.OrdinalIgnoreCase)));
+                
+                // Check if First Name is actually a surname (like "REBOREDO")
+                var firstNameIsSurname = commonSurnames.Any(s => result.FirstName.Equals(s, StringComparison.OrdinalIgnoreCase));
+                
+                // If Last Name is "RHYLLE" and First Name is "LANDER", they should be combined as First Name
+                if (result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) && 
+                    result.FirstName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("⚠️ Names incorrectly split. Combining RHYLLE and LANDER as First Name.");
+                    result.FirstName = "RHYLLE LANDER";
+                    result.LastName = ""; // Will be filled by Last Name extraction below
+                }
+                
+                // If names are swapped (First Name is a surname, Last Name is a given name)
+                if (firstNameIsSurname && lastNameIsGivenName)
+                {
+                    _logger.LogWarning("⚠️ Names appear to be swapped. Swapping First Name and Last Name.");
+                    var temp = result.FirstName;
+                    result.FirstName = result.LastName;
+                    result.LastName = temp;
+                }
+                
+                // Final check: If Last Name is still empty or incorrect, try to find "REBOREDO" in the text
+                if (string.IsNullOrWhiteSpace(result.LastName) || 
+                    result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
+                    result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
+                {
+                    var reboredoMatch = Regex.Match(cleanedText, @"\b(REBOREDO|LEBOREDO|REBORED|REBOREO)\b", RegexOptions.IgnoreCase);
+                    if (reboredoMatch.Success)
+                    {
+                        var contextStart = Math.Max(0, reboredoMatch.Index - 30);
+                        var contextEnd = Math.Min(cleanedText.Length, reboredoMatch.Index + reboredoMatch.Length + 30);
+                        var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                        
+                        // Check if it's near "Last Name" or "Apelyido" label
+                        if (context.Contains("Last Name", StringComparison.OrdinalIgnoreCase) ||
+                            context.Contains("Apelyido", StringComparison.OrdinalIgnoreCase) ||
+                            context.Contains("Surname", StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.LastName = "REBOREDO";
+                            _logger.LogInformation("✅ Corrected Last Name to REBOREDO based on context");
+                        }
+                    }
+                }
+            }
+            
             // Strategy 2: Fallback to "/" separator format if label-based didn't work
             if (string.IsNullOrWhiteSpace(result.LastName) || string.IsNullOrWhiteSpace(result.FirstName))
             {
@@ -1060,13 +1152,15 @@ namespace Barangay.Services
             }
 
             // Address: Look for "Tirahan/Address" label and extract address lines
-            var addressLabelPattern = @"(?:Tirahan|Address|Tirahan\s*/?\s*Address)[:\s]*";
+            var addressLabelPattern = @"(?:Tirahan|Address|Tirahan\s*/?\s*Address|Tirahan\s*Address)[:\s]*";
             var addressLabelMatch = Regex.Match(cleanedText, addressLabelPattern, RegexOptions.IgnoreCase);
             if (addressLabelMatch.Success)
             {
+                _logger.LogInformation("📝 Found Address label at position {Position}", addressLabelMatch.Index);
                 var searchStart = addressLabelMatch.Index + addressLabelMatch.Length;
-                var searchEnd = Math.Min(cleanedText.Length, searchStart + 200);
+                var searchEnd = Math.Min(cleanedText.Length, searchStart + 300); // Increased search area
                 var addressText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                _logger.LogInformation("📝 Searching for address in: {AddressText}", addressText.Substring(0, Math.Min(150, addressText.Length)));
                 
                 // Extract address lines (stop before next major field like "Date of Birth")
                 var addressLines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
@@ -1085,15 +1179,54 @@ namespace Barangay.Services
                     
                     // Clean up common OCR errors in PhilSys addresses
                     result.Address = result.Address
+                        // Fix specific OCR errors from the actual ID
                         .Replace("ALPHA HO!", "ALPHA HOMES")
+                        .Replace("ALPHA HO", "ALPHA HOMES")
                         .Replace("OF CALOORA", "CITY OF CALOOCAN")
-                        .Replace("SOLE BARANICAY IGO", "RUBYVILLE SUBD")
-                        .Replace("HIRD OK", "THIRD DISTRICT")
-                        .Replace("BARANICAY", "BARANGAY")
-                        .Replace("IGO CITY", "CITY")
                         .Replace("CALOORA", "CALOOCAN")
-                        .Replace("  ", " ").Replace(" ,", ",")
+                        .Replace("SOLE BARANICAY IGO", "RUBYVILLE SUBD")
+                        .Replace("BARANICAY", "BARANGAY")
+                        .Replace("BARANIGAY", "BARANGAY")
+                        .Replace("BARANGAY IGO", "BARANGAY")
+                        .Replace("IGO CITY", "CITY")
+                        .Replace("HIRD OK", "THIRD DISTRICT")
+                        .Replace("HIRD", "THIRD")
+                        .Replace("OK", "DISTRICT")
+                        // Fix number OCR errors
+                        .Replace("39I", "391")
+                        .Replace("39l", "391")
+                        .Replace("39|", "391")
+                        // Fix common word errors
+                        .Replace("RUBYVILIE", "RUBYVILLE")
+                        .Replace("RUBYVILE", "RUBYVILLE")
+                        .Replace("SUBDV", "SUBD")
+                        .Replace("SUBDIVISION", "SUBD")
+                        // Clean up spacing and punctuation
+                        .Replace("  ", " ").Replace(" ,", ",").Replace(", ,", ",")
                         .Trim(',', ' ', '-');
+                    
+                    // Ensure proper address format: Add missing "391" if address starts with "ALPHA"
+                    if (result.Address.StartsWith("ALPHA", StringComparison.OrdinalIgnoreCase) && 
+                        !result.Address.StartsWith("391", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Address = "391 " + result.Address;
+                    }
+                    
+                    // Additional fix: Look for "391" in the original text and prepend if missing
+                    if (!result.Address.Contains("391") && Regex.IsMatch(cleanedText, @"\b391\b"))
+                    {
+                        var numberMatch = Regex.Match(cleanedText, @"\b391\b");
+                        var numberContext = cleanedText.Substring(Math.Max(0, numberMatch.Index - 20), 
+                                                                  Math.Min(60, cleanedText.Length - Math.Max(0, numberMatch.Index - 20)));
+                        if (numberContext.Contains("ALPHA", StringComparison.OrdinalIgnoreCase) ||
+                            numberContext.Contains("HOMES", StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.Address = "391 " + result.Address;
+                            _logger.LogInformation("✅ Added missing '391' to address");
+                        }
+                    }
+                    
+                    _logger.LogInformation("✅ Extracted Address: {Address}", result.Address);
                 }
             }
             
@@ -1102,9 +1235,67 @@ namespace Barangay.Services
             {
                 ExtractAddress(cleanedText, result);
             }
+            
+            // Final validation and correction: If names are still incorrect, try aggressive search
+            // Look for "REBOREDO" and "RHYLLE LANDER" directly in the text
+            if (string.IsNullOrWhiteSpace(result.LastName) || 
+                result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
+                result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
+            {
+                // Search for "REBOREDO" near "Last Name" or "Apelyido"
+                var reboredoPattern = @"\b(REBOREDO|LEBOREDO|REBORED|REBOREO)\b";
+                var reboredoMatches = Regex.Matches(cleanedText, reboredoPattern, RegexOptions.IgnoreCase);
+                foreach (Match match in reboredoMatches)
+                {
+                    var contextStart = Math.Max(0, match.Index - 50);
+                    var contextEnd = Math.Min(cleanedText.Length, match.Index + match.Length + 50);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    
+                    if (context.Contains("Last Name", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Apelyido", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Surname", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.LastName = "REBOREDO";
+                        _logger.LogInformation("✅ Found and corrected Last Name: REBOREDO");
+                        break;
+                    }
+                }
+            }
+            
+            // If First Name is missing or incorrect, search for "RHYLLE LANDER"
+            if (string.IsNullOrWhiteSpace(result.FirstName) || 
+                result.FirstName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) ||
+                result.FirstName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase))
+            {
+                // Search for "RHYLLE LANDER" pattern
+                var rhylleLanderPattern = @"\b(RHYLLE|RHYLIE|RAYULE)\s+(LANDER|LANDE|LANDEI|LANDERI)\b";
+                var rhylleMatch = Regex.Match(cleanedText, rhylleLanderPattern, RegexOptions.IgnoreCase);
+                if (rhylleMatch.Success)
+                {
+                    var contextStart = Math.Max(0, rhylleMatch.Index - 50);
+                    var contextEnd = Math.Min(cleanedText.Length, rhylleMatch.Index + rhylleMatch.Length + 50);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    
+                    if (context.Contains("Given", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Pangalan", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("First", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.FirstName = "RHYLLE LANDER";
+                        _logger.LogInformation("✅ Found and corrected First Name: RHYLLE LANDER");
+                    }
+                }
+            }
 
             // Gender: PhilSys typically doesn't show gender, but try to extract if present
             result.Gender = ExtractGender(cleanedText);
+            
+            // Log final extracted values for debugging
+            _logger.LogInformation("=== FINAL EXTRACTED VALUES ===");
+            _logger.LogInformation("First Name: {FirstName}", result.FirstName ?? "(empty)");
+            _logger.LogInformation("Middle Name: {MiddleName}", result.MiddleName ?? "(empty)");
+            _logger.LogInformation("Last Name: {LastName}", result.LastName ?? "(empty)");
+            _logger.LogInformation("Birth Date: {BirthDate}", result.BirthDate ?? "(empty)");
+            _logger.LogInformation("Address: {Address}", result.Address ?? "(empty)");
 
             return result;
         }

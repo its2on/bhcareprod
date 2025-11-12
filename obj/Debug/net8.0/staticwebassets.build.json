@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "tVwN8lwcUpZ6C5l2yHrcdYuMRPwxZzlfr9QEN99Rifc=",
+  "Hash": "3a0x6+E6jRKFBLXGd/KcyHMC+z2ophszKW6et/5QOqs=",
   "Source": "Barangay",
   "BasePath": "/",
   "Mode": "Default",
@@ -7349,6 +7349,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\residency_proofs\\0d70e85c-8d08-4411-85ec-fed270e9794c_20251107151121.jpg"
+    },
+    {
+      "Identity": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\wwwroot\\uploads\\residency_proofs\\0d7e2a35-3a2f-4961-9927-116c42ba8589_20251112095949.jpg",
+      "SourceId": "Barangay",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\wwwroot\\",
+      "BasePath": "/",
+      "RelativePath": "uploads/residency_proofs/0d7e2a35-3a2f-4961-9927-116c42ba8589_20251112095949.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\residency_proofs\\0d7e2a35-3a2f-4961-9927-116c42ba8589_20251112095949.jpg"
     },
     {
       "Identity": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\wwwroot\\uploads\\residency_proofs\\0da320ec-987d-4c1f-a8e4-8b94e791ded4_20250510233846.png",

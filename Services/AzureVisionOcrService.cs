@@ -906,24 +906,124 @@ namespace Barangay.Services
             // Also handle formats with spaces like "2003 /10/14" or "2003/ 10/ 14"
             // IMPORTANT: Prioritize dates near "Date of Birth" or "Birth Date" labels, not expiration dates
             
-            // First, try to find "Date of Birth" or "Birth Date" labels with YYYY/MM/DD format
-            var birthDatePattern1 = @"(?:Date\s+of\s+Birth|Birth\s+Date|Date\s+of\s+Birthday)[:\s]*(\d{4})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})";
-            var birthDateMatch1 = Regex.Match(text, birthDatePattern1, RegexOptions.IgnoreCase);
-            if (birthDateMatch1.Success)
+            // First, try to find "Date of Birth" or "Birth Date" labels and search nearby (handles line breaks)
+            var dobLabelPattern = @"(?:Date\s+of\s+Birth|Birth\s+Date|Date\s+of\s+Birthday|Birthday|DOB)";
+            var dobLabelMatch = Regex.Match(text, dobLabelPattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            
+            if (dobLabelMatch.Success)
             {
-                var year = birthDateMatch1.Groups[1].Value.Trim();
-                var month = birthDateMatch1.Groups[2].Value.Trim();
-                var day = birthDateMatch1.Groups[3].Value.Trim();
+                _logger.LogInformation("📅 Found 'Date of Birth' label at position {Position}", dobLabelMatch.Index);
+                // Search within 200 characters after the label (handles line breaks and OCR spacing issues)
+                var searchStart = dobLabelMatch.Index + dobLabelMatch.Length;
+                var searchEnd = Math.Min(text.Length, searchStart + 200);
+                var searchText = text.Substring(searchStart, searchEnd - searchStart);
+                _logger.LogInformation("📅 Searching for date in text after label: {SearchText}", searchText.Substring(0, Math.Min(100, searchText.Length)));
                 
-                // Apply OCR error correction for year
-                year = CorrectOcrYearErrors(year);
+                // Try YYYY/MM/DD format first (most common in Philippine Driver's License)
+                var yyyyPattern = @"(\d{4}|[2O0][O0-9Il|]{3})\s*[/\-\s\.]\s*([O0-9Il|]{1,2})\s*[/\-\s\.]\s*([O0-9Il|]{1,2})";
+                var yyyyMatch = Regex.Match(searchText, yyyyPattern, RegexOptions.IgnoreCase);
                 
-                // Validate date parts
-                if (int.TryParse(year, out int y) && y >= 1900 && y <= DateTime.Now.Year &&
-                    int.TryParse(month, out int m) && m >= 1 && m <= 12 &&
-                    int.TryParse(day, out int d) && d >= 1 && d <= 31)
+                if (yyyyMatch.Success)
                 {
-                    result.BirthDate = $"{year}-{month.PadLeft(2, '0')}-{day.PadLeft(2, '0')}";
+                    var year = yyyyMatch.Groups[1].Value.Trim();
+                    var month = yyyyMatch.Groups[2].Value.Trim();
+                    var day = yyyyMatch.Groups[3].Value.Trim();
+                    
+                    _logger.LogInformation("📅 Date pattern matched: {Year}/{Month}/{Day} (before OCR correction)", year, month, day);
+                    
+                    // Fix OCR errors: O->0, I->1, l->1, |->1
+                    year = year.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                    month = month.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                    day = day.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                    
+                    // Apply OCR error correction for year
+                    year = CorrectOcrYearErrors(year);
+                    
+                    // Validate date parts
+                    if (int.TryParse(year, out int y) && y >= 1900 && y <= DateTime.Now.Year &&
+                        int.TryParse(month, out int m) && m >= 1 && m <= 12 &&
+                        int.TryParse(day, out int d) && d >= 1 && d <= 31)
+                    {
+                        result.BirthDate = $"{year}-{month.PadLeft(2, '0')}-{day.PadLeft(2, '0')}";
+                        _logger.LogInformation("✅ Birth date extracted: {BirthDate} (from YYYY/MM/DD pattern near label)", result.BirthDate);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ Date pattern matched but validation failed: Year={Year}, Month={Month}, Day={Day}", year, month, day);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ 'Date of Birth' label found but no YYYY/MM/DD pattern matched in search area");
+                }
+                
+                // If YYYY/MM/DD not found, try DD/MM/YYYY or MM/DD/YYYY format
+                if (string.IsNullOrEmpty(result.BirthDate))
+                {
+                    var ddmmyyyyPattern = @"([O0-9Il|]{1,2})\s*[/\-\s\.]\s*([O0-9Il|]{1,2})\s*[/\-\s\.]\s*(\d{4}|[2O0][O0-9Il|]{3})";
+                    var ddmmyyyyMatch = Regex.Match(searchText, ddmmyyyyPattern, RegexOptions.IgnoreCase);
+                    
+                    if (ddmmyyyyMatch.Success)
+                    {
+                        var part1 = ddmmyyyyMatch.Groups[1].Value.Trim();
+                        var part2 = ddmmyyyyMatch.Groups[2].Value.Trim();
+                        var part3 = ddmmyyyyMatch.Groups[3].Value.Trim();
+                        
+                        // Fix OCR errors
+                        part1 = part1.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                        part2 = part2.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                        part3 = part3.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                        part3 = CorrectOcrYearErrors(part3);
+                        
+                        string year, month, day;
+                        // Determine format (usually DD/MM/YYYY for Philippine IDs)
+                        if (int.TryParse(part1, out int p1) && p1 > 12)
+                        {
+                            // DD/MM/YYYY
+                            day = part1;
+                            month = part2;
+                            year = part3;
+                        }
+                        else
+                        {
+                            // MM/DD/YYYY
+                            month = part1;
+                            day = part2;
+                            year = part3;
+                        }
+                        
+                        // Validate date parts
+                        if (int.TryParse(year, out int y) && y >= 1900 && y <= DateTime.Now.Year &&
+                            int.TryParse(month, out int m) && m >= 1 && m <= 12 &&
+                            int.TryParse(day, out int d) && d >= 1 && d <= 31)
+                        {
+                            result.BirthDate = $"{year}-{month.PadLeft(2, '0')}-{day.PadLeft(2, '0')}";
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: Try pattern with label inline (original approach)
+            if (string.IsNullOrEmpty(result.BirthDate))
+            {
+                var birthDatePattern1 = @"(?:Date\s+of\s+Birth|Birth\s+Date|Date\s+of\s+Birthday)[:\s]*(\d{4})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})";
+                var birthDateMatch1 = Regex.Match(text, birthDatePattern1, RegexOptions.IgnoreCase);
+                if (birthDateMatch1.Success)
+                {
+                    var year = birthDateMatch1.Groups[1].Value.Trim();
+                    var month = birthDateMatch1.Groups[2].Value.Trim();
+                    var day = birthDateMatch1.Groups[3].Value.Trim();
+                    
+                    // Apply OCR error correction for year
+                    year = CorrectOcrYearErrors(year);
+                    
+                    // Validate date parts
+                    if (int.TryParse(year, out int y) && y >= 1900 && y <= DateTime.Now.Year &&
+                        int.TryParse(month, out int m) && m >= 1 && m <= 12 &&
+                        int.TryParse(day, out int d) && d >= 1 && d <= 31)
+                    {
+                        result.BirthDate = $"{year}-{month.PadLeft(2, '0')}-{day.PadLeft(2, '0')}";
+                    }
                 }
             }
             
@@ -969,9 +1069,9 @@ namespace Barangay.Services
             // Prioritize YYYY/MM/DD format (common in Philippine IDs)
             if (string.IsNullOrEmpty(result.BirthDate))
             {
-                // First, try YYYY/MM/DD format (most common in Philippine IDs)
-                var yyyyPattern = @"(\d{4})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})";
-                var yyyyMatches = Regex.Matches(text, yyyyPattern);
+                // First, try YYYY/MM/DD format (most common in Philippine IDs) with OCR error handling
+                var yyyyPattern = @"(\d{4}|[2O0][O0-9Il|]{3})\s*[/\-\s\.]\s*([O0-9Il|]{1,2})\s*[/\-\s\.]\s*([O0-9Il|]{1,2})";
+                var yyyyMatches = Regex.Matches(text, yyyyPattern, RegexOptions.IgnoreCase);
                 
                 DateTime? bestDate = null;
                 int bestScore = 0;
@@ -981,6 +1081,11 @@ namespace Barangay.Services
                     var year = dateMatch.Groups[1].Value.Trim();
                     var month = dateMatch.Groups[2].Value.Trim();
                     var day = dateMatch.Groups[3].Value.Trim();
+                    
+                    // Fix OCR errors: O->0, I->1, l->1, |->1
+                    year = year.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                    month = month.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
+                    day = day.Replace("O", "0").Replace("I", "1").Replace("l", "1").Replace("|", "1");
                     
                     // OCR Error Correction for years: Common misreads
                     // 3 -> 8, 0 -> O, 1 -> I, 5 -> S, etc.
