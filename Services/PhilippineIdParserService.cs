@@ -202,47 +202,94 @@ namespace Barangay.Services
                     result.LastName = lastName;
                     var nameParts = givenNames.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     
-                    if (nameParts.Length > 0)
-                        result.FirstName = nameParts[0];
+                    // For Driver's License: Format is "SURNAME, FIRST NAME MIDDLE NAME"
+                    // The suffix (JR, SR, etc.) is typically part of the First Name field on the card
+                    // Example: "LOPEZ, ANTHONY JR LLONA" where:
+                    // - Last Name: LOPEZ
+                    // - First Name: ANTHONY JR (suffix stays with first name)
+                    // - Middle Name: LLONA
                     
-                    // Check for suffix in the pattern match or in name parts
-                    string suffix = null;
-                    if (nameMatch.Groups.Count > 3 && !string.IsNullOrWhiteSpace(nameMatch.Groups[3].Value))
-                        suffix = nameMatch.Groups[3].Value.Trim().Replace(".", "");
-                    
-                    // Check if last part is a suffix
-                    if (nameParts.Length > 1)
+                    // Check if middle name is in group 4 (separate from given names)
+                    if (nameMatch.Groups.Count > 4 && !string.IsNullOrWhiteSpace(nameMatch.Groups[4].Value))
                     {
-                        var lastPart = nameParts[nameParts.Length - 1];
-                        if (Regex.IsMatch(lastPart, @"^(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase))
+                        // Middle name is separate (e.g., "LOPEZ, ANTHONY JR LLONA")
+                        var middleNameFromGroup = nameMatch.Groups[4].Value.Trim();
+                        
+                        // First name is everything before the middle name
+                        // Check if there's a suffix in the given names part
+                        var givenNamesStr = givenNames.Trim();
+                        var suffixMatch = Regex.Match(givenNamesStr, @"\s+(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase);
+                        
+                        if (suffixMatch.Success)
                         {
-                            result.Suffix = lastPart.Replace(".", "");
-                            if (nameParts.Length > 2)
-                                result.MiddleName = string.Join(" ", nameParts.Skip(1).Take(nameParts.Length - 2));
-                        }
-                        else if (nameMatch.Groups.Count > 4 && !string.IsNullOrWhiteSpace(nameMatch.Groups[4].Value))
-                        {
-                            // Middle name might be in group 4
-                            result.MiddleName = nameMatch.Groups[4].Value.Trim();
-                            if (!string.IsNullOrEmpty(suffix))
-                                result.Suffix = suffix;
-                        }
-                        else if (nameParts[1].Length == 1 || (nameParts[1].Length == 2 && nameParts[1].EndsWith(".")))
-                        {
-                            result.MiddleName = nameParts[1].Replace(".", "");
-                            if (!string.IsNullOrEmpty(suffix))
-                                result.Suffix = suffix;
+                            // Suffix found - keep it with first name for Driver's License format
+                            result.FirstName = givenNamesStr; // "ANTHONY JR" stays together
+                            result.MiddleName = middleNameFromGroup; // "LLONA"
+                            result.Suffix = ""; // No separate suffix field for Driver's License
                         }
                         else
                         {
-                            result.MiddleName = string.Join(" ", nameParts.Skip(1));
-                            if (!string.IsNullOrEmpty(suffix))
-                                result.Suffix = suffix;
+                            // No suffix, just split normally
+                            if (nameParts.Length > 0)
+                                result.FirstName = nameParts[0];
+                            if (nameParts.Length > 1)
+                                result.FirstName = string.Join(" ", nameParts);
+                            result.MiddleName = middleNameFromGroup;
                         }
                     }
-                    else if (!string.IsNullOrEmpty(suffix))
+                    else
                     {
-                        result.Suffix = suffix;
+                        // No separate middle name group, parse from nameParts
+                        if (nameParts.Length > 0)
+                            result.FirstName = nameParts[0];
+                        
+                        // Check for suffix in the pattern match
+                        string suffix = null;
+                        if (nameMatch.Groups.Count > 3 && !string.IsNullOrWhiteSpace(nameMatch.Groups[3].Value))
+                            suffix = nameMatch.Groups[3].Value.Trim().Replace(".", "");
+                        
+                        // Check if last part is a suffix
+                        if (nameParts.Length > 1)
+                        {
+                            var lastPart = nameParts[nameParts.Length - 1];
+                            if (Regex.IsMatch(lastPart, @"^(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase))
+                            {
+                                // For Driver's License, keep suffix with first name if there's no middle name
+                                if (nameParts.Length == 2)
+                                {
+                                    // Only two parts: "ANTHONY JR" - keep together as first name
+                                    result.FirstName = string.Join(" ", nameParts);
+                                    result.Suffix = "";
+                                }
+                                else
+                                {
+                                    // Three or more parts: "ANTHONY JR LLONA" - JR stays with first name
+                                    result.FirstName = string.Join(" ", nameParts.Take(nameParts.Length - 1));
+                                    result.MiddleName = nameParts[nameParts.Length - 1];
+                                    result.Suffix = "";
+                                }
+                            }
+                            else if (nameParts[1].Length == 1 || (nameParts[1].Length == 2 && nameParts[1].EndsWith(".")))
+                            {
+                                // Middle initial
+                                result.MiddleName = nameParts[1].Replace(".", "");
+                                if (nameParts.Length > 2)
+                                    result.FirstName = string.Join(" ", nameParts.Take(1).Concat(nameParts.Skip(2)));
+                                if (!string.IsNullOrEmpty(suffix))
+                                    result.Suffix = suffix;
+                            }
+                            else
+                            {
+                                // Regular middle name
+                                result.MiddleName = string.Join(" ", nameParts.Skip(1));
+                                if (!string.IsNullOrEmpty(suffix))
+                                    result.Suffix = suffix;
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(suffix))
+                        {
+                            result.Suffix = suffix;
+                        }
                     }
 
                     nameFound = true;
@@ -811,9 +858,9 @@ namespace Barangay.Services
                 var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
                 _logger.LogInformation("📝 Searching for Given Names in: {SearchText}", searchText.Substring(0, Math.Min(100, searchText.Length)));
                 
-                // Try to find a line with the given names (all caps, 2+ words possible)
-                // More flexible pattern to handle OCR spacing and multiple words
-                var nextLinePattern = @"[\r\n]+\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n]|,)";
+                // Try to find a line with the given names (all caps, multiple words possible - Filipinos often have 2-4 given names)
+                // More flexible pattern to handle OCR spacing and multiple words (increased from 0-3 to 0-5 additional words)
+                var nextLinePattern = @"[\r\n]+\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,5})(?:\s|$|[\r\n]|,|(?:JR|SR|I{2,3}|IV|V))";
                 var nextLineMatch = Regex.Match(searchText, nextLinePattern);
                 if (nextLineMatch.Success)
                 {
@@ -825,6 +872,14 @@ namespace Barangay.Services
                         !givenNames.Equals("REBOREDO", StringComparison.OrdinalIgnoreCase) && // Don't confuse with last name
                         !givenNames.Equals("MONTERO", StringComparison.OrdinalIgnoreCase)) // Don't confuse with middle name
                     {
+                        // Check for suffix at the end (JR, SR, II, III, IV, V)
+                        var suffixMatch = Regex.Match(givenNames, @"\s+(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase);
+                        if (suffixMatch.Success)
+                        {
+                            result.Suffix = suffixMatch.Groups[1].Value.Trim().Replace(".", "");
+                            givenNames = givenNames.Substring(0, suffixMatch.Index).Trim();
+                        }
+                        
                         // Clean up OCR errors
                         givenNames = givenNames.Replace("RAYULE", "RHYLLE")
                                               .Replace("RHYLIE", "RHYLLE")
@@ -832,16 +887,16 @@ namespace Barangay.Services
                                               .Replace("LANDE", "LANDER")
                                               .Replace("LANDEI", "LANDER")
                                               .Replace("LANDERI", "LANDER");
-                        // Keep the entire "Given Names" as First Name (don't split)
+                        // Keep the entire "Given Names" as First Name (don't split) - Filipinos have multiple given names
                         result.FirstName = givenNames;
-                        _logger.LogInformation("✅ Extracted First Name (Given Names): {FirstName}", result.FirstName);
+                        _logger.LogInformation("✅ Extracted First Name (Given Names): {FirstName}, Suffix: {Suffix}", result.FirstName, result.Suffix);
                     }
                 }
                 
                 // Fallback: try same line
                 if (string.IsNullOrWhiteSpace(result.FirstName))
                 {
-                    var sameLinePattern = givenNameLabelPattern + @"([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,3})(?:\s|$|[\r\n]|,)";
+                    var sameLinePattern = givenNameLabelPattern + @"([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,5})(?:\s|$|[\r\n]|,|(?:JR|SR|I{2,3}|IV|V))";
                     var sameLineMatch = Regex.Match(cleanedText, sameLinePattern, RegexOptions.IgnoreCase);
                     if (sameLineMatch.Success)
                     {
@@ -851,13 +906,22 @@ namespace Barangay.Services
                             !givenNames.Equals("REBOREDO", StringComparison.OrdinalIgnoreCase) &&
                             !givenNames.Equals("MONTERO", StringComparison.OrdinalIgnoreCase))
                         {
+                            // Check for suffix at the end
+                            var suffixMatch = Regex.Match(givenNames, @"\s+(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase);
+                            if (suffixMatch.Success)
+                            {
+                                result.Suffix = suffixMatch.Groups[1].Value.Trim().Replace(".", "");
+                                givenNames = givenNames.Substring(0, suffixMatch.Index).Trim();
+                            }
+                            
                             givenNames = givenNames.Replace("RAYULE", "RHYLLE")
                                                   .Replace("RHYLIE", "RHYLLE")
                                                   .Replace("LANDE", "LANDER")
                                                   .Replace("LANDEI", "LANDER")
                                                   .Replace("LANDERI", "LANDER");
+                            // Keep all given names together
                             result.FirstName = givenNames;
-                            _logger.LogInformation("✅ Extracted First Name (same line): {FirstName}", result.FirstName);
+                            _logger.LogInformation("✅ Extracted First Name (same line): {FirstName}, Suffix: {Suffix}", result.FirstName, result.Suffix);
                         }
                     }
                 }
@@ -959,6 +1023,7 @@ namespace Barangay.Services
             }
             
             // Strategy 2: Fallback to "/" separator format if label-based didn't work
+            // For PhilSys IDs, keep all given names together as First Name (don't split)
             if (string.IsNullOrWhiteSpace(result.LastName) || string.IsNullOrWhiteSpace(result.FirstName))
             {
                 var namePattern = @"([A-Z]{3,20})\s*/\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20})*)\s*/\s*([A-Z]{1,20}(?:\s+[A-Z]{1,20})*)";
@@ -971,13 +1036,18 @@ namespace Barangay.Services
                     if (string.IsNullOrWhiteSpace(result.FirstName))
                     {
                         var givenNames = nameMatch.Groups[2].Value.Trim();
-                        var nameParts = givenNames.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                         
-                        if (nameParts.Length > 0)
-                            result.FirstName = nameParts[0];
+                        // Check for suffix at the end
+                        var suffixMatch = Regex.Match(givenNames, @"\s+(JR\.?|SR\.?|I{2,3}|IV|V)$", RegexOptions.IgnoreCase);
+                        if (suffixMatch.Success)
+                        {
+                            result.Suffix = suffixMatch.Groups[1].Value.Trim().Replace(".", "");
+                            givenNames = givenNames.Substring(0, suffixMatch.Index).Trim();
+                        }
                         
-                        if (nameParts.Length > 1 && string.IsNullOrWhiteSpace(result.MiddleName))
-                            result.MiddleName = string.Join(" ", nameParts.Skip(1));
+                        // For PhilSys IDs, keep ALL given names together as First Name (Filipinos have multiple given names)
+                        result.FirstName = givenNames;
+                        _logger.LogInformation("✅ Extracted First Name from / separator: {FirstName}, Suffix: {Suffix}", result.FirstName, result.Suffix);
                     }
 
                     // Middle name from third group
@@ -988,6 +1058,30 @@ namespace Barangay.Services
                             result.MiddleName = string.IsNullOrWhiteSpace(result.MiddleName) 
                                 ? middleFromGroup 
                                 : $"{result.MiddleName} {middleFromGroup}";
+                    }
+                }
+            }
+            
+            // Additional suffix extraction: Look for suffix near the name fields if not found yet
+            if (string.IsNullOrWhiteSpace(result.Suffix))
+            {
+                var suffixPattern = @"\b(JR\.?|SR\.?|I{2,3}|IV|V|2ND|3RD)\b";
+                var suffixMatches = Regex.Matches(cleanedText, suffixPattern, RegexOptions.IgnoreCase);
+                foreach (Match suffixMatch in suffixMatches)
+                {
+                    // Check if suffix is near name fields (within 100 characters)
+                    var contextStart = Math.Max(0, suffixMatch.Index - 50);
+                    var contextEnd = Math.Min(cleanedText.Length, suffixMatch.Index + suffixMatch.Length + 50);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    
+                    if (context.Contains("Given", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Pangalan", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Name", StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrWhiteSpace(result.FirstName) && context.Contains(result.FirstName.Split(' ')[0], StringComparison.OrdinalIgnoreCase)))
+                    {
+                        result.Suffix = suffixMatch.Groups[1].Value.Trim().Replace(".", "");
+                        _logger.LogInformation("✅ Extracted Suffix: {Suffix}", result.Suffix);
+                        break;
                     }
                 }
             }

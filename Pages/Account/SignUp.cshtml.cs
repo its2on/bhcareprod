@@ -1581,6 +1581,27 @@ namespace Barangay.Pages.Account
                 var validBarangays = new[] { "158", "159", "160", "161" };
                 bool isBarangayValid = ocrResult.IsBarangayValid;
 
+                // Format names properly (Title Case) before sending to frontend
+                // Helper method to convert names to proper Title Case
+                string FormatName(string name)
+                {
+                    if (string.IsNullOrWhiteSpace(name))
+                        return "";
+                    
+                    // Split by spaces to handle multiple names (e.g., "RHYLLE LANDER")
+                    var words = name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    var formattedWords = words.Select(word =>
+                    {
+                        if (string.IsNullOrWhiteSpace(word))
+                            return word;
+                        
+                        // Convert to Title Case: First letter uppercase, rest lowercase
+                        return char.ToUpper(word[0]) + (word.Length > 1 ? word.Substring(1).ToLower() : "");
+                    });
+                    
+                    return string.Join(" ", formattedWords);
+                }
+                
                 // Return all extracted fields for auto-fill, regardless of barangay validation
                 // The frontend will handle showing the error message if barangay is invalid
                 return new JsonResult(new 
@@ -1588,11 +1609,11 @@ namespace Barangay.Pages.Account
                     success = true, 
                     message = ocrResult.Message,
                     autoApproved = isBarangayValid,
-                    // Extracted fields for auto-fill
-                    firstName = ocrResult.FirstName ?? "",
-                    middleName = ocrResult.MiddleName ?? "",
-                    lastName = ocrResult.LastName ?? "",
-                    suffix = ocrResult.Suffix ?? "",
+                    // Extracted fields for auto-fill - format names properly
+                    firstName = FormatName(ocrResult.FirstName ?? ""),
+                    middleName = FormatName(ocrResult.MiddleName ?? ""),
+                    lastName = FormatName(ocrResult.LastName ?? ""),
+                    suffix = !string.IsNullOrWhiteSpace(ocrResult.Suffix) ? ocrResult.Suffix.ToUpper() : "",
                     contactNumber = ocrResult.ContactNumber ?? "",
                     address = ocrResult.Address ?? "",
                     birthDate = ocrResult.BirthDate ?? "",
