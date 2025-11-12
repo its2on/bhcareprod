@@ -1515,7 +1515,7 @@
             }
             
             try {
-                const response = await fetch('/Admin/FormBuilder?handler=SaveForm', {
+                const response = await fetch('/Nurse/FormBuilder?handler=SaveForm', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1526,7 +1526,7 @@
                 
                 if (response.ok) {
                     alert('Form saved successfully!');
-                    window.location.href = '/Admin/FormManagement';
+                    window.location.href = '/Nurse/ControlPanel';
                 } else {
                     const error = await response.text();
                     alert('Error saving form: ' + error);

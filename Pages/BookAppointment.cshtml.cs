@@ -1862,7 +1862,7 @@ namespace Barangay.Pages
             {
                 if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
                 {
-                    return new JsonResult(new { success = true, members = new List<object>() });
+                    return new JsonResult(new { success = true, familyGroups = new List<object>() });
                 }
 
                 var user = await _userManager.GetUserAsync(User);
@@ -1880,38 +1880,136 @@ namespace Barangay.Pages
                                 (u.FirstName + " " + u.LastName).ToLower().Contains(searchTermLower)))
                     .Select(u => new
                     {
+                        userId = u.Id,
                         fullName = u.FirstName + " " + u.LastName,
+                        lastName = u.LastName,
                         familyNumber = u.FamilyNumber,
                         relationship = u.Id == user.Id ? "You" : "Family Member"
                     })
-                    .Take(10)
+                    .Take(20)
                     .ToListAsync();
 
+                // Get UserIds from matching users to exclude them from Patients search
+                var userIdsFromUsers = matchingUsers.Select(u => u.userId).ToList();
+
                 // Also search in Patients table (for dependents/family members)
+                // Exclude patients who are also in the Users table to avoid duplicates
                 var matchingPatients = await _context.Patients
                     .Where(p => !string.IsNullOrEmpty(p.FamilyNumber) &&
+                                !userIdsFromUsers.Contains(p.UserId) &&
                                 p.FullName.ToLower().Contains(searchTermLower))
                     .Select(p => new
                     {
+                        userId = p.UserId ?? "",
                         fullName = p.FullName,
+                        lastName = "", // Will extract from FullName
                         familyNumber = p.FamilyNumber,
                         relationship = "Family Member"
                     })
-                    .Take(10)
                     .ToListAsync();
 
-                // Combine and deduplicate results
-                var allMembers = matchingUsers
-                    .Concat(matchingPatients)
-                    .GroupBy(m => new { m.fullName, m.familyNumber })
-                    .Select(g => g.First())
-                    .OrderBy(m => m.fullName)
+                // Extract last names from matching results
+                var matchingLastNames = matchingUsers
+                    .Select(u => u.lastName.ToLower().Trim())
+                    .Where(ln => !string.IsNullOrEmpty(ln))
+                    .Distinct()
+                    .ToList();
+
+                // Extract last names from Patients (last word in FullName)
+                foreach (var patient in matchingPatients)
+                {
+                    if (!string.IsNullOrEmpty(patient.fullName))
+                    {
+                        var nameParts = patient.fullName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (nameParts.Length > 0)
+                        {
+                            var lastName = nameParts[nameParts.Length - 1].ToLower().Trim();
+                            if (!string.IsNullOrEmpty(lastName) && !matchingLastNames.Contains(lastName))
+                            {
+                                matchingLastNames.Add(lastName);
+                            }
+                        }
+                    }
+                }
+
+                if (!matchingLastNames.Any())
+                {
+                    return new JsonResult(new { success = true, familyGroups = new List<object>() });
+                }
+
+                // Get ALL users with matching last names (not just the matching ones)
+                var allFamilyMembersFromUsers = await _context.Users
+                    .Where(u => !string.IsNullOrEmpty(u.FamilyNumber) && 
+                               !string.IsNullOrEmpty(u.LastName) &&
+                               matchingLastNames.Contains(u.LastName.ToLower().Trim()))
+                    .Select(u => new
+                    {
+                        userId = u.Id,
+                        fullName = u.FirstName + " " + u.LastName,
+                        lastName = u.LastName,
+                        familyNumber = u.FamilyNumber,
+                        relationship = u.Id == user.Id ? "You" : "Family Member"
+                    })
+                    .ToListAsync();
+
+                var allUserIds = allFamilyMembersFromUsers.Select(u => u.userId).ToList();
+
+                // Get ALL patients with matching last names
+                var allFamilyMembersFromPatients = await _context.Patients
+                    .Where(p => !string.IsNullOrEmpty(p.FamilyNumber) && 
+                               !string.IsNullOrEmpty(p.FullName) &&
+                               !allUserIds.Contains(p.UserId))
+                    .ToListAsync();
+
+                // Filter patients by last name and project
+                var filteredPatients = allFamilyMembersFromPatients
+                    .Where(p =>
+                    {
+                        if (string.IsNullOrEmpty(p.FullName)) return false;
+                        var nameParts = p.FullName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (nameParts.Length == 0) return false;
+                        var lastName = nameParts[nameParts.Length - 1].ToLower().Trim();
+                        return matchingLastNames.Contains(lastName);
+                    })
+                    .Select(p => new
+                    {
+                        userId = p.UserId ?? "",
+                        fullName = p.FullName,
+                        lastName = p.FullName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "",
+                        familyNumber = p.FamilyNumber,
+                        relationship = "Family Member"
+                    })
+                    .ToList();
+
+                // Combine all family members
+                var allFamilyMembers = allFamilyMembersFromUsers
+                    .Concat(filteredPatients)
+                    .Select(m => new 
+                    { 
+                        m.fullName, 
+                        lastName = m.lastName.ToLower().Trim(),
+                        m.familyNumber, 
+                        m.relationship 
+                    })
+                    .ToList();
+
+                // Group by last name (same last name = same family group)
+                var familyGroups = allFamilyMembers
+                    .GroupBy(m => m.lastName)
+                    .Select(g => new
+                    {
+                        lastName = g.Key,
+                        familyNumber = g.First().familyNumber, // Use first family number as primary
+                        members = g.Select(m => new { m.fullName, m.familyNumber, m.relationship }).OrderBy(m => m.fullName).ToList(),
+                        memberCount = g.Count()
+                    })
+                    .OrderBy(f => f.lastName)
                     .Take(10)
                     .ToList();
 
-                _logger.LogInformation("Found {Count} family members matching '{SearchTerm}'", allMembers.Count, searchTerm);
+                _logger.LogInformation("Found {Count} family groups matching '{SearchTerm}'", familyGroups.Count, searchTerm);
 
-                return new JsonResult(new { success = true, members = allMembers });
+                return new JsonResult(new { success = true, familyGroups = familyGroups });
             }
             catch (Exception ex)
             {

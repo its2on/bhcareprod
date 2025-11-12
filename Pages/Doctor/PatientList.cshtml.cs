@@ -193,14 +193,28 @@ namespace Barangay.Pages.Doctor
 
             // Also include patients from Appointments (where BookingForOther = true)
             // These are guest patients who don't have their own Patient records
-            var guestPatients = await _context.Appointments
+            // First get all guest appointments, then deduplicate in memory
+            var allGuestAppointments = await _context.Appointments
                 .Where(a => a.BookingForOther == true && 
                            !string.IsNullOrEmpty(a.FamilyNumber) &&
                            a.Status != AppointmentStatus.Cancelled)
+                .ToListAsync();
+            
+            // Decrypt patient names if encrypted
+            foreach (var appointment in allGuestAppointments)
+            {
+                if (!string.IsNullOrEmpty(appointment.PatientName) && _encryptionService.IsEncrypted(appointment.PatientName))
+                {
+                    appointment.PatientName = _encryptionService.DecryptForUser(appointment.PatientName, User);
+                }
+            }
+            
+            // Convert to PatientViewModel and deduplicate
+            var guestPatients = allGuestAppointments
                 .Select(a => new PatientViewModel
                 {
-                    PatientId = a.Id.ToString(), // Use appointment ID as identifier
-                    FullName = a.PatientName,
+                    PatientId = a.Id.ToString(),
+                    FullName = a.PatientName, // Now decrypted
                     Email = "Guest Patient",
                     PhoneNumber = a.ContactNumber ?? "N/A",
                     Barangay = "Guest",
@@ -208,7 +222,9 @@ namespace Barangay.Pages.Doctor
                     Age = a.AgeValue.ToString(),
                     FamilyNumber = a.FamilyNumber
                 })
-                .ToListAsync();
+                .GroupBy(p => new { p.FullName, p.FamilyNumber })
+                .Select(g => g.First())
+                .ToList();
 
             // Combine registered patients and guest patients
             var allPatients = patients.Concat(guestPatients).ToList();

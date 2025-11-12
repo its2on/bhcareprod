@@ -228,9 +228,30 @@ namespace Barangay.Pages.User {
                     .AsQueryable();
 
                 if (IsDoctor)
+                {
                     query = query.Where(a => a.DoctorId == userId);
+                }
                 else
-                    query = query.Where(a => a.PatientId == userId);
+                {
+                    // For regular users: show self bookings and bookings for others with same family number
+                    var user = await _userManager.FindByIdAsync(userId);
+                    if (user != null)
+                    {
+                        user = user.DecryptSensitiveData(_encryptionService, User);
+                        var userFamilyNumber = user.FamilyNumber;
+                        
+                        query = query.Where(a => a.PatientId == userId && 
+                                               (a.BookingForOther == false || 
+                                                (a.BookingForOther == true && 
+                                                 !string.IsNullOrEmpty(a.FamilyNumber) && 
+                                                 !string.IsNullOrEmpty(userFamilyNumber) && 
+                                                 a.FamilyNumber == userFamilyNumber)));
+                    }
+                    else
+                    {
+                        query = query.Where(a => a.PatientId == userId);
+                    }
+                }
 
                 var allAppointments = await query.ToListAsync();
 

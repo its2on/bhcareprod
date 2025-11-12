@@ -1,0 +1,1898 @@
+@page
+@model Barangay.Pages.BookAppointmentModel
+@using Barangay.Helpers
+@{
+    ViewData["Title"] = "Book an Appointment";
+    ViewData["ShowDashboardNav"] = true;
+    Layout = "_UserLayout";
+}
+
+<style>
+    /* Family Number Search Dropdown Styling */
+    #familyNumberSection {
+        position: relative;
+    }
+
+    #familySearchResults {
+        position: absolute;
+        z-index: 9999 !important;
+        top: 100%;
+        left: 0;
+        min-width: 450px;
+        max-width: 600px;
+        width: auto;
+        max-height: 400px;
+        overflow-y: auto;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        border: 2px solid #ff8c42;
+        border-radius: 10px;
+        background: white;
+        margin-top: 8px;
+    }
+
+    #familySearchResults .dropdown-item {
+        padding: 18px 20px;
+        font-size: 16px;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: all 0.2s;
+        line-height: 1.6;
+    }
+
+    #familySearchResults .dropdown-item:last-child {
+        border-bottom: none;
+    }
+
+    #familySearchResults .dropdown-item:hover {
+        background-color: #fff5f0;
+        border-left: 4px solid #ff8c42;
+        padding-left: 16px;
+    }
+
+    #familySearchResults .dropdown-item strong {
+        font-size: 18px;
+        font-weight: 600;
+        color: #212529;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    #familySearchResults .dropdown-item small {
+        font-size: 15px;
+        color: #6c757d;
+        display: block;
+        margin-top: 4px;
+    }
+
+    #familySearchResults .dropdown-item .badge {
+        font-size: 14px;
+        font-weight: 600;
+        padding: 6px 12px;
+        margin-top: 4px;
+    }
+
+    #familyNumberSearch {
+        font-size: 16px;
+        padding: 12px 16px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    #familyNumberSearch:focus {
+        border-color: #ff8c42;
+        box-shadow: 0 0 0 0.2rem rgba(255, 140, 66, 0.25);
+    }
+
+    #familyNumberDisplay .badge {
+        font-size: 16px;
+        font-weight: 600;
+        padding: 10px 16px;
+    }
+
+    #generateNewFamilyNumberBtn {
+        font-size: 15px;
+        padding: 10px 16px;
+        font-weight: 600;
+    }
+
+    /* Ensure parent container has proper stacking */
+    .card {
+        overflow: visible !important;
+    }
+
+    /* Improve scrollbar for dropdown */
+    #familySearchResults::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    #familySearchResults::-webkit-scrollbar-track {
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    #familySearchResults::-webkit-scrollbar-thumb {
+        background: #ff8c42;
+        border-radius: 10px;
+    }
+
+    #familySearchResults::-webkit-scrollbar-thumb:hover {
+        background: #e67a32;
+    }
+</style>
+
+@if (!ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul>
+            @foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-success">
+        @Model.StatusMessage
+    </div>
+}
+
+<div class="container mt-5 pt-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="/User/UserDashboard" class="btn btn-outline-primary">
+            <i class="fa-solid fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+        <h1 class="fw-bold mb-0">Book an Appointment</h1>
+        <div style="width: 135px;"></div>
+    </div>
+
+    <!-- Removed queue/tip alert for cleaner UI -->
+
+    <form method="post" id="appointmentForm" asp-antiforgery="true" enctype="multipart/form-data">
+        <div id="step1" class="booking-step">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Patient Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="bookingForOther" name="bookingForOther">
+                                <input type="hidden" id="bookingForOtherHidden" name="bookingForOtherHidden" value="false">
+                                <label class="form-check-label" for="bookingForOther">
+                                    Booking for someone else?
+                                </label>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label for="lastName" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" id="lastName" name="lastName" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="firstName" class="form-label">First Name</label>
+                                    <input type="text" class="form-control" id="firstName" name="firstName" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="birthday" class="form-label">Birthday <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="birthday" name="birthday" required>
+                                    <div class="form-text">Age will be calculated automatically</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="phoneNumber" class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" id="phoneNumber" name="phoneNumber" placeholder="09123456789" pattern="^09[0-9]{9}$" minlength="11" maxlength="11" inputmode="numeric" required>
+                                    <div class="form-text">Enter 11-digit mobile number starting with 09</div>
+                                </div>
+                                <input type="hidden" id="fullName" name="fullName">
+                                <input type="hidden" id="age" name="age">
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="gender" class="form-label">Gender</label>
+                                    <select class="form-select" id="gender" name="gender" required>
+                                        <option value="">Select gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4" id="familyNumberSection" style="display: none;">
+                                    <label class="form-label">Family Number</label>
+                                    <div class="position-relative">
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="familyNumberSearch" 
+                                               placeholder="Search by name..."
+                                               autocomplete="off">
+                                        <input type="hidden" id="familyNumber" name="BookingModel.FamilyNumber" asp-for="BookingModel.FamilyNumber">
+                                        <div id="familySearchResults" class="dropdown-menu" style="width: 100%; max-height: 300px; overflow-y: auto;">
+                                            <!-- Search results will appear here -->
+                                        </div>
+                                    </div>
+                                    <div id="familyNumberDisplay" class="mt-2" style="display: none;">
+                                        <div class="alert alert-success mb-0 py-2">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Family Number:</strong> <span id="selectedFamilyNumber"></span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" id="clearFamilyNumber">
+                                                <i class="fas fa-times"></i> Change
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="noFamilyFound" class="mt-2" style="display: none;">
+                                        <div class="alert alert-warning mb-2 py-2">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            No family record found.
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-sm" id="generateNewFamilyNumberBtn">
+                                            <i class="fas fa-plus-circle me-1"></i>Generate New Family Number
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Search for existing family members or generate a new family number</div>
+                                    <input type="hidden" id="hasFamilyNumber" value="@(Model.UserProfile?.FamilyNo ?? "")">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="relationshipField" style="display: none;">
+                                <label for="relationship" class="form-label">Relationship to Patient</label>
+                                <select class="form-select" id="relationship" name="relationship">
+                                    <option value="">Select relationship</option>
+                                    <option value="parent">Parent</option>
+                                    <option value="spouse">Spouse</option>
+                                    <option value="child">Child</option>
+                                    <option value="sibling">Sibling</option>
+                                    <option value="guardian">Guardian</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Appointment Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Date selection - first step -->
+                            <div class="mb-3">
+                                <label for="appointmentDate" class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="appointmentDate" name="appointmentDate" required min="@DateTimeHelper.Now.ToString("yyyy-MM-dd")">
+                                <input type="hidden" name="BookingModel.AppointmentDate" id="hiddenAppointmentDate">
+                                <div id="dateValidationMessage" class="invalid-feedback"></div>
+                                <div class="form-text">Select a date to see available doctors</div>
+                            </div>
+
+                            <!-- Doctor display - shows available doctors (no manual selection) -->
+                            <div class="mb-3">
+                                <label class="form-label">Assigned Doctor <span class="text-danger">*</span></label>
+                                
+                                <!-- Hidden input for selected doctor ID -->
+                                <input type="hidden" id="DoctorId" name="DoctorId" required />
+                                
+                                <!-- Doctor availability banner -->
+                                <div id="doctorAvailabilityBanner" class="alert alert-info mb-2" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fa-solid fa-user-doctor me-2"></i>
+                                            <span id="doctorAvailabilityText">Loading available doctors...</span>
+                                        </div>
+                                        <span class="badge bg-primary" id="doctorCountBadge">0</span>
+                                    </div>
+                                </div>
+                                
+                                <div id="doctorInfoMessage" class="form-text text-muted">Available doctor(s) will appear after selecting a date.</div>
+                                
+                                <!-- Display assigned doctors list -->
+                                <div id="assignedDoctorsList" style="display: none;">
+                                    <div class="list-group" id="doctorsListContainer">
+                                        <!-- Doctors will be populated here -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Consultation type selection -->
+                            <div class="mb-3">
+                                <label for="consultationType" class="form-label">Consultation Type</label>
+                                <select class="form-select" id="consultationType" name="consultationType" required>
+                                    <option value="" selected disabled>Select consultation type</option>
+                                    @foreach (var service in Model.ConsultationServices)
+                                    {
+                                        <option value="@service.ServiceName.ToLower()">@service.ServiceName</option>
+                                    }
+                                </select>
+                                <input type="hidden" name="BookingModel.ConsultationType" id="hiddenConsultationType">
+                            </div>
+                            
+            <!-- Update the time slot selection to use a standard select element instead of dropdown -->
+            <div class="mb-3">
+                <label for="timeSlot" class="form-label">Appointment Time</label>
+                
+                <!-- Slot Availability Banner -->
+                <div id="slotAvailabilityBanner" class="alert alert-info mb-2" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fa-solid fa-calendar-check me-2"></i>
+                            <strong>Slots Available:</strong> 
+                            <span id="slotAvailabilityText">Loading...</span>
+                        </div>
+                        <span class="badge bg-primary" id="slotAvailabilityBadge">0/0</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div id="slotAvailabilityProgress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <select class="form-select" id="timeSlot" name="timeSlot" required>
+                    <option value="" selected disabled>Select date and consultation type first</option>
+                </select>
+                <input type="hidden" name="BookingModel.TimeSlot" id="hiddenTimeSlot">
+                
+                <!-- Display selected time prominently -->
+                <div id="selectedTimeDisplay" class="alert alert-success mt-2" style="display: none;">
+                    <i class="fa-solid fa-clock me-2"></i>
+                    <strong>Selected Time:</strong> <span id="selectedTimeText"></span>
+                </div>
+                <div id="timeSlotMessage" class="form-text text-muted">Available time slots will appear after selecting date and consultation type.</div>
+            </div>
+                            
+                            <div class="mb-3">
+                                <label for="reasonForConsultation" class="form-label">Reason for consultation</label>
+                                <textarea class="form-control" id="reasonForConsultation" name="ReasonForVisit" rows="4" required maxlength="400" aria-describedby="reasonHelp"></textarea>
+                                <div id="reasonHelp" class="form-text">Please be specific and respectful. Max 400 characters.</div>
+                            </div>
+                            
+                            <button type="button" id="toStep2Button" class="btn btn-primary btn-lg">
+                                <i class="fa-solid fa-paper-plane me-2"></i>Submit Appointment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Booking Instructions</h5>
+                        </div>
+                        <div class="card-body">
+                            <ol class="ps-3">
+                                <li>Select your preferred date</li>
+                                <li>Choose your assigned doctor</li>
+                                <li>Select consultation type</li>
+                                <li>Pick available time slot</li>
+                                <li>Fill in patient details</li>
+                                <li>Complete health assessment (if required)</li>
+                                <li>Submit your booking</li>
+                            </ol>
+                            
+                            <div class="mt-4">
+                                <h6>Consultation Types & Schedule:</h6>
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        General Consult
+                                        <span class="badge bg-primary rounded-pill">8AM-11AM, 1PM-4PM (Mon-Fri)</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Dental
+                                        <span class="badge bg-primary rounded-pill">8AM-11AM (Mon/Wed/Fri)</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Immunization
+                                        <span class="badge bg-primary rounded-pill">8AM-12PM (Wed)</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Prenatal & Family Planning
+                                        <span class="badge bg-primary rounded-pill">8AM-11AM, 1PM-4PM (Mon/Wed/Fri)</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        DOTS Consult
+                                        <span class="badge bg-primary rounded-pill">1PM-4PM (Mon-Fri)</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <div class="alert alert-info mt-3">
+                                <i class="fa-solid fa-circle-info me-2"></i>
+                                <strong>Note:</strong> Please arrive 15 minutes before your appointment time.
+                            </div>
+                            
+                            <!-- Dynamic forms list - updates based on consultation type and age -->
+                            <div id="dynamicFormsContainer" style="display: none;">
+                                <div class="alert alert-primary mt-3">
+                                    <h6 class="alert-heading">
+                                        <i class="fa-solid fa-clipboard-list me-2"></i>
+                                        <strong>Clinical Assessment Forms</strong>
+                                    </h6>
+                                    <p class="mb-2" id="formsDescription">Based on the selected service and patient's age, the following forms may be required after booking:</p>
+                                    <ul class="mb-0" id="dynamicFormsList">
+                                        @foreach (var form in Model.AvailableDynamicForms)
+                                        {
+                                            <li>
+                                                <i class="@form.IconClass me-1" style="width: 20px;"></i>
+                                                <strong>@form.FormName</strong>
+                                                @if (form.MinAge.HasValue || form.MaxAge.HasValue)
+                                                {
+                                                    <small class="text-muted">
+                                                        (
+                                                        @if (form.MinAge.HasValue && form.MaxAge.HasValue)
+                                                        {
+                                                            @:Ages @form.MinAge - @form.MaxAge
+                                                        }
+                                                        else if (form.MinAge.HasValue)
+                                                        {
+                                                            @:Ages @form.MinAge+
+                                                        }
+                                                        else if (form.MaxAge.HasValue)
+                                                        {
+                                                            @:Ages up to @form.MaxAge
+                                                        }
+                                                        )
+                                                    </small>
+                                                }
+                                            </li>
+                                        }
+                                    </ul>
+                                    <small class="text-muted d-block mt-2">
+                                        <i class="fa-solid fa-info-circle me-1"></i>
+                                        You'll be directed to complete the appropriate assessment form(s) based on the patient's age after booking.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            console.log('[BookAppointment] Page ready - initializing family number section');
+            
+            // ========================================
+            // Family Number Search and Generation Variables
+            // ========================================
+            // Declare these variables at the top to avoid "Assignment to constant variable" errors
+            let searchTimeout = null;
+            let selectedFamilyNumber = null;
+            
+            // Check if consultation type is already selected and show family number section if needed
+            let checkFamilyNumberVisibility = function() {
+                const selectedType = $('#consultationType').val();
+                if (selectedType) {
+                    const hasFamilyNumber = $('#hasFamilyNumber').val();
+                    
+                    console.log('[BookAppointment] Consultation type on load:', selectedType, 'Showing family number for all types');
+                    
+                    // Show family number section for ALL consultation types (now using dynamic forms)
+                    $('#familyNumberSection').show();
+                    
+                    // Check if booking for someone else
+                    const isBookingForOther = $('#bookingForOther').is(':checked');
+                    
+                    if (isBookingForOther) {
+                        // Clear for dependents - show search
+                        selectedFamilyNumber = null;
+                        $('#familyNumber').val('');
+                        $('#familyNumberSearch').val('').show();
+                        $('#familyNumberDisplay').hide();
+                        $('#noFamilyFound').hide();
+                        console.log('[Page Load] Booking for other - showing search');
+                    } else {
+                        // If booking for self, check for existing family number
+                        initializeFamilyNumber();
+                    }
+                }
+            };
+            
+            // Call on page load
+            checkFamilyNumberVisibility();
+            
+            // Initialize the form state based on user details
+            const userDetails = @Html.Raw(Json.Serialize(Model.UserDetails));
+            
+            if (userDetails) {
+                // Split full name into first and last name
+                const nameParts = (userDetails.fullName || '').split(' ');
+                if (nameParts.length >= 2) {
+                    $('#lastName').val(nameParts[nameParts.length - 1]);
+                    $('#firstName').val(nameParts.slice(0, -1).join(' '));
+                } else if (nameParts.length === 1) {
+                    $('#lastName').val(nameParts[0]);
+                }
+                $('#fullName').val(userDetails.fullName);
+                $('#age').val(userDetails.age);
+                // Calculate birthday from age for initial display
+                if (userDetails.age >= 0) {
+                    calculateBirthdayFromAge(userDetails.age);
+                }
+            }
+            
+            // Function to check if immunization should be shown
+            function updateImmunizationVisibility() {
+                const isBookingForOther = $('#bookingForOther').is(':checked');
+                const relationship = ($('#relationship').val() || '').toLowerCase();
+                const age = parseInt($('#age').val(), 10);
+                
+                // Show immunization only if:
+                // 1. Booking for someone else
+                // 2. Relationship is "child"
+                // 3. Age is 1 year old or less (0 means infant/months old, which is valid)
+                const shouldShowImmunization = isBookingForOther && 
+                                               relationship === 'child' && 
+                                               !isNaN(age) && 
+                                               age >= 0 &&
+                                               age <= 1;
+                
+                const immunizationOption = $('#consultationType option[value="immunization"]');
+                
+                if (shouldShowImmunization) {
+                    immunizationOption.show();
+                    console.log('[Immunization] Showing immunization option - Age:', age, 'Relationship:', relationship);
+                } else {
+                    immunizationOption.hide();
+                    // If immunization is currently selected, clear the selection
+                    if ($('#consultationType').val() === 'immunization') {
+                        $('#consultationType').val('');
+                        // Clear time slots when consultation type changes
+                        $('#timeSlot').html('<option value="" selected disabled>Select date and consultation type first</option>');
+                        $('#selectedTimeDisplay').hide();
+                    }
+                    console.log('[Immunization] Hiding immunization option - BookingForOther:', isBookingForOther, 'Age:', age, 'Relationship:', relationship);
+                }
+            }
+            
+            // Hide immunization option initially
+            $('#consultationType option[value="immunization"]').hide();
+            
+            // Update immunization visibility when relevant fields change
+            $('#bookingForOther').on('change', updateImmunizationVisibility);
+            $('#relationship').on('change', updateImmunizationVisibility);
+            $('#birthday').on('change', updateImmunizationVisibility);
+            
+            // Initial check
+            updateImmunizationVisibility();
+            
+            // Auto-populate phone number and gender from user profile
+            const userPhoneNumber = '@Model.BookingModel.PhoneNumber';
+            if (userPhoneNumber && userPhoneNumber !== '') {
+                $('#phoneNumber').val(userPhoneNumber);
+            }
+            
+            // Auto-populate gender from user profile
+            const userGender = '@(Model.UserDetails?.Gender ?? "")';
+            if (userGender && userGender !== '') {
+                $('#gender').val(userGender);
+            }
+            
+            // Update fullName hidden field when firstName or lastName changes
+            function updateFullName() {
+                const firstName = $('#firstName').val().trim();
+                const lastName = $('#lastName').val().trim();
+                const fullName = (firstName + ' ' + lastName).trim();
+                $('#fullName').val(fullName);
+            }
+            
+            $('#firstName, #lastName').on('input', updateFullName);
+
+            // Handle 'Booking for someone else' checkbox
+            $('#bookingForOther').change(function() {
+                const isChecked = $(this).is(':checked');
+                $('#bookingForOtherHidden').val(isChecked ? 'true' : 'false');
+                
+                if (isChecked) {
+                    // Clear fields for new patient details
+                    $('#firstName').val('').prop('readonly', false);
+                    $('#lastName').val('').prop('readonly', false);
+                    $('#fullName').val('');
+                    $('#birthday').val('');
+                    $('#age').val(''); // Clear hidden age field
+                    $('#phoneNumber').val('').prop('readonly', false);
+                    $('#gender').val('').prop('readonly', false);
+                    $('#relationshipField').show();
+                    
+                    // Clear family number for dependent (they get their own family number)
+                    selectedFamilyNumber = null;
+                    $('#familyNumber').val('');
+                    $('#familyNumberSearch').val('').show();
+                    $('#familyNumberDisplay').hide();
+                    $('#noFamilyFound').hide();
+                    console.log('[Booking For Other] Cleared family number - showing search');
+                } else {
+                    // Restore original user details
+                    if (userDetails) {
+                        const nameParts = (userDetails.fullName || '').split(' ');
+                        if (nameParts.length >= 2) {
+                            $('#lastName').val(nameParts[nameParts.length - 1]);
+                            $('#firstName').val(nameParts.slice(0, -1).join(' '));
+                        } else if (nameParts.length === 1) {
+                            $('#lastName').val(nameParts[0]);
+                        }
+                        $('#fullName').val(userDetails.fullName);
+                        $('#age').val(userDetails.age);
+                        // Restore birthday by calculating from age
+                        calculateBirthdayFromAge(userDetails.age);
+                    }
+                    // Restore phone number
+                    const userPhoneNumber = '@Model.BookingModel.PhoneNumber';
+                    if (userPhoneNumber && userPhoneNumber !== '') {
+                        $('#phoneNumber').val(userPhoneNumber);
+                    }
+                    // Restore gender
+                    const userGender = '@(Model.UserDetails?.Gender ?? "")';
+                    if (userGender && userGender !== '') {
+                        $('#gender').val(userGender);
+                    }
+                    
+                    // Restore user's family number
+                    initializeFamilyNumber();
+                    console.log('[Booking For Other] Restored user family number state');
+                    
+                    $('#relationshipField').hide();
+                    // Clear relationship selection when unchecking
+                    $('#relationship').val('');
+                }
+                
+                // Update immunization visibility after changing booking mode
+                updateImmunizationVisibility();
+            });
+
+            // Age is now auto-calculated from birthday, no manual input needed
+
+            // Enforce digits-only and format for phone number; ensure starts with 09 and 11 digits
+            $('#phoneNumber').on('input', function(){
+                let v = $(this).val().replace(/[^0-9]/g, '');
+                if (v.length > 0 && !v.startsWith('09')) {
+                    v = '09' + v.replace(/^0+/, '').replace(/^9?/, '');
+                }
+                $(this).val(v.slice(0, 11));
+            });
+
+            // Handle birthday input changes to calculate age automatically
+            $('#birthday').on('change', function() {
+                const birthday = new Date($(this).val());
+                if (!isNaN(birthday.getTime())) {
+                    const today = new Date();
+                    let age = today.getFullYear() - birthday.getFullYear();
+                    const monthDiff = today.getMonth() - birthday.getMonth();
+                    
+                    // Adjust age if birthday hasn't occurred yet this year
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthday.getDate())) {
+                        age--;
+                    }
+                    
+                    // Update hidden age field
+                    $('#age').val(age);
+                    console.log('[BookAppointment] Auto-calculated age from birthday:', age);
+                    
+                    // Trigger immunization visibility check
+                    updateImmunizationVisibility();
+                }
+            });
+
+            // Date selection - Load available doctors
+            $('#appointmentDate').on('change', function() {
+                const selectedDate = $(this).val();
+                const validationMessage = $('#dateValidationMessage');
+                
+                // Clear validation
+                validationMessage.text('');
+                $(this).removeClass('is-invalid');
+                
+                // Load available doctors for the selected date
+                loadAvailableDoctors(selectedDate);
+            });
+            
+            // Function to load available doctors based on selected date
+            function loadAvailableDoctors(selectedDate) {
+                const doctorHiddenInput = $('#DoctorId');
+                const doctorBanner = $('#doctorAvailabilityBanner');
+                const doctorInfoMessage = $('#doctorInfoMessage');
+                const doctorsListContainer = $('#doctorsListContainer');
+                const assignedDoctorsList = $('#assignedDoctorsList');
+                
+                if (!selectedDate) {
+                    doctorHiddenInput.val('');
+                    doctorBanner.hide();
+                    assignedDoctorsList.hide();
+                    doctorInfoMessage.text('Available doctor(s) will appear after selecting a date.');
+                    return;
+                }
+                
+                // Show loading state
+                doctorBanner.show();
+                $('#doctorAvailabilityText').text('Loading available doctors...');
+                $('#doctorCountBadge').text('...');
+                assignedDoctorsList.hide();
+                doctorsListContainer.empty();
+                
+                console.log('[BookAppointment] Fetching available doctors for date:', selectedDate);
+                
+                // Fetch available doctors from API
+                $.ajax({
+                    url: `/api/appointment-slots/available-doctors?date=${selectedDate}`,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('[Doctors API] Response:', response);
+                        
+                        if (!response.success || !response.doctors || response.doctors.length === 0) {
+                            // No doctors available
+                            doctorHiddenInput.val('');
+                            doctorBanner.removeClass('alert-info alert-success').addClass('alert-warning');
+                            $('#doctorAvailabilityText').html(`<i class="fa-solid fa-exclamation-triangle me-2"></i>${response.message || 'No doctors available'}`);
+                            $('#doctorCountBadge').text('0');
+                            doctorInfoMessage.removeClass('text-muted').addClass('text-danger')
+                                .html(`<i class="fa-solid fa-exclamation-triangle me-2"></i>${response.message || 'No doctors are available on this date. Please select another day.'}`);
+                            assignedDoctorsList.hide();
+                            
+                            // Clear time slots as well
+                            $('#timeSlot').html('<option value="" selected disabled>No doctors available</option>');
+                            $('#slotAvailabilityBanner').hide();
+                            return;
+                        }
+                        
+                        // Display doctors in a list
+                        const count = response.doctors.length;
+                        doctorsListContainer.empty();
+                        
+                        $.each(response.doctors, function(index, doctor) {
+                            const listItem = `
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fa-solid fa-user-doctor me-2"></i>${doctor.doctorName}</h6>
+                                            <small class="text-muted"><i class="fa-solid fa-clock me-1"></i>${doctor.workingHours}</small>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill">Available</span>
+                                    </div>
+                                </div>
+                            `;
+                            doctorsListContainer.append(listItem);
+                        });
+                        
+                        // Show doctors list
+                        assignedDoctorsList.show();
+                        
+                        // Update banner
+                        doctorBanner.removeClass('alert-warning alert-info').addClass('alert-success');
+                        $('#doctorAvailabilityText').html(`<i class="fa-solid fa-check-circle me-2"></i>${count} doctor${count > 1 ? 's' : ''} available on this date`);
+                        $('#doctorCountBadge').text(count);
+                        
+                        doctorInfoMessage.removeClass('text-danger').addClass('text-success')
+                            .html(`<i class="fa-solid fa-check-circle me-2"></i>${count} doctor${count > 1 ? 's' : ''} assigned to this date`);
+                        
+                        // Auto-select the first doctor (for time slot loading)
+                        const firstDoctor = response.doctors[0];
+                        doctorHiddenInput.val(firstDoctor.doctorId);
+                        
+                        console.log('[BookAppointment] Auto-selected doctor:', firstDoctor.doctorName, 'ID:', firstDoctor.doctorId);
+                        console.log('[BookAppointment] Doctor ID set in hidden input:', doctorHiddenInput.val());
+                        console.log('[BookAppointment] Loaded', count, 'available doctors');
+                        
+                        // Trigger time slots update if consultation type is already selected
+                        const consultationType = $('#consultationType').val();
+                        console.log('[BookAppointment] Current consultation type:', consultationType);
+                        
+                        if (consultationType) {
+                            console.log('[BookAppointment] Consultation type already selected, loading time slots...');
+                            updateTimeSlots();
+                        } else {
+                            console.log('[BookAppointment] Waiting for consultation type to be selected before loading time slots');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[Doctors API] Error:', error);
+                        doctorHiddenInput.val('');
+                        doctorBanner.removeClass('alert-info alert-success').addClass('alert-danger');
+                        $('#doctorAvailabilityText').html('<i class="fa-solid fa-exclamation-circle me-2"></i>Error loading doctors');
+                        $('#doctorCountBadge').text('!');
+                        doctorInfoMessage.removeClass('text-muted').addClass('text-danger')
+                            .text('Error loading doctors. Please try again.');
+                        assignedDoctorsList.hide();
+                    }
+                });
+            }
+            
+            // Function to update available time slots based on date and consultation type
+            function updateTimeSlots() {
+                const selectedDate = $('#appointmentDate').val();
+                const consultationType = $('#consultationType').val();
+                const doctorId = $('#DoctorId').val();
+                const timeSlotSelect = $('#timeSlot');
+                const previouslySelectedTime = $('#selectedTimeText').text();
+                
+                console.log('[BookAppointment] updateTimeSlots called with:', {
+                    selectedDate: selectedDate,
+                    consultationType: consultationType,
+                    doctorId: doctorId
+                });
+                
+                if (!selectedDate || !consultationType || !doctorId) {
+                    console.log('[BookAppointment] Missing required fields:', {
+                        selectedDate: selectedDate,
+                        consultationType: consultationType,
+                        doctorId: doctorId
+                    });
+                    timeSlotSelect.html('<option value="" selected disabled>Select date and consultation type first</option>');
+                    $('#timeSlotMessage').removeClass('text-danger').addClass('text-muted')
+                        .text('Please select date and consultation type to see available time slots');
+                    $('#selectedTimeDisplay').hide();
+                    $('#slotAvailabilityBanner').hide();
+                    return;
+                }
+                
+                console.log(`[BookAppointment] Fetching time slots for doctor ${doctorId}, date ${selectedDate}, type: ${consultationType}`);
+                
+                // Show loading state
+                timeSlotSelect.html('<option>Loading...</option>');
+                $('#slotAvailabilityBanner').show();
+                $('#slotAvailabilityText').text('Loading slots...');
+                
+                // Fetch available time slots via NEW API endpoint
+                $.ajax({
+                    url: `/api/appointment-slots/available?doctorId=${doctorId}&date=${selectedDate}&consultationType=${consultationType}`,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('[Slots API] Response:', response);
+                        timeSlotSelect.empty();
+                        
+                        if (!response.success) {
+                            // Handle errors (weekend, not available, etc.)
+                            timeSlotSelect.append('<option value="">Not available</option>');
+                            $('#timeSlotMessage').removeClass('text-muted').addClass('text-danger')
+                                .html(`<i class="fa-solid fa-exclamation-triangle me-2"></i><strong>${response.message}</strong>`);
+                            $('#selectedTimeDisplay').hide();
+                            
+                            // Update availability banner for error state
+                            $('#slotAvailabilityBanner').removeClass('alert-info alert-success').addClass('alert-warning');
+                            $('#slotAvailabilityText').text(response.message);
+                            $('#slotAvailabilityBadge').text('N/A');
+                            $('#slotAvailabilityProgress').css('width', '0%').removeClass('bg-success bg-warning').addClass('bg-secondary');
+                            return;
+                        }
+                        
+                        // Update slot availability banner
+                        const availableCount = response.availableSlots;
+                        const totalSlots = response.totalSlots;
+                        const bookedCount = response.bookedSlots;
+                        const percentAvailable = totalSlots > 0 ? (availableCount / totalSlots) * 100 : 0;
+                        
+                        $('#slotAvailabilityBanner').removeClass('alert-warning').addClass('alert-info');
+                        $('#slotAvailabilityText').text(`${availableCount} of ${totalSlots} slots available`);
+                        $('#slotAvailabilityBadge').text(`${availableCount}/${totalSlots}`);
+                        
+                        // Update progress bar
+                        if (response.isFullyBooked || availableCount === 0) {
+                            $('#slotAvailabilityProgress').css('width', '100%').removeClass('bg-primary bg-warning').addClass('bg-danger');
+                            $('#slotAvailabilityBanner').removeClass('alert-info').addClass('alert-danger');
+                            $('#slotAvailabilityText').html('<i class="fa-solid fa-exclamation-circle me-2"></i>Fully Booked');
+                        } else if (percentAvailable > 50) {
+                            $('#slotAvailabilityProgress').css('width', percentAvailable + '%').removeClass('bg-danger bg-warning').addClass('bg-success');
+                        } else if (percentAvailable > 25) {
+                            $('#slotAvailabilityProgress').css('width', percentAvailable + '%').removeClass('bg-danger bg-success').addClass('bg-warning');
+                        } else {
+                            $('#slotAvailabilityProgress').css('width', percentAvailable + '%').removeClass('bg-success bg-warning').addClass('bg-danger');
+                        }
+                        
+                        // Populate time slots
+                        if (response.slots && response.slots.length > 0) {
+                            // Only show available slots in dropdown
+                            const availableSlots = response.slots.filter(slot => slot.isAvailable);
+                            
+                            if (availableSlots.length > 0) {
+                                $.each(availableSlots, function(index, slot) {
+                                    timeSlotSelect.append($('<option>', {
+                                        value: slot.timeRange,
+                                        text: slot.timeRange + (slot.isBooked ? ' (Booked)' : '')
+                                    }));
+                                });
+                                timeSlotSelect.prop('disabled', false);
+                                $('#timeSlotMessage').removeClass('text-danger').addClass('text-success')
+                                    .html(`<i class="fa-solid fa-check-circle me-2"></i>${availableSlots.length} time slots available. Please select one.`);
+                                
+                                // If there was a previously selected time and it's still available, restore it
+                                if (previouslySelectedTime) {
+                                    const matchingSlot = availableSlots.find(s => s.timeRange === previouslySelectedTime);
+                                    if (matchingSlot) {
+                                        timeSlotSelect.val(previouslySelectedTime);
+                                        $('#selectedTimeText').text(previouslySelectedTime);
+                                        $('#selectedTimeDisplay').show();
+                                    }
+                                }
+                            } else {
+                                timeSlotSelect.append('<option value="">All slots booked</option>');
+                                $('#timeSlotMessage').removeClass('text-muted').addClass('text-danger')
+                                    .html('<i class="fa-solid fa-calendar-xmark me-2"></i><strong>All time slots are booked for this date.</strong> Please select a different date.');
+                                $('#selectedTimeDisplay').hide();
+                            }
+                        } else {
+                            timeSlotSelect.append('<option value="">No time slots generated</option>');
+                            $('#timeSlotMessage').removeClass('text-muted').addClass('text-warning')
+                                .html('<i class="fa-solid fa-info-circle me-2"></i>No time slots available for this date and consultation type.');
+                            $('#selectedTimeDisplay').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[BookAppointment] AJAX Error:', {
+                            status: status,
+                            error: error,
+                            responseText: xhr.responseText
+                        });
+                        timeSlotSelect.html('<option value="">Error loading time slots</option>');
+                        $('#timeSlotMessage').removeClass('text-muted').addClass('text-danger')
+                            .html('<i class="fa-solid fa-exclamation-triangle me-2"></i><strong>Error loading time slots.</strong> Please try again or contact support if the problem persists.');
+                        $('#selectedTimeDisplay').hide();
+                        $('#slotAvailabilityBanner').removeClass('alert-info').addClass('alert-danger');
+                        $('#slotAvailabilityText').text('Error loading slots');
+                    }
+                });
+            }
+            
+            // Format time to 12-hour format with AM/PM
+            function formatTime(hour, minute) {
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+            }
+            
+            // Helper function to get display name for consultation type
+            function getConsultationTypeDisplay(consultationType) {
+                switch(consultationType) {
+                    case 'general consult':
+                        return 'General Consult';
+                    case 'dental':
+                        return 'Dental';
+                    case 'immunization':
+                        return 'Immunization';
+                    case 'prenatal & family planning':
+                        return 'Prenatal & Family Planning';
+                    case 'dots consult':
+                        return 'DOTS Consult';
+                    default:
+                        return consultationType;
+                }
+            }
+            
+            // Event listener for birth date changes to update forms
+            $('#dateOfBirth, #birthDate').on('change', function() {
+                console.log('[BookAppointment] Birth date changed, updating forms');
+                updateAvailableForms();
+            });
+            
+            // Function to update available forms based on consultation type and age
+            function updateAvailableForms() {
+                const consultationType = $('#consultationType').val();
+                const dobInput = $('#dateOfBirth').val() || $('#birthDate').val();
+                
+                if (!consultationType) {
+                    $('#dynamicFormsContainer').hide();
+                    return;
+                }
+                
+                // Calculate age from DOB
+                let age = 0;
+                if (dobInput) {
+                    const birthDate = new Date(dobInput);
+                    const today = new Date();
+                    age = today.getFullYear() - birthDate.getFullYear();
+                    const monthDiff = today.getMonth() - birthDate.getMonth();
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                    }
+                }
+                
+                console.log('[UpdateForms] Fetching forms for:', { consultationType, age });
+                
+                // Call API to get available forms
+                $.ajax({
+                    url: `/BookAppointment?handler=GetAvailableFormsForAge&age=${age}&consultationType=${encodeURIComponent(consultationType)}`,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('[UpdateForms] Forms received:', response);
+                        
+                        if (response.forms && response.forms.length > 0) {
+                            // Update forms list
+                            const formsList = $('#dynamicFormsList');
+                            formsList.empty();
+                            
+                            response.forms.forEach(function(form) {
+                                let ageInfo = '';
+                                if (form.minAge && form.maxAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages ${form.minAge} - ${form.maxAge})</small>`;
+                                } else if (form.minAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages ${form.minAge}+)</small>`;
+                                } else if (form.maxAge) {
+                                    ageInfo = ` <small class="text-muted">(Ages up to ${form.maxAge})</small>`;
+                                }
+                                
+                                const icon = form.iconClass || 'fa-solid fa-file-medical';
+                                formsList.append(`
+                                    <li>
+                                        <i class="${icon} me-1" style="width: 20px;"></i>
+                                        <strong>${form.formName}</strong>${ageInfo}
+                                    </li>
+                                `);
+                            });
+                            
+                            $('#dynamicFormsContainer').show();
+                        } else {
+                            $('#dynamicFormsContainer').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[UpdateForms] Error fetching forms:', error);
+                        $('#dynamicFormsContainer').hide();
+                    }
+                });
+            }
+            
+            // Event listener for consultation type changes
+            $('#consultationType').on('change', function() {
+                const selectedType = $(this).val();
+                const doctorId = $('#DoctorId').val();
+                const selectedDate = $('#appointmentDate').val();
+                
+                console.log('[BookAppointment] Consultation type changed to:', selectedType);
+                console.log('[BookAppointment] Current doctor ID:', doctorId);
+                console.log('[BookAppointment] Current date:', selectedDate);
+                
+                updateTimeSlots();
+                updateAvailableForms(); // Update forms based on selected service
+                
+                // Show family number section for ALL consultation types (now using dynamic forms)
+                const hasFamilyNumber = $('#hasFamilyNumber').val();
+                
+                $('#familyNumberSection').show();
+                
+                // Check if booking for someone else
+                const isBookingForOther = $('#bookingForOther').is(':checked');
+                
+                if (isBookingForOther) {
+                    // Clear for dependents - show search
+                    selectedFamilyNumber = null;
+                    $('#familyNumber').val('');
+                    $('#familyNumberSearch').val('').show();
+                    $('#familyNumberDisplay').hide();
+                    $('#noFamilyFound').hide();
+                    console.log('[Consultation Change] Booking for other - showing search');
+                } else {
+                    // If booking for self, initialize with user's family number if exists
+                    initializeFamilyNumber();
+                    console.log('[Consultation Change] Initialized family number for user');
+                }
+            });
+            
+            // ========================================
+            // Family Number Search and Generation Functions
+            // ========================================
+            
+            // Initialize family number if user already has one
+            const initializeFamilyNumber = function() {
+                const hasFamilyNumber = $('#hasFamilyNumber').val();
+                const isBookingForOther = $('#bookingForOther').is(':checked');
+                
+                if (!isBookingForOther && hasFamilyNumber && hasFamilyNumber.trim() !== '') {
+                    $('#familyNumber').val(hasFamilyNumber);
+                    $('#selectedFamilyNumber').text(hasFamilyNumber);
+                    $('#familyNumberSearch').hide();
+                    $('#familyNumberDisplay').show();
+                    $('#noFamilyFound').hide();
+                    selectedFamilyNumber = hasFamilyNumber;
+                    console.log('[Family Number] Auto-filled user family number:', hasFamilyNumber);
+                }
+            };
+            
+            // Family number search with debounce
+            $('#familyNumberSearch').on('input', function() {
+                const searchTerm = $(this).val().trim();
+                
+                clearTimeout(searchTimeout);
+                
+                if (searchTerm.length < 2) {
+                    $('#familySearchResults').removeClass('show').empty();
+                    $('#noFamilyFound').hide();
+                    return;
+                }
+                
+                searchTimeout = setTimeout(function() {
+                    // Search for family members
+                    $.ajax({
+                        url: '?handler=SearchFamilyMembers',
+                        type: 'GET',
+                        data: { searchTerm: searchTerm },
+                        success: function(response) {
+                            if (response.success && response.familyGroups && response.familyGroups.length > 0) {
+                                displaySearchResults(response.familyGroups);
+                                $('#noFamilyFound').hide();
+                            } else {
+                                $('#familySearchResults').removeClass('show').empty();
+                                $('#noFamilyFound').show();
+                            }
+                        },
+                        error: function() {
+                            console.error('Error searching family members');
+                            $('#familySearchResults').removeClass('show').empty();
+                        }
+                    });
+                }, 300); // Debounce 300ms
+            });
+            
+            // Display search results grouped by family (last name)
+            function displaySearchResults(familyGroups) {
+                const $results = $('#familySearchResults');
+                $results.empty();
+                
+                familyGroups.forEach(function(familyGroup) {
+                    // Capitalize last name for display
+                    const lastNameDisplay = familyGroup.lastName 
+                        ? familyGroup.lastName.charAt(0).toUpperCase() + familyGroup.lastName.slice(1)
+                        : 'Family';
+                    
+                    // Family group header
+                    const $groupItem = $('<div>').addClass('dropdown-item-text border-bottom pb-2 mb-2');
+                    $groupItem.html(`
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong class="text-primary">
+                                    <i class="fas fa-users me-1"></i>Family ${lastNameDisplay}
+                                </strong>
+                                <br>
+                                <small class="text-muted">${familyGroup.memberCount} member(s)</small>
+                            </div>
+                        </div>
+                    `);
+                    $results.append($groupItem);
+                    
+                    // Family members list
+                    familyGroup.members.forEach(function(member) {
+                        const $item = $('<a>').addClass('dropdown-item').attr('href', '#');
+                        $item.css({
+                            'padding-left': '2rem',
+                            'border-left': '3px solid #FF6600'
+                        });
+                        $item.html(`
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${member.fullName}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user-circle me-1"></i>${member.familyNumber}
+                                    </small>
+                                </div>
+                                ${member.relationship ? `<span class="badge bg-secondary">${member.relationship}</span>` : ''}
+                            </div>
+                        `);
+                        
+                        $item.on('click', function(e) {
+                            e.preventDefault();
+                            selectFamilyNumber(member.familyNumber, member.fullName);
+                        });
+                        
+                        $results.append($item);
+                    });
+                });
+                
+                $results.addClass('show');
+            }
+            
+            // Select a family number from search results
+            function selectFamilyNumber(familyNumber, memberName) {
+                selectedFamilyNumber = familyNumber;
+                $('#familyNumber').val(familyNumber);
+                $('#selectedFamilyNumber').text(familyNumber);
+                $('#familyNumberSearch').val('').hide();
+                $('#familySearchResults').removeClass('show').empty();
+                $('#familyNumberDisplay').show();
+                $('#noFamilyFound').hide();
+                
+                Swal.fire({
+                    title: 'Family Number Selected',
+                    text: `Using family number ${familyNumber} (from ${memberName})`,
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+            
+            // Clear/Change family number
+            $('#clearFamilyNumber').on('click', function() {
+                selectedFamilyNumber = null;
+                $('#familyNumber').val('');
+                $('#familyNumberSearch').val('').show();
+                $('#familyNumberDisplay').hide();
+                $('#noFamilyFound').hide();
+                $('#familyNumberSearch').focus();
+            });
+            
+            // Generate new family number
+            $('#generateNewFamilyNumberBtn').on('click', function() {
+                const lastName = $('#lastName').val();
+                const firstName = $('#firstName').val();
+                
+                if (!lastName) {
+                    Swal.fire({
+                        title: 'Last Name Required',
+                        text: 'Please enter the last name before generating a family number.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#FF6600'
+                    });
+                    return;
+                }
+                
+                // Show loading state
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generating...');
+                
+                // Call API to generate new family number
+                $.ajax({
+                    url: '?handler=GenerateNewFamilyNumber',
+                    type: 'POST',
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    contentType: 'application/json',
+                    data: JSON.stringify({ 
+                        lastName: lastName,
+                        firstName: firstName 
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            selectedFamilyNumber = response.familyNumber;
+                            $('#familyNumber').val(response.familyNumber);
+                            $('#hasFamilyNumber').val(response.familyNumber);
+                            $('#selectedFamilyNumber').text(response.familyNumber);
+                            $('#familyNumberSearch').hide();
+                            $('#familyNumberDisplay').show();
+                            $('#noFamilyFound').hide();
+                            
+                            Swal.fire({
+                                title: 'Family Number Generated',
+                                text: `New family number ${response.familyNumber} has been created and assigned.`,
+                                icon: 'success',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#FF6600'
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: response.error || 'Failed to generate family number.',
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#dc3545'
+                            });
+                            $('#generateNewFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate New Family Number');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error generating family number:', error);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'An error occurred while generating the family number.',
+                            icon: 'error',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#dc3545'
+                        });
+                        $('#generateNewFamilyNumberBtn').prop('disabled', false).html('<i class="fas fa-plus-circle me-1"></i>Generate New Family Number');
+                    }
+                });
+            });
+            
+            // Close dropdown when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#familyNumberSection').length) {
+                    $('#familySearchResults').removeClass('show');
+                }
+            });
+            
+            // Call initialization when family number section becomes visible
+            const originalCheckVisibility = checkFamilyNumberVisibility;
+            checkFamilyNumberVisibility = function() {
+                originalCheckVisibility();
+                if ($('#familyNumberSection').is(':visible')) {
+                    initializeFamilyNumber();
+                }
+            };
+            
+            // Initialize time slots if date and consultation type are already selected
+            // FIXED: Removed nested $(document).ready() - we're already inside one!
+            console.log('[BookAppointment] Checking for pre-filled values');
+            
+            // Always try to get doctor ID first, regardless of what's in the hidden field
+            console.log('[BookAppointment] Attempting to get doctor ID from server');
+            $.ajax({
+                url: '?handler=GetDefaultDoctor',
+                type: 'GET',
+                success: function(data) {
+                    console.log('[BookAppointment] GetDefaultDoctor response:', data);
+                    if (data && data.doctorId && data.doctorId !== '') {
+                        $('#DoctorId').val(data.doctorId);
+                        console.log('[BookAppointment] Set DoctorId to:', data.doctorId);
+                        
+                        // Now check if we can load time slots
+                        const selectedDate = $('#appointmentDate').val();
+                        const consultationType = $('#consultationType').val();
+                        
+                        console.log('[BookAppointment] Checking conditions:', {
+                            selectedDate: selectedDate,
+                            consultationType: consultationType,
+                            doctorId: data.doctorId
+                        });
+                        
+                        if (selectedDate && consultationType) {
+                            console.log('[BookAppointment] All conditions met, loading time slots');
+                            updateTimeSlots();
+                        } else {
+                            console.log('[BookAppointment] Missing date or consultation type, time slots will load when both are selected');
+                        }
+                    } else {
+                        console.error('[BookAppointment] No doctor ID available from server:', data);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('[BookAppointment] Failed to get doctor ID from server:', error);
+                }
+            });
+            
+            // Event listener for time slot selection
+            $('#timeSlot').on('change', function() {
+                const selectedTime = $(this).val();
+                // Sync hidden field when time slot changes
+                if (selectedTime && selectedTime !== '' && selectedTime !== 'Select date and consultation type first') {
+                    $('#hiddenTimeSlot').val(selectedTime);
+                    $('#selectedTimeText').text(selectedTime);
+                    $('#selectedTimeDisplay').show();
+                    $('#timeSlotMessage').removeClass('text-danger').addClass('text-muted')
+                        .text('Please select a time slot');
+                    $(this).removeClass('is-invalid');
+                } else {
+                    $('#hiddenTimeSlot').val('');
+                    $('#selectedTimeDisplay').hide();
+                }
+            });
+            
+            // Restore form data from session storage if available
+            function restoreFormData() {
+                try {
+                    const savedData = sessionStorage.getItem('appointmentFormData');
+                    if (savedData) {
+                        const formData = JSON.parse(savedData);
+                        
+                        // Restore form fields
+                        if (formData.appointmentDate) {
+                            $('#appointmentDate').val(formData.appointmentDate);
+                        }
+                        if (formData.consultationType) {
+                            $('#consultationType').val(formData.consultationType);
+                        }
+                        if (formData.timeSlot) {
+                            // Set the time slot and show the selected time display
+                            $('#timeSlot').val(formData.timeSlot);
+                            $('#selectedTimeText').text(formData.timeSlot);
+                            $('#selectedTimeDisplay').show();
+                        }
+                        if (formData.reasonForVisit) {
+                            $('#reasonForVisit').val(formData.reasonForVisit);
+                        }
+                        
+                        console.log('[BookAppointment] Form data restored from session storage');
+                    }
+                } catch (error) {
+                    console.error('[BookAppointment] Error restoring form data:', error);
+                }
+            }
+            
+            // Restore form data on page load
+            restoreFormData();
+            
+            // Handle Next button click
+            console.log('[BookAppointment] Attaching click handler to submit button');
+            const submitButton = $('#toStep2Button');
+            console.log('[BookAppointment] Submit button found:', submitButton.length > 0);
+            
+            $('#toStep2Button').on('click', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                e.stopPropagation(); // Stop event bubbling
+                
+                console.log('[BookAppointment] ===== SUBMIT BUTTON CLICKED =====');
+                
+                // Prevent multiple clicks
+                const $button = $(this);
+                if ($button.prop('disabled')) {
+                    console.log('[BookAppointment] Button already disabled, ignoring click');
+                    return false;
+                }
+                
+                // Disable button immediately to prevent double-clicks
+                $button.prop('disabled', true);
+                
+                try {
+                    // Synchronize form values with model properties
+                    const appointmentDate = $('#appointmentDate').val();
+                    const timeSlot = $('#timeSlot').val();
+                    const consultationType = $('#consultationType').val();
+                    
+                    $('#hiddenAppointmentDate').val(appointmentDate);
+                    $('#hiddenTimeSlot').val(timeSlot);
+                    $('#hiddenConsultationType').val(consultationType);
+                    
+                    console.log('[BookAppointment] Synced values - Date:', appointmentDate, 'Time:', timeSlot, 'Type:', consultationType);
+                
+                // Ensure checkbox state is properly set before getting form data
+                const isBookingForOther = $('#bookingForOther').is(':checked');
+                $('#bookingForOtherHidden').val(isBookingForOther ? 'true' : 'false');
+                
+                // Get form data
+                const formData = {
+                    fullName: $('#fullName').val(),
+                    age: $('#age').val(),
+                    birthday: $('#birthday').val(),
+                    phoneNumber: $('#phoneNumber').val(),
+                    gender: $('#gender').val(),
+                    appointmentDate: $('#appointmentDate').val(),
+                    consultationType: $('#consultationType').val(),
+                    timeSlot: $('#timeSlot').val(),
+                    reasonForVisit: $('#reasonForVisit').val(),
+                    bookingForOther: isBookingForOther ? 'true' : 'false',
+                    bookingForOtherHidden: $('#bookingForOtherHidden').val(),
+                    relationship: $('#relationship').val()
+                };
+                
+                console.log('[BookAppointment] Form data:', formData);
+                console.log('[BookAppointment] ===== BOOKING FOR OTHER DEBUG =====');
+                console.log('[BookAppointment] Checkbox is checked:', $('#bookingForOther').is(':checked'));
+                console.log('[BookAppointment] Checkbox value:', $('#bookingForOther').val());
+                console.log('[BookAppointment] Checkbox prop checked:', $('#bookingForOther').prop('checked'));
+                console.log('[BookAppointment] Hidden field value:', $('#bookingForOtherHidden').val());
+                console.log('[BookAppointment] Full name value:', $('#fullName').val());
+                console.log('[BookAppointment] Age value:', $('#age').val());
+                console.log('[BookAppointment] Birthday value:', $('#birthday').val());
+                console.log('[BookAppointment] Relationship value:', $('#relationship').val());
+                console.log('[BookAppointment] ===== END BOOKING DEBUG =====');
+                
+                // Validate required fields
+                let isValid = true;
+                const requiredFields = $('#step1').find('[required]');
+                
+                console.log('[BookAppointment] Validating required fields...');
+                requiredFields.each(function() {
+                    if (!$(this).val()) {
+                        $(this).addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field:', $(this).attr('name'));
+                    } else {
+                        $(this).removeClass('is-invalid');
+                        console.log('[BookAppointment] Valid field:', $(this).attr('name'), '=', $(this).val());
+                    }
+                });
+                
+                // Validate birthday field (required)
+                const birthday = $('#birthday').val();
+                if (!birthday || birthday.trim() === '') {
+                    $('#birthday').addClass('is-invalid');
+                    isValid = false;
+                    console.warn('[BookAppointment] Invalid field: birthday is required');
+                } else {
+                    $('#birthday').removeClass('is-invalid');
+                    console.log('[BookAppointment] Valid birthday:', birthday);
+                    
+                    // Auto-calculate age from birthday
+                    const birthdayDate = new Date(birthday);
+                    if (!isNaN(birthdayDate.getTime())) {
+                        const today = new Date();
+                        let age = today.getFullYear() - birthdayDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthdayDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdayDate.getDate())) {
+                            age--;
+                        }
+                        $('#age').val(age);
+                        console.log('[BookAppointment] Calculated age from birthday:', age);
+                    }
+                }
+
+                // Additional validation for relationship field when booking for someone else
+                if ($('#bookingForOther').is(':checked') && !$('#relationship').val()) {
+                    $('#relationship').addClass('is-invalid');
+                    isValid = false;
+                    console.warn('[BookAppointment] Invalid field: relationship');
+                }
+                
+                // Additional validation for patient details when booking for someone else
+                if ($('#bookingForOther').is(':checked')) {
+                    if (!$('#firstName').val() || $('#firstName').val().trim() === '') {
+                        $('#firstName').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: firstName when booking for other');
+                    }
+                    if (!$('#lastName').val() || $('#lastName').val().trim() === '') {
+                        $('#lastName').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: lastName when booking for other');
+                    }
+                    if (!$('#birthday').val() || $('#birthday').val().trim() === '') {
+                        $('#birthday').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: birthday when booking for other');
+                    }
+                    if (!$('#phoneNumber').val() || $('#phoneNumber').val().trim() === '') {
+                        $('#phoneNumber').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: phoneNumber when booking for other');
+                    }
+                    if (!$('#gender').val() || $('#gender').val().trim() === '') {
+                        $('#gender').addClass('is-invalid');
+                        isValid = false;
+                        console.warn('[BookAppointment] Invalid field: gender when booking for other');
+                    }
+                }
+                
+                // Always validate gender field
+                const gender = $('#gender').val();
+                if (!gender || gender.trim() === '') {
+                    $('#gender').addClass('is-invalid');
+                    isValid = false;
+                    console.warn('[BookAppointment] Invalid field: gender not selected');
+                } else {
+                    $('#gender').removeClass('is-invalid');
+                    console.log('[BookAppointment] Valid field: gender =', gender);
+                }
+                
+                // Always validate phone number regardless of booking for other
+                const phoneNumber = $('#phoneNumber').val();
+                const phonePattern = /^09[0-9]{9}$/;
+                if (!phoneNumber || phoneNumber.trim() === '' || !phonePattern.test(phoneNumber)) {
+                    $('#phoneNumber').addClass('is-invalid');
+                    isValid = false;
+                    console.warn('[BookAppointment] Invalid field: phoneNumber - invalid format:', phoneNumber);
+                } else {
+                    $('#phoneNumber').removeClass('is-invalid');
+                    console.log('[BookAppointment] Valid field: phoneNumber =', phoneNumber);
+                }
+
+                // Profanity filter for reason for visit (basic EN/TL list)
+                const reason = $('#reasonForConsultation').val() || '';
+                const badWords = [
+                    'fuck','shit','bitch','asshole','bastard','damn',
+                    'puta','putang ina','pakyu','ulol','gago','tarantado','tangina'
+                ];
+                const containsBadWord = badWords.some(w => {
+                    const escaped = w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const pattern = new RegExp(`(^|\\b)${escaped}(\\b|$)`, 'i');
+                    return pattern.test(reason);
+                });
+                if (containsBadWord) {
+                    $('#reasonForConsultation').addClass('is-invalid');
+                    isValid = false;
+                    // Re-enable button since validation failed
+                    $button.prop('disabled', false);
+                    Swal.fire({
+                        title: 'Inappropriate Language',
+                        text: 'Please remove inappropriate language from the Reason for Consultation.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ffc107'
+                    });
+                } else {
+                    $('#reasonForConsultation').removeClass('is-invalid');
+                }
+                
+                // Always validate time slot - check both the select and ensure hidden field is synced
+                const timeSlotSelect = $('#timeSlot');
+                // Reuse timeSlot variable declared earlier in this function scope
+                const currentTimeSlot = timeSlotSelect.val();
+                const selectedOption = timeSlotSelect.find('option:selected');
+                
+                console.log('[BookAppointment] Time slot validation - Raw value:', currentTimeSlot, 'Option disabled:', selectedOption.prop('disabled'), 'Option text:', selectedOption.text());
+                
+                // Update hidden field before validation
+                if (currentTimeSlot && currentTimeSlot.trim() !== '') {
+                    $('#hiddenTimeSlot').val(currentTimeSlot);
+                }
+                
+                // Validate time slot - must have a valid non-empty value that's not a placeholder
+                const placeholderTexts = [
+                    'Select date and consultation type first',
+                    'No available time slots',
+                    'Loading...',
+                    'Error loading time slots',
+                    'Select date and consultation type first',
+                    ''
+                ];
+                
+                const isPlaceholderText = !currentTimeSlot || 
+                                         currentTimeSlot.trim() === '' || 
+                                         placeholderTexts.includes(currentTimeSlot.trim()) ||
+                                         selectedOption.prop('disabled') ||
+                                         selectedOption.val() === '' ||
+                                         selectedOption.val() === null;
+                
+                // Also check if it looks like a valid time format (supports both single time and time range)
+                // Accepts formats: "8:00 AM" OR "8:00 AM - 8:06 AM"
+                const looksLikeTime = currentTimeSlot && /^(\d{1,2}):(\d{2})\s*(AM|PM)(\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM))?$/i.test(currentTimeSlot.trim());
+                
+                const isValidTimeSlot = currentTimeSlot && 
+                                       currentTimeSlot.trim() !== '' && 
+                                       !isPlaceholderText &&
+                                       looksLikeTime;
+                
+                if (!isValidTimeSlot) {
+                    timeSlotSelect.addClass('is-invalid');
+                    $('#timeSlotMessage').removeClass('text-muted').addClass('text-danger')
+                        .html('<strong>Please select a time slot.</strong>');
+                    isValid = false;
+                    console.warn('[BookAppointment] Invalid field: timeSlot - not selected, value:', currentTimeSlot, 'disabled:', selectedOption.prop('disabled'), 'looksLikeTime:', looksLikeTime);
+                } else {
+                    timeSlotSelect.removeClass('is-invalid');
+                    $('#timeSlotMessage').removeClass('text-danger').addClass('text-muted')
+                        .text('Please select a time slot');
+                    console.log('[BookAppointment] Valid field: timeSlot =', currentTimeSlot);
+                }
+                
+                if (!isValid) {
+                    console.error('[BookAppointment] Validation failed - cannot proceed to step 2');
+                    
+                    // Re-enable button since validation failed
+                    $button.prop('disabled', false);
+                    
+                    // Collect invalid field names for better error message
+                    const invalidFields = [];
+                    $('#step1').find('.is-invalid').each(function() {
+                        const label = $('label[for="' + $(this).attr('id') + '"]').text();
+                        if (label) {
+                            invalidFields.push(label.replace('*', '').trim());
+                        } else {
+                            invalidFields.push($(this).attr('name') || $(this).attr('id') || 'Unknown field');
+                        }
+                    });
+                    
+                    const errorMessage = invalidFields.length > 0
+                        ? 'Please check the following fields:\n• ' + invalidFields.join('\n• ')
+                        : 'Please fill in all required fields before proceeding.';
+                    
+                    Swal.fire({
+                        title: 'Validation Error',
+                        html: errorMessage.replace(/\n/g, '<br>'),
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ff8c42',
+                        customClass: {
+                            popup: 'swal-wide'
+                        }
+                    });
+                    
+                    // Scroll to first invalid field
+                    const firstInvalid = $('.is-invalid').first();
+                    if (firstInvalid.length) {
+                        $('html, body').animate({
+                            scrollTop: firstInvalid.offset().top - 100
+                        }, 500);
+                        firstInvalid.focus();
+                    }
+                    
+                    return false;
+                }
+                
+                // Save form data to session storage for assessment forms to access
+                try {
+                    sessionStorage.setItem('appointmentFormData', JSON.stringify(formData));
+                    console.log('[BookAppointment] Form data saved to session storage');
+                } catch (error) {
+                    console.error('[BookAppointment] Error saving form data:', error);
+                }
+                
+                // Submit via AJAX to the new endpoint
+                $.ajax({
+                    url: '?handler=CreateAjax',
+                    type: 'POST',
+                    data: new FormData($('#appointmentForm')[0]),
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function(response) {
+                        console.log('[BookAppointment] AJAX response:', response);
+                        if (response.success) {
+                            const appointmentId = response.appointmentId;
+                            const age = response.age;
+                            console.log('[BookAppointment] Appointment created with ID:', appointmentId);
+                            
+                            // Debug SweetAlert2 before using it
+                            console.log('[BookAppointment] About to show SweetAlert2 success message');
+                            console.log('[BookAppointment] Swal available:', typeof Swal !== 'undefined');
+                            console.log('[BookAppointment] Swal.fire available:', typeof Swal?.fire === 'function');
+                            
+                            // Show success message using SweetAlert2 and redirect to appointments page
+                            if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                                console.log('[BookAppointment] Showing SweetAlert2 success message');
+                                // Check consultation type to determine appropriate message
+                                const consultationType = $('#consultationType').val();
+                                const isGeneralConsult = consultationType === 'general consult';
+                                
+                                Swal.fire({
+                                    title: 'Appointment Saved!',
+                                    text: isGeneralConsult 
+                                        ? 'Your appointment has been saved successfully! Redirecting to assessment form...'
+                                        : 'Your appointment has been saved successfully!',
+                                    icon: 'success',
+                                    showConfirmButton: false,
+                                    showCancelButton: false,
+                                    timer: 5000,
+                                    timerProgressBar: true,
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false
+                                });
+                                
+                                // Auto-redirect after 5 seconds
+                                setTimeout(() => {
+                                    // Check consultation type first
+                                    console.log('[BookAppointment] Auto-redirecting after 5 seconds');
+                                    const consultationType = $('#consultationType').val();
+                                    
+                                    // Check for available forms for ALL consultation types
+                                    console.log(`[BookAppointment] Checking for forms for: ${consultationType}, age: ${age}`);
+                                    
+                                    // Fetch available dynamic forms for this age and consultation type
+                                    fetch(`/BookAppointment?handler=GetAvailableFormsForAge&age=${age}&consultationType=${encodeURIComponent(consultationType)}`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('[BookAppointment] Forms API response:', data);
+                                            
+                                            if (data.forms && data.forms.length > 0) {
+                                                // Redirect to the first available dynamic form
+                                                const firstForm = data.forms[0];
+                                                console.log(`[BookAppointment] Redirecting to dynamic form: ${firstForm.formName}`);
+                                                window.location.href = `/Forms/SubmitForm/${firstForm.formKey}?appointmentId=${appointmentId}`;
+                                            } else {
+                                                // No forms available, redirect to appointments
+                                                console.log(`[BookAppointment] No forms required for ${consultationType}, redirecting to appointments`);
+                                                window.location.href = '/User/Appointments';
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('[BookAppointment] Error fetching forms:', error);
+                                            // Fallback: redirect to appointments
+                                            window.location.href = '/User/Appointments';
+                                        });
+                                }, 5000);
+                            } else {
+                                console.error('[BookAppointment] SweetAlert2 not available, using fallback alert');
+                                // Fallback to alert if SweetAlert2 is not available
+                                alert('Your appointment has been saved successfully! You can complete the assessment form later from your Appointments page.');
+                                sessionStorage.removeItem('appointmentFormData');
+                                window.location.href = '/User/Appointments';
+                            }
+                        } else {
+                            console.error('[BookAppointment] Appointment creation failed:', response.error);
+                            
+                            // Handle specific error types
+                            if (response.errorType === 'TimeSlotConflict') {
+                                // Re-enable button on time slot conflict
+                                $button.prop('disabled', false);
+                                // Time slot conflict - update the UI to show this
+                                $('#timeSlot').addClass('is-invalid');
+                                $('#timeSlotMessage')
+                                    .addClass('text-danger')
+                                    .text(response.error);
+                                
+                                // Refresh the time slots to get the latest availability
+                                updateTimeSlots();
+                                
+                                // Show error alert
+                                Swal.fire({
+                                    title: 'Time Slot Conflict',
+                                    text: 'Time slot conflict: ' + response.error,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            } else {
+                                // General error
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Error saving appointment details: ' + (response.error || 'Unknown error'),
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            }
+                            // Re-enable button on error
+                            $button.prop('disabled', false);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[BookAppointment] AJAX error:', error);
+                        // Re-enable button on AJAX error
+                        $button.prop('disabled', false);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Error saving appointment details. Please try again.',
+                            icon: 'error',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#dc3545'
+                        });
+                    }
+                });
+                } catch (error) {
+                    console.error('[BookAppointment] Unexpected error in submit handler:', error);
+                    // Re-enable button on unexpected error
+                    $button.prop('disabled', false);
+                    Swal.fire({
+                        title: 'Unexpected Error',
+                        text: 'An unexpected error occurred. Please try again.',
+                        icon: 'error',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
+            });
+
+            // Function to calculate birthday from age
+            function calculateBirthdayFromAge(age) {
+                // Allow age 0 for infants (months old), reject only negative ages or invalid values
+                if (age === null || age === undefined || age < 0 || age > 120 || isNaN(age)) {
+                    $('#birthday').val('');
+                    return;
+                }
+
+                // Calculate birthday by subtracting age from current date
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const birthYear = currentYear - age;
+                
+                // For age 0 (infants), use current year
+                // Create birthday date (using January 1st as default day)
+                const birthday = new Date(birthYear, 0, 1);
+                
+                // Format as YYYY-MM-DD for date input
+                const formattedDate = birthday.getFullYear() + '-' + 
+                    String(birthday.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(birthday.getDate()).padStart(2, '0');
+                
+                $('#birthday').val(formattedDate);
+            }
+
+        });
+    </script>
+    
+    <!-- SweetAlert2 for notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Debug SweetAlert2 loading
+        console.log('SweetAlert2 loaded:', typeof Swal !== 'undefined');
+        console.log('Swal object:', Swal);
+        
+        // Add debugger for troubleshooting
+        function debugSweetAlert() {
+            console.log('=== SWEETALERT2 DEBUG ===');
+            console.log('Swal available:', typeof Swal !== 'undefined');
+            console.log('Swal.fire available:', typeof Swal?.fire === 'function');
+            console.log('jQuery available:', typeof $ !== 'undefined');
+            console.log('jQuery version:', $.fn?.jquery);
+            
+            if (typeof Swal === 'undefined') {
+                console.error('SweetAlert2 not loaded!');
+                return false;
+            }
+            return true;
+        }
+        
+        // Test SweetAlert2 on page load
+        // FIXED: Removed nested $(document).ready() - we're already inside one!
+        setTimeout(function() {
+            debugSweetAlert();
+            
+            // Test SweetAlert2 functionality
+            if (typeof Swal !== 'undefined') {
+                console.log('[BookAppointment] SweetAlert2 is ready to use');
+            } else {
+                console.error('[BookAppointment] SweetAlert2 failed to load');
+            }
+        }, 1000);
+    </script>
+}

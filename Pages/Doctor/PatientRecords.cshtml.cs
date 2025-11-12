@@ -165,6 +165,53 @@ namespace Barangay.Pages.Doctor
                     .Take(PageSize)
                     .ToListAsync();
 
+                // Also include guest patients from Appointments (BookingForOther = true)
+                var guestAppointmentsQuery = _context.Appointments
+                    .Where(a => a.BookingForOther == true && 
+                               !string.IsNullOrEmpty(a.FamilyNumber) &&
+                               a.Status != AppointmentStatus.Cancelled);
+                
+                // Apply search filter to guest appointments if provided
+                if (!string.IsNullOrWhiteSpace(SearchTerm))
+                {
+                    var searchTermLower = SearchTerm.ToLower();
+                    guestAppointmentsQuery = guestAppointmentsQuery.Where(a =>
+                        a.PatientName.ToLower().Contains(searchTermLower) ||
+                        (a.ContactNumber != null && a.ContactNumber.Contains(searchTermLower)));
+                }
+                
+                // Get all guest appointments and deduplicate
+                var allGuestAppointments = await guestAppointmentsQuery.ToListAsync();
+                
+                // Decrypt patient names if encrypted
+                foreach (var appointment in allGuestAppointments)
+                {
+                    if (!string.IsNullOrEmpty(appointment.PatientName) && _encryptionService.IsEncrypted(appointment.PatientName))
+                    {
+                        appointment.PatientName = _encryptionService.DecryptForUser(appointment.PatientName, User);
+                    }
+                }
+                
+                var guestPatients = allGuestAppointments
+                    .GroupBy(a => new { a.PatientName, a.FamilyNumber })
+                    .Select(g => g.OrderByDescending(a => a.AppointmentDate).First())
+                    .Select(a => new Patient
+                    {
+                        UserId = a.Id.ToString(), // Use appointment ID as patient ID
+                        FullName = a.PatientName, // Now decrypted
+                        Gender = a.Gender ?? "Not specified",
+                        BirthDate = a.AgeValue > 0 ? DateTime.Today.AddYears(-a.AgeValue) : DateTime.Today,
+                        ContactNumber = a.ContactNumber ?? "N/A",
+                        Email = "Guest Patient",
+                        Status = "Guest Patient",
+                        FamilyNumber = a.FamilyNumber,
+                        CreatedAt = a.CreatedAt
+                    })
+                    .ToList();
+                
+                // Add guest patients to the paginated results
+                PaginatedPatients.AddRange(guestPatients);
+
                 // Decrypt patient data for authorized users
                 foreach (var patient in PaginatedPatients)
                 {
@@ -180,6 +227,10 @@ namespace Barangay.Pages.Doctor
                         }
                     }
                 }
+                
+                // Recalculate total patients including guest patients
+                TotalPatients = PaginatedPatients.Count;
+                _logger.LogInformation($"Total patients (including {guestPatients.Count} guest patients): {TotalPatients}");
                 
                 // Log the results for debugging
                 _logger.LogInformation($"Loaded {PaginatedPatients.Count} patients (page {CurrentPage} of {TotalPages})");
@@ -387,6 +438,50 @@ namespace Barangay.Pages.Doctor
                     .Skip((CurrentPage - 1) * PageSize)
                     .Take(PageSize)
                     .ToListAsync();
+                
+                // Also include guest patients from Appointments
+                var guestAppointmentsQuery = _context.Appointments
+                    .Where(a => a.BookingForOther == true && 
+                               !string.IsNullOrEmpty(a.FamilyNumber) &&
+                               a.Status != AppointmentStatus.Cancelled);
+                
+                if (!string.IsNullOrWhiteSpace(SearchTerm))
+                {
+                    var searchTermLower = SearchTerm.ToLower();
+                    guestAppointmentsQuery = guestAppointmentsQuery.Where(a =>
+                        a.PatientName.ToLower().Contains(searchTermLower) ||
+                        (a.ContactNumber != null && a.ContactNumber.Contains(searchTermLower)));
+                }
+                
+                var allGuestAppointments = await guestAppointmentsQuery.ToListAsync();
+                
+                // Decrypt patient names if encrypted
+                foreach (var appointment in allGuestAppointments)
+                {
+                    if (!string.IsNullOrEmpty(appointment.PatientName) && _encryptionService.IsEncrypted(appointment.PatientName))
+                    {
+                        appointment.PatientName = _encryptionService.DecryptForUser(appointment.PatientName, User);
+                    }
+                }
+                
+                var guestPatients = allGuestAppointments
+                    .GroupBy(a => new { a.PatientName, a.FamilyNumber })
+                    .Select(g => g.OrderByDescending(a => a.AppointmentDate).First())
+                    .Select(a => new Patient
+                    {
+                        UserId = a.Id.ToString(),
+                        FullName = a.PatientName, // Now decrypted
+                        Gender = a.Gender ?? "Not specified",
+                        BirthDate = a.AgeValue > 0 ? DateTime.Today.AddYears(-a.AgeValue) : DateTime.Today,
+                        ContactNumber = a.ContactNumber ?? "N/A",
+                        Email = "Guest Patient",
+                        Status = "Guest Patient",
+                        FamilyNumber = a.FamilyNumber,
+                        CreatedAt = a.CreatedAt
+                    })
+                    .ToList();
+                
+                PaginatedPatients.AddRange(guestPatients);
             }
             catch (Exception ex)
             {

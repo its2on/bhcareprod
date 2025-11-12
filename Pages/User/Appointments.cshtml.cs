@@ -84,9 +84,23 @@ namespace Barangay.Pages.User
 
             try
             {
+                // Get user's family number for filtering
+                var userFamilyNumber = user.FamilyNumber;
+                
                 // Get all appointments for the current user
+                // Include:
+                // 1. Self bookings (BookingForOther == false) - always show user's own appointments
+                // 2. Bookings for others with SAME family number (BookingForOther == true AND FamilyNumber matches)
+                //    - Only group together if both have family numbers and they match
+                // Exclude:
+                // 3. Bookings for others with DIFFERENT family number (separate appointments - don't show with booker's)
                 var appointments = await _context.Appointments
-                    .Where(a => a.PatientId == user.Id)
+                    .Where(a => a.PatientId == user.Id && 
+                               (a.BookingForOther == false || 
+                                (a.BookingForOther == true && 
+                                 !string.IsNullOrEmpty(a.FamilyNumber) && 
+                                 !string.IsNullOrEmpty(userFamilyNumber) && 
+                                 a.FamilyNumber == userFamilyNumber)))
                     .OrderBy(a => a.AppointmentDate)
                     .ThenBy(a => a.AppointmentTime)
                     .ToListAsync();
