@@ -581,50 +581,8 @@ namespace Barangay.Services
                 return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
             }
             
-            // CRITICAL: Check for handwritten document indicators
-            // Handwritten documents are NOT accepted - only printed official IDs are valid
-            var handwrittenPhrases = new[] { 
-                "HANDWRITTEN", "HAND WRITTEN", "WRITTEN BY HAND", "MANUAL SIGNATURE", 
-                "SIGNED BY HAND", "PEN", "PENCIL", "HANDWRITE", "MANUALLY WRITTEN"
-            };
-            if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
-            {
-                _logger.LogWarning("⚠️ Document validation failed: Handwritten document indicators found");
-                return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
-            }
-            
-            // Detect handwritten patterns: excessive mixed case, inconsistent spacing, irregular patterns
-            // Real printed IDs have consistent formatting - handwritten ones don't
-            var letterCount = text.Count(char.IsLetter);
-            if (letterCount >= 20) // Only check if we have enough text
-            {
-                var mixedCaseRatio = text.Count(char.IsLower) / (double)Math.Max(letterCount, 1);
-                var hasExcessiveMixedCase = mixedCaseRatio > 0.3 && mixedCaseRatio < 0.7; // Handwritten often mixes case inconsistently
-                
-                // Check for irregular spacing patterns (handwritten often has inconsistent spacing)
-                var irregularSpacingPattern = Regex.IsMatch(text, @"\w\s{3,}\w"); // Multiple spaces between words
-                var hasIrregularSpacing = irregularSpacingPattern;
-                
-                // Check for handwriting-like patterns: inconsistent line breaks, irregular formatting
-                var lineBreakCount = text.Count(c => c == '\n' || c == '\r');
-                var hasIrregularLineBreaks = lineBreakCount > 20 && lineBreakCount < 100; // Too many line breaks suggests handwritten
-                
-                // If multiple handwriting indicators are present, reject
-                int handwritingScore = 0;
-                if (hasExcessiveMixedCase) handwritingScore++;
-                if (hasIrregularSpacing) handwritingScore++;
-                if (hasIrregularLineBreaks) handwritingScore++;
-                
-                if (handwritingScore >= 2)
-                {
-                    _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
-                    _logger.LogWarning("Handwriting indicators: Mixed case={MixedCase}, Irregular spacing={Spacing}, Irregular breaks={Breaks}", 
-                        hasExcessiveMixedCase, hasIrregularSpacing, hasIrregularLineBreaks);
-                    return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
-                }
-            }
-            
             // Required Philippine ID markers - document MUST contain at least one STRONG ID marker
+            // Check for strong markers FIRST - if found, we can be more lenient with handwriting checks
             // These are specific to actual ID documents, not just any document with an address
             var strongIdMarkers = new[]
             {
@@ -843,6 +801,57 @@ namespace Barangay.Services
                 upperText.Contains("CITY") || upperText.Contains("REPARO"))
             {
                 fieldCount++; // Count address indicators
+            }
+            
+            // CRITICAL: Check for handwritten document indicators ONLY if we don't have strong ID markers
+            // If we have strong ID markers, skip handwriting check (valid IDs can have OCR formatting quirks)
+            if (!hasStrongIdMarker)
+            {
+                // Check for explicit handwritten phrases
+                var handwrittenPhrases = new[] { 
+                    "HANDWRITTEN", "HAND WRITTEN", "WRITTEN BY HAND", "MANUAL SIGNATURE", 
+                    "SIGNED BY HAND", "PEN", "PENCIL", "HANDWRITE", "MANUALLY WRITTEN"
+                };
+                if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
+                {
+                    _logger.LogWarning("⚠️ Document validation failed: Handwritten document indicators found");
+                    return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
+                }
+                
+                // Detect handwritten patterns: excessive mixed case, inconsistent spacing, irregular patterns
+                // Real printed IDs have consistent formatting - handwritten ones don't
+                var letterCount = text.Count(char.IsLetter);
+                if (letterCount >= 20) // Only check if we have enough text
+                {
+                    var mixedCaseRatio = text.Count(char.IsLower) / (double)Math.Max(letterCount, 1);
+                    var hasExcessiveMixedCase = mixedCaseRatio > 0.3 && mixedCaseRatio < 0.7; // Handwritten often mixes case inconsistently
+                    
+                    // Check for irregular spacing patterns (handwritten often has inconsistent spacing)
+                    var irregularSpacingPattern = Regex.IsMatch(text, @"\w\s{3,}\w"); // Multiple spaces between words
+                    var hasIrregularSpacing = irregularSpacingPattern;
+                    
+                    // Check for handwriting-like patterns: inconsistent line breaks, irregular formatting
+                    var lineBreakCount = text.Count(c => c == '\n' || c == '\r');
+                    var hasIrregularLineBreaks = lineBreakCount > 20 && lineBreakCount < 100; // Too many line breaks suggests handwritten
+                    
+                    // If multiple handwriting indicators are present, reject
+                    int handwritingScore = 0;
+                    if (hasExcessiveMixedCase) handwritingScore++;
+                    if (hasIrregularSpacing) handwritingScore++;
+                    if (hasIrregularLineBreaks) handwritingScore++;
+                    
+                    if (handwritingScore >= 2)
+                    {
+                        _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                        _logger.LogWarning("Handwriting indicators: Mixed case={MixedCase}, Irregular spacing={Spacing}, Irregular breaks={Breaks}", 
+                            hasExcessiveMixedCase, hasIrregularSpacing, hasIrregularLineBreaks);
+                        return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogInformation("✅ Skipping handwriting check - strong ID markers detected (ID Type: {IdType})", detectedIdType);
             }
             
             // VERY LENIENT: If we have strong ID markers, ALWAYS pass validation
