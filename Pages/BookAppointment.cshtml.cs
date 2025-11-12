@@ -1986,30 +1986,19 @@ namespace Barangay.Pages
                     .Concat(filteredPatients)
                     .Select(m => new 
                     { 
-                        m.fullName, 
+                        fullName = m.fullName,
                         lastName = m.lastName.ToLower().Trim(),
-                        m.familyNumber, 
-                        m.relationship 
+                        familyNumber = m.familyNumber, 
+                        relationship = m.relationship 
                     })
+                    .OrderBy(m => m.fullName)
+                    .Take(20)
                     .ToList();
 
-                // Group by last name (same last name = same family group)
-                var familyGroups = allFamilyMembers
-                    .GroupBy(m => m.lastName)
-                    .Select(g => new
-                    {
-                        lastName = g.Key,
-                        familyNumber = g.First().familyNumber, // Use first family number as primary
-                        members = g.Select(m => new { m.fullName, m.familyNumber, m.relationship }).OrderBy(m => m.fullName).ToList(),
-                        memberCount = g.Count()
-                    })
-                    .OrderBy(f => f.lastName)
-                    .Take(10)
-                    .ToList();
+                _logger.LogInformation("Found {Count} family members matching '{SearchTerm}'", allFamilyMembers.Count, searchTerm);
 
-                _logger.LogInformation("Found {Count} family groups matching '{SearchTerm}'", familyGroups.Count, searchTerm);
-
-                return new JsonResult(new { success = true, familyGroups = familyGroups });
+                // Return flat list of members for the frontend
+                return new JsonResult(new { success = true, members = allFamilyMembers });
             }
             catch (Exception ex)
             {
