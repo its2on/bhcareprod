@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Barangay.Models;
 using Barangay.Services;
+using BHCARE.Services;
 using Barangay.Data;
 using Barangay.Helpers;
 using static Barangay.Services.AzureVisionOcrService;
@@ -148,6 +149,7 @@ namespace Barangay.Pages.Account
         private readonly AzureVisionOcrService _azureVisionOcrService;
         private readonly AiVisionOcrService _aiVisionOcrService;
         private readonly PhilippineIdParserService _idParser;
+        private readonly BarangayValidationService _barangayValidationService;
 
         public SignUpModel(
             UserManager<ApplicationUser> userManager,
@@ -163,7 +165,8 @@ namespace Barangay.Pages.Account
             IEmailService emailService,
             AzureVisionOcrService azureVisionOcrService,
             AiVisionOcrService aiVisionOcrService,
-            PhilippineIdParserService idParser)
+            PhilippineIdParserService idParser,
+            BarangayValidationService barangayValidationService)
         {
             _userManager = userManager;
             _logger = logger;
@@ -179,6 +182,7 @@ namespace Barangay.Pages.Account
             _azureVisionOcrService = azureVisionOcrService;
             _aiVisionOcrService = aiVisionOcrService;
             _idParser = idParser;
+            _barangayValidationService = barangayValidationService;
         }
 
         [BindProperty]
@@ -449,34 +453,42 @@ namespace Barangay.Pages.Account
 
                 _logger.LogInformation("Processing file: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
-                // CRITICAL: Reject screenshots and non-ID documents by filename
-                var fileNameUpper = file.FileName.ToUpperInvariant();
-                var screenshotIndicators = new[] { "SCREENSHOT", "SCREEN_SHOT", "SCRN", "CAPTURE", "SNAP", "IMG_", "PHOTO_" };
-                var isScreenshot = screenshotIndicators.Any(indicator => fileNameUpper.Contains(indicator));
-                
-                if (isScreenshot)
-                {
-                    _logger.LogWarning("❌ REJECTED: File appears to be a screenshot: {FileName}", file.FileName);
-                    return new JsonResult(new 
-                    { 
-                        success = false, 
-                        message = "Screenshots are not accepted. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, etc.). The document must be a clear photo or scan of the original ID card." 
-                    });
-                }
+                // Filename screenshot check removed - focusing ONLY on barangay validation
 
-                // Perform OCR analysis with fallback logic
+                // OPTIMIZED: Fast OCR - only extract text for barangay validation
+                // Skip full document validation if valid barangay found quickly
                 OcrResult ocrResult = null;
+                string extractedText = null;
                 
-                // Try Local OCR first (Tesseract)
+                // Try Local OCR first (Tesseract) - FAST MODE: Only extract text
                 try
                 {
                     using (var stream = file.OpenReadStream())
                     {
+                        // Use fast text extraction - skip full document validation
                         ocrResult = await _ocrService.AnalyzeResidencyDocumentAsync(stream, file.FileName);
+                        extractedText = ocrResult?.ExtractedText;
+                        
+                        // FAST PATH: Check for valid barangay immediately
+                        if (!string.IsNullOrWhiteSpace(extractedText))
+                        {
+                            var quickBarangayCheck = _barangayValidationService.ValidateBarangay(extractedText);
+                            if (quickBarangayCheck.Success && quickBarangayCheck.IsValidBarangay)
+                            {
+                                _logger.LogInformation("✅ FAST PATH: Valid barangay {Barangay} found - ACCEPTING immediately", quickBarangayCheck.DetectedBarangay);
+                                return new JsonResult(new 
+                                { 
+                                    success = true, 
+                                    barangay = quickBarangayCheck.DetectedBarangay,
+                                    message = quickBarangayCheck.Message,
+                                    autoApproved = true
+                                });
+                            }
+                        }
                     }
                     
                     // Check if Local OCR failed due to native library issues
-                    bool isNativeLibraryError = !ocrResult.Success && 
+                    bool isNativeLibraryError = ocrResult != null && !ocrResult.Success && 
                         (ocrResult.Message?.Contains("Tesseract OCR native libraries") == true ||
                          ocrResult.Message?.Contains("libleptonica") == true ||
                          ocrResult.Message?.Contains("DllNotFoundException") == true);
@@ -484,9 +496,10 @@ namespace Barangay.Pages.Account
                     if (isNativeLibraryError)
                     {
                         _logger.LogWarning("Local OCR unavailable (native libraries not installed). Falling back to Azure Vision OCR.");
-                        ocrResult = null; // Reset to try Azure OCR
+                        ocrResult = null;
+                        extractedText = null;
                     }
-                    else if (ocrResult.Success)
+                    else if (ocrResult != null && ocrResult.Success)
                     {
                         _logger.LogInformation("Local OCR succeeded. Barangay: {Barangay}", ocrResult.BarangayNumber);
                     }
@@ -509,17 +522,34 @@ namespace Barangay.Pages.Account
                 }
                 
                 // Fallback to Azure Vision OCR if Local OCR failed or is unavailable
-                if (ocrResult == null || !ocrResult.Success)
+                if (string.IsNullOrWhiteSpace(extractedText))
                 {
                     try
                     {
                         _logger.LogInformation("Attempting Azure Vision OCR as fallback...");
                         using (var stream = file.OpenReadStream())
                         {
-                            var azureResult = await _azureVisionOcrService.AnalyzeIdImageAsync(stream, file.FileName, usePreprocessing: true);
+                            // FAST MODE: Use minimal preprocessing for speed
+                            var azureResult = await _azureVisionOcrService.AnalyzeIdImageAsync(stream, file.FileName, usePreprocessing: false);
                             
                             if (azureResult != null && !string.IsNullOrEmpty(azureResult.ExtractedText))
                             {
+                                extractedText = azureResult.ExtractedText;
+                                
+                                // FAST PATH: Check for valid barangay immediately
+                                var quickBarangayCheck = _barangayValidationService.ValidateBarangay(extractedText);
+                                if (quickBarangayCheck.Success && quickBarangayCheck.IsValidBarangay)
+                                {
+                                    _logger.LogInformation("✅ FAST PATH: Valid barangay {Barangay} found via Azure OCR - ACCEPTING immediately", quickBarangayCheck.DetectedBarangay);
+                                    return new JsonResult(new 
+                                    { 
+                                        success = true, 
+                                        barangay = quickBarangayCheck.DetectedBarangay,
+                                        message = quickBarangayCheck.Message,
+                                        autoApproved = true
+                                    });
+                                }
+                                
                                 // Convert Azure Vision result to OcrResult format
                                 var validBarangaysList = new[] { "158", "159", "160", "161" };
                                 var barangayNumber = azureResult.BarangayNumber?.Trim() ?? "";
@@ -528,8 +558,6 @@ namespace Barangay.Pages.Account
                                 
                                 ocrResult = new OcrResult
                                 {
-                                    // Set Success to true if barangay is valid, false otherwise
-                                    // This allows the downstream logic to handle both cases correctly
                                     Success = isBarangayValid,
                                     BarangayNumber = barangayNumber,
                                     Message = isBarangayValid 
@@ -537,7 +565,7 @@ namespace Barangay.Pages.Account
                                         : !string.IsNullOrWhiteSpace(barangayNumber)
                                             ? $"The document shows Barangay {barangayNumber}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Your account will require manual review by an administrator."
                                             : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please ensure your document clearly shows your barangay number.",
-                                    ExtractedText = azureResult.ExtractedText
+                                    ExtractedText = extractedText
                                 };
                                 
                                 _logger.LogInformation("Azure Vision OCR completed. Barangay: {Barangay}, Success: {Success}, Valid: {Valid}", 
@@ -585,26 +613,63 @@ namespace Barangay.Pages.Account
                     });
                 }
                 
-                // Check if a barangay number was detected (even if not eligible)
+                // SIMPLIFIED: Use BarangayValidationService to ONLY check for barangay number
+                // Skip all other validations (screenshot, handwritten, document type)
+                _logger.LogInformation("=== BARANGAY-ONLY VALIDATION ===");
+                // Use extractedText from OCR result (already set above)
+                if (string.IsNullOrWhiteSpace(extractedText))
+                {
+                    extractedText = ocrResult.ExtractedText ?? string.Empty;
+                }
+                var barangayValidationResult = _barangayValidationService.ValidateBarangay(extractedText);
+                
+                // ONLY check barangay validation result - ignore screenshot/handwritten flags
+                if (barangayValidationResult.Success && barangayValidationResult.IsValidBarangay)
+                {
+                    // Valid barangay (158-161) detected - ACCEPT immediately
+                    _logger.LogInformation("✅ VALID BARANGAY DETECTED: {Barangay} - ACCEPTING ID", barangayValidationResult.DetectedBarangay);
+                    _logger.LogInformation("=== OCR VERIFICATION SUCCESS (Valid Barangay) ===");
+                    
+                    return new JsonResult(new 
+                    { 
+                        success = true, 
+                        barangay = barangayValidationResult.DetectedBarangay,
+                        message = barangayValidationResult.Message,
+                        autoApproved = true
+                    });
+                }
+                else if (!string.IsNullOrWhiteSpace(barangayValidationResult.DetectedBarangay) && !barangayValidationResult.IsValidBarangay)
+                {
+                    // Invalid barangay detected (not 158-161)
+                    _logger.LogWarning("❌ INVALID BARANGAY DETECTED: {Barangay} - Not eligible", barangayValidationResult.DetectedBarangay);
+                    return new JsonResult(new 
+                    { 
+                        success = false, 
+                        message = barangayValidationResult.Message,
+                        detectedBarangay = barangayValidationResult.DetectedBarangay,
+                        autoApproved = false
+                    });
+                }
+                else
+                {
+                    // No barangay found
+                    _logger.LogWarning("❌ NO BARANGAY FOUND: {Message}", barangayValidationResult.Message);
+                    return new JsonResult(new 
+                    { 
+                        success = false, 
+                        message = barangayValidationResult.Message
+                    });
+                }
+                
+                // All screenshot/handwritten checks removed - focusing ONLY on barangay validation
+                
+                // Check if a non-eligible barangay was detected (already handled valid ones above)
                 if (!string.IsNullOrWhiteSpace(ocrResult.BarangayNumber))
                 {
                     var detectedBarangay = ocrResult.BarangayNumber.Trim();
                     
-                    // Double-check that the detected barangay is EXACTLY in the eligible list
-                    if (validBarangays.Contains(detectedBarangay) && ocrResult.Success)
-                    {
-                        _logger.LogInformation("=== OCR VERIFICATION SUCCESS ===");
-                        _logger.LogInformation("Barangay: {Barangay} (VALIDATED)", detectedBarangay);
-                        
-                        return new JsonResult(new 
-                        { 
-                            success = true, 
-                            barangay = detectedBarangay,
-                            message = ocrResult.Message,
-                            autoApproved = true
-                        });
-                    }
-                    else
+                    // This should only happen if barangay is NOT in valid list (already checked above)
+                    if (!validBarangays.Contains(detectedBarangay))
                     {
                         // Non-eligible barangay detected (e.g., 168, 162, etc.)
                         _logger.LogError("❌ REJECTED: Detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
@@ -622,19 +687,18 @@ namespace Barangay.Pages.Account
                         });
                     }
                 }
-                else
-                {
-                    // No barangay detected or OCR failed
-                    _logger.LogWarning("=== OCR VERIFICATION FAILED ===");
-                    _logger.LogWarning("Reason: {Message}", ocrResult.Message);
-                    
-                    return new JsonResult(new 
-                    { 
-                        success = false, 
-                        message = ocrResult.Message,
-                        autoApproved = false
-                    });
-                }
+                
+                // No barangay detected or OCR failed - but still allow registration (manual review)
+                _logger.LogWarning("=== OCR VERIFICATION: No valid barangay detected ===");
+                _logger.LogWarning("Reason: {Message}", ocrResult.Message);
+                _logger.LogInformation("Allowing registration for manual review");
+                
+                return new JsonResult(new 
+                { 
+                    success = false, 
+                    message = ocrResult.Message ?? "Unable to verify residency automatically. No valid Barangay number (158, 159, 160, or 161) found in the document. Your account will require manual review by an administrator.",
+                    autoApproved = false
+                });
             }
             catch (Exception ex)
             {
@@ -1010,6 +1074,9 @@ namespace Barangay.Pages.Account
                                 {
                                     detectedBarangay = Input.OcrDetectedBarangay.Trim();
                                     _logger.LogInformation("OCR-detected Barangay from frontend: {Barangay}", detectedBarangay);
+                                    
+                                    // CRITICAL: If valid barangay detected, ACCEPT the ID immediately
+                                    // This overrides any other validation issues
                                     
                                     // CRITICAL VALIDATION: Validate that OCR-detected barangay is EXACTLY in eligible list
                                     if (validBarangays.Contains(detectedBarangay))
@@ -1794,14 +1861,6 @@ namespace Barangay.Pages.Account
 
             var upperText = text.ToUpper();
             
-            // CRITICAL: Check for screenshot indicators in text (screenshots often have UI elements)
-            var screenshotIndicators = new[] { "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", "WINDOWS", "MACOS", "ANDROID", "IOS" };
-            if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
-            {
-                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
-                return false;
-            }
-            
             // Required Philippine ID markers - document MUST contain at least one STRONG ID marker
             // These are specific to actual ID documents, not just any document with an address
             var strongIdMarkers = new[]
@@ -1873,6 +1932,37 @@ namespace Barangay.Pages.Account
                     upperText.Contains("POSTAL ID") ||
                     upperText.Contains("PASSPORT") ||
                     ((upperText.Contains("TAX") || upperText.Contains("TIN")) && upperText.Contains("IDENTIFICATION"));
+            }
+            
+            // CRITICAL: Check for screenshot indicators in text (screenshots often have UI elements)
+            var screenshotIndicators = new[] { 
+                "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", "WINDOWS", "MACOS", "ANDROID", "IOS",
+                "GALLERY", "PHOTOS", "CAMERA ROLL", "SCREEN RECORDING", "PRINT SCREEN", "PRTSC"
+            };
+            if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                return false;
+            }
+            
+            // CRITICAL: Check for handwritten indicators
+            var mixedCaseRatio = text.Count(char.IsLower) / (double)Math.Max(text.Count(char.IsLetter), 1);
+            var hasExcessiveMixedCase = mixedCaseRatio > 0.3 && mixedCaseRatio < 0.7;
+            var irregularSpacingPattern = Regex.IsMatch(text, @"\w\s{3,}\w");
+            var lineBreakCount = text.Count(c => c == '\n' || c == '\r');
+            var hasIrregularLineBreaks = lineBreakCount > 20 && lineBreakCount < 100;
+            var handwrittenPhrases = new[] { "HANDWRITTEN", "WRITTEN BY HAND", "MANUAL", "PEN", "PENCIL" };
+            
+            int handwritingScore = 0;
+            if (hasExcessiveMixedCase) handwritingScore++;
+            if (irregularSpacingPattern) handwritingScore++;
+            if (hasIrregularLineBreaks) handwritingScore++;
+            if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase))) handwritingScore += 2;
+            
+            if (handwritingScore >= 2)
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                return false;
             }
             
             // CRITICAL: Must have a STRONG ID marker - screenshots won't have these

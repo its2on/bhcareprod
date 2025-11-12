@@ -1,0 +1,130 @@
+/* Nurse Control Panel - Action Box Styles (Separate from shared styles) */
+.action-box {
+    background-color: #f8f9fa;  /* Light gray/beige background */
+    border: 1px solid #dee2e6;  /* Thin gray border */
+    border-radius: 0.25rem;     /* Rounded corners */
+    padding: 0.5rem;            /* Inner spacing */
+    transition: box-shadow 0.3s ease;  /* Smooth hover effect */
+    min-width: fit-content;
+}
+
+.action-box:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);  /* Subtle shadow on hover */
+}
+
+/* Icon Button Styles - Nurse Control Panel Specific */
+.action-icon {
+    font-size: 1.1rem;         /* Larger icon size for better visibility */
+    margin: 0 0.25rem;          /* Space between icons */
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease; /* Smooth transitions */
+    min-width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.5rem;  /* Ensure proper padding for icon visibility */
+}
+
+.action-icon i {
+    font-size: 1.1rem !important;          /* Explicit icon size - force it */
+    line-height: 1 !important;              /* Prevent line-height issues */
+    display: inline-block !important;       /* Ensure icon displays properly */
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+}
+
+.action-icon:hover {
+    transform: scale(1.1);      /* Slight zoom on hover for interactivity */
+    text-decoration: none;      /* Remove underline if it's a link */
+}
+
+.action-icon:hover i {
+    transform: scale(1.1);      /* Icon zoom on hover */
+}
+
+/* Theme-specific colors for action buttons - Nurse Control Panel */
+.action-box .btn-outline-warning {
+    color: #fd7e14 !important;  /* Orange - force color */
+    border-color: #fd7e14 !important;
+}
+
+.action-box .btn-outline-warning:hover {
+    background-color: #fd7e14 !important;
+    color: white !important;
+    border-color: #fd7e14 !important;
+}
+
+.action-box .btn-outline-warning i {
+    color: inherit !important;  /* Inherit button color - force it */
+}
+
+.action-box .btn-outline-danger {
+    color: #dc3545 !important;  /* Red - force color */
+    border-color: #dc3545 !important;
+}
+
+.action-box .btn-outline-danger:hover {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
+.action-box .btn-outline-danger i {
+    color: inherit !important;  /* Inherit button color - force it */
+}
+
+.action-box .btn-outline-secondary {
+    color: #6c757d !important;  /* Gray - force color */
+    border-color: #6c757d !important;
+}
+
+.action-box .btn-outline-secondary:hover {
+    background-color: #6c757d !important;
+    color: white !important;
+    border-color: #6c757d !important;
+}
+
+.action-box .btn-outline-secondary i {
+    color: inherit !important;  /* Inherit button color - force it */
+}
+
+/* Ensure Font Awesome icons are visible and properly rendered - Nurse Control Panel */
+.action-box .fa-solid,
+.action-box .fa-regular,
+.action-box .fa-brands,
+.action-box .fas,
+.action-box .fa {
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    font-variant: normal !important;
+    text-rendering: auto !important;
+    line-height: 1 !important;
+    display: inline-block !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 1.1rem !important;
+}
+
+/* Specific icon fixes */
+.action-box .fa-edit::before {
+    content: "\f044" !important;
+}
+
+.action-box .fa-toggle-on::before {
+    content: "\f205" !important;
+}
+
+.action-box .fa-toggle-off::before {
+    content: "\f204" !important;
+}
+
+.action-box .fa-trash::before {
+    content: "\f1f8" !important;
+}
+

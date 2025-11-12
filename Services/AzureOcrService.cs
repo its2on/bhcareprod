@@ -581,11 +581,63 @@ namespace Barangay.Services
             _logger.LogInformation("📝 Text preview (first 500 chars): {Preview}", upperText.Length > 500 ? upperText.Substring(0, 500) : upperText);
             
             // CRITICAL: Check for screenshot indicators in text (screenshots often have UI elements)
-            var screenshotIndicators = new[] { "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", "WINDOWS", "MACOS", "ANDROID", "IOS" };
+            // Comprehensive list of screenshot indicators based on common mobile/desktop UI elements
+            var screenshotIndicators = new[] { 
+                "SCREENSHOT", "SCREEN SHOT", "SCREENSHOT SAVED", "SCREEN CAPTURE", "SCREENSHOT CAPTURED",
+                "CAPTURE", "SNAP", "SNAPSHOT", "SCREEN RECORDING", "SCREENSHOT TOOL",
+                "WINDOWS", "MACOS", "ANDROID", "IOS", "IPHONE", "IPAD",
+                "GALLERY", "PHOTOS", "CAMERA ROLL", "PHOTO LIBRARY", "PICTURE GALLERY",
+                "PRINT SCREEN", "PRTSC", "PRT SCR", "PRINTSCREEN",
+                "SHARE", "SAVE IMAGE", "DOWNLOAD", "IMAGE SAVED", "SAVED TO GALLERY",
+                "SCREENSHOT APP", "TAKE SCREENSHOT", "SCREENSHOT NOTIFICATION",
+                "FILE MANAGER", "FILES APP", "GOOGLE PHOTOS", "ICLOUD PHOTOS",
+                "SCREENSHOT FOLDER", "SCREENSHOTS", "SCREENSHOTS FOLDER"
+            };
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
                 _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
-                return (false, "Screenshot Detected");
+                return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
+            }
+            
+            // CRITICAL: Check for handwritten indicators (handwritten IDs are not accepted)
+            // Handwritten text often has inconsistent character spacing, mixed case, and lacks structure
+            // Note: We detect handwritten patterns through analysis rather than keyword matching
+            
+            // Detect handwritten patterns: excessive mixed case, inconsistent spacing, irregular patterns
+            // Real IDs have consistent formatting - handwritten ones don't
+            var mixedCaseRatio = text.Count(char.IsLower) / (double)Math.Max(text.Count(char.IsLetter), 1);
+            var hasExcessiveMixedCase = mixedCaseRatio > 0.3 && mixedCaseRatio < 0.7; // Handwritten often mixes case inconsistently
+            
+            // Check for irregular spacing patterns (handwritten often has inconsistent spacing)
+            var irregularSpacingPattern = Regex.IsMatch(text, @"\w\s{3,}\w"); // Multiple spaces between words
+            var hasIrregularSpacing = irregularSpacingPattern;
+            
+            // Check for handwriting-like patterns: inconsistent line breaks, irregular formatting
+            var lineBreakCount = text.Count(c => c == '\n' || c == '\r');
+            var hasIrregularLineBreaks = lineBreakCount > 20 && lineBreakCount < 100; // Too many line breaks suggests handwritten
+            
+            // If multiple handwriting indicators are present, reject
+            int handwritingScore = 0;
+            if (hasExcessiveMixedCase) handwritingScore++;
+            if (hasIrregularSpacing) handwritingScore++;
+            if (hasIrregularLineBreaks) handwritingScore++;
+            
+            // Also check for common handwritten phrases
+            var handwrittenPhrases = new[] { 
+                "HANDWRITTEN", "HAND WRITTEN", "WRITTEN BY HAND", "MANUAL SIGNATURE", 
+                "SIGNED BY HAND", "PEN", "PENCIL", "HANDWRITE", "MANUALLY WRITTEN"
+            };
+            if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
+            {
+                handwritingScore += 2; // Strong indicator
+            }
+            
+            if (handwritingScore >= 2)
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                _logger.LogWarning("Handwriting indicators: Mixed case={MixedCase}, Irregular spacing={Spacing}, Irregular breaks={Breaks}", 
+                    hasExcessiveMixedCase, hasIrregularSpacing, hasIrregularLineBreaks);
+                return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
             }
             
             // Required Philippine ID markers - document MUST contain at least one STRONG ID marker
@@ -780,13 +832,31 @@ namespace Barangay.Services
                 
                 bool isScreenshot = idType?.Contains("Screenshot") == true;
                 
+                // Provide specific error message based on rejection reason
+                string errorMessage = "Invalid document type. ";
+                if (isScreenshot)
+                {
+                    errorMessage = "Screenshot detected. Please upload a photo of your actual physical ID document, not a screenshot from your device. ";
+                }
+                else if (idType?.Contains("Handwritten") == true)
+                {
+                    errorMessage = "Handwritten document detected. Please upload a photo of your official printed ID document, not a handwritten document. ";
+                }
+                else
+                {
+                    errorMessage = "The uploaded document is not a recognized Philippine government-issued ID. ";
+                }
+                
+                errorMessage += "Accepted IDs include: Driver's License, National ID (PhilSys), PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, or Passport. " +
+                               "Only printed official documents are accepted. Screenshots, handwritten documents, or non-printed documents will be rejected.";
+                
                 return new OcrResult
                 {
                     Success = false,
                     Status = "unverified",
                     IdType = idType,
                     BarangayMatch = false,
-                    Message = "Invalid document type. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, etc.). Plain text or screenshots are not accepted.",
+                    Message = errorMessage,
                     ExtractedText = text,
                     IsScreenshot = isScreenshot
                 };
@@ -801,25 +871,39 @@ namespace Barangay.Services
             // Try multiple regex patterns to catch variations - STRICT patterns only
             var validPatterns = new[]
             {
-                @"\bBARANGAY\s+(158|159|160|161)\b",           // BARANGAY 158 (with word boundaries)
-                @"\bBRGY\.?\s+(158|159|160|161)\b",            // BRGY 158 or BRGY. 158 (with word boundaries)
-                @"\bBARANGAY\s+NO\.?\s+(158|159|160|161)\b",   // BARANGAY NO. 158 (with word boundaries)
-                @"\bBARANGAY\s+#\s+(158|159|160|161)\b",       // BARANGAY # 158 (with word boundaries)
+                // HIGHEST PRIORITY: "BARANGAY 161," or "BARANGAY 161" (handles commas, periods, etc.)
+                @"\bBARANGAY\s+(158|159|160|161)(?:[,\s\.]|$|\b)",           // BARANGAY 158 (with punctuation support)
+                @"BARANGAY\s+(158|159|160|161)(?:[,\s\.]|$|\b)",            // BARANGAY 158 (without word boundary)
+                @"\bBRGY\.?\s+(158|159|160|161)(?:[,\s\.]|$|\b)",            // BRGY 158 or BRGY. 158 (with punctuation support)
+                @"\bBARANGAY\s+NO\.?\s+(158|159|160|161)(?:[,\s\.]|$|\b)",   // BARANGAY NO. 158 (with punctuation support)
+                @"\bBARANGAY\s+#\s+(158|159|160|161)(?:[,\s\.]|$|\b)",       // BARANGAY # 158 (with punctuation support)
                 @"\b(158|159|160|161)\s+BARANGAY\b",           // 158 BARANGAY (with word boundaries)
                 @"(?:^|\s|,|\.)(158|159|160|161)(?:\s|$|,|\.)", // Just the numbers with context boundaries
+                // More lenient patterns for OCR errors - updated to handle punctuation
+                @"BARANGAY\s*[:\-]?\s*(158|159|160|161)(?:[,\s\.]|$|\b)",     // BARANGAY: 161 or BARANGAY-161
+                @"BARANGAY\s+(?:NO\.?\s+)?(158|159|160|161)(?:[,\s\.]|$|\b)", // BARANGAY NO 161 (with optional NO)
+                @"(158|159|160|161)\s*(?:BARANGAY|BRGY)",      // 161 BARANGAY or 161 BRGY
+                // Direct matches - updated to handle punctuation
+                @"BARANGAY\s*161(?:[,\s\.]|$|\b)|BARANGAY\s*160(?:[,\s\.]|$|\b)|BARANGAY\s*159(?:[,\s\.]|$|\b)|BARANGAY\s*158(?:[,\s\.]|$|\b)",
             };
 
+            // Log the text being searched for debugging
+            _logger.LogInformation("=== SEARCHING FOR BARANGAY 158-161 ===");
+            _logger.LogInformation("Text length: {Length} characters", text.Length);
+            _logger.LogInformation("Text preview (first 1000 chars): {Preview}", text.Length > 1000 ? text.Substring(0, 1000) + "..." : text);
+            
             foreach (var pattern in validPatterns)
             {
                 var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
                 if (match.Success && match.Groups.Count > 1)
                 {
                     var barangayNumber = match.Groups[1].Value.Trim();
+                    _logger.LogInformation("🔍 Pattern matched: {Pattern} → Found: {Barangay}", pattern, barangayNumber);
                     
                     // CRITICAL: Double-check that the detected barangay is EXACTLY in the valid list
                     if (validBarangays.Contains(barangayNumber))
                     {
-                        _logger.LogInformation("=== BARANGAY FOUND (VALIDATED) ===");
+                        _logger.LogInformation("=== ✅ BARANGAY FOUND (VALIDATED) ===");
                         _logger.LogInformation("Pattern: {Pattern}", pattern);
                         _logger.LogInformation("Barangay: {Barangay}", barangayNumber);
                         _logger.LogInformation("ID Type: {IdType}", idType);
@@ -882,7 +966,9 @@ namespace Barangay.Services
                 Status = "unverified",
                 IdType = idType,
                 BarangayMatch = false,
-                Message = "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please ensure your document clearly shows your barangay number.",
+                Message = "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. " +
+                         "Please ensure your ID clearly displays your address with Barangay 158, 159, 160, or 161. " +
+                         "The address must be clearly visible and readable in the uploaded document.",
                 ExtractedText = text
             };
         }

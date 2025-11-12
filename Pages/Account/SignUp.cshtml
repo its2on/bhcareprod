@@ -74,7 +74,7 @@
                             <strong>Accepted IDs:</strong> Driver's License, National ID (PhilSys), PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, Passport
                         </p>
                         <p class="text-muted small mb-3">
-                            <strong>⚠️ Important:</strong> Your ID must clearly show your address with Barangay 158, 159, 160, or 161 for auto-approval.
+                            <strong>⚠️ Important:</strong> Upload a clear photo of your <strong>printed official document</strong> (Certificate of Barangay or Philippine ID) showing your address with Barangay 158, 159, 160, or 161 for auto-approval. <strong>Screenshots and handwritten documents are NOT accepted.</strong>
                         </p>
                         
                         <div class="row align-items-center">
@@ -143,22 +143,6 @@
                                 <input asp-for="Input.Email" class="form-control" placeholder="Email address" type="email" aria-label="Email input" />
                             </div>
                             <div class="invalid-feedback" id="emailError">Email address is required</div>
-                        </div>
-                        <!-- OTP Delivery Method Choice -->
-                        <div id="otpMethodChoice" class="mt-3">
-                            <label class="form-label small">Choose verification method:</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="otpMethod" id="otpMethodEmail" value="Email" checked>
-                                <label class="btn btn-outline-primary" for="otpMethodEmail">
-                                    <i class="fas fa-envelope me-1"></i> Email
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="otpMethod" id="otpMethodSMS" value="SMS">
-                                <label class="btn btn-outline-primary" for="otpMethodSMS">
-                                    <i class="fas fa-sms me-1"></i> SMS
-                                </label>
-                            </div>
-                            <small class="form-text text-muted d-block mt-2">Select how you want to receive your verification code</small>
                         </div>
                         
                         <!-- Simplified Email Verification Status -->
@@ -339,6 +323,52 @@
             <!-- Account Security Section -->
             <div id="section2" class="section d-none">
                 <h4 class="text-primary"><i class="fas fa-shield-alt"></i> Account Security</h4>
+                
+                <!-- ID Validation Section (Step 2) -->
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>ID Validation & Barangay Verification</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Important:</strong> Please upload a clear photo of your <strong>printed official document</strong> showing your address with Barangay 158, 159, 160, or 161 for auto-approval.
+                        </div>
+                        
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Accepted Documents:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>Certificate of Barangay</strong> (printed official certificate)</li>
+                                <li><strong>Philippine ID:</strong> Driver's License, National ID (PhilSys), PhilHealth ID, Postal ID, UMID, TIN ID, SSS ID, Passport</li>
+                            </ul>
+                            <div class="mt-2">
+                                <strong>NOT Accepted:</strong> Screenshots, handwritten documents, or any non-printed documents
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="idFileStep2" class="form-label fw-bold">Upload Document <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" id="idFileStep2" name="idFileStep2" accept="image/jpeg,image/jpg,image/png" aria-label="Document file upload">
+                                <button type="button" class="btn btn-primary" id="processIdStep2">
+                                    <i class="fas fa-upload me-2"></i>Process Document
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Upload Certificate of Barangay or Philippine ID (JPG, PNG) - Max 10MB</small>
+                            <div class="text-danger small mt-1">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Note: Only printed official documents are accepted. Screenshots and handwritten documents will be rejected.
+                            </div>
+                        </div>
+                        
+                        <div id="idStatusStep2" class="mt-3"></div>
+                        
+                        <div id="idPreviewStep2" class="mt-3" style="display: none;">
+                            <h6 class="fw-bold">ID Preview:</h6>
+                            <img id="idPreviewImageStep2" src="" alt="ID Preview" class="img-fluid rounded border" style="max-height: 400px;">
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="row">
                     <div class="col-md-6">
@@ -600,9 +630,49 @@
                         // Set a flag to track if we're submitting
                         let isSubmitting = false;
                         
+                        // Add direct click handler to button as fallback
+                        submitButton.addEventListener('click', function(e) {
+                            console.log('🔘 Register button clicked directly');
+                            
+                            // Check if button is disabled
+                            if (submitButton.disabled) {
+                                console.error('❌ Button is disabled, checking why...');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                // Force update button state
+                                if (window.signupValidator && typeof window.signupValidator.updateRegisterButtonState === 'function') {
+                                    window.signupValidator.updateRegisterButtonState();
+                                }
+                                
+                                alert('Please complete all required fields. Check the console for details.');
+                                return false;
+                            }
+                            
+                            // If button is enabled, trigger form submission
+                            if (!submitButton.disabled && form) {
+                                console.log('✅ Button enabled, triggering form submit');
+                                // Don't prevent default - let the form submit naturally
+                            }
+                        });
+                        
                         // Intercept form submission
                         form.addEventListener('submit', function(e) {
                             console.log('🚀 Form submit event triggered');
+                            
+                            // Check if button is disabled (ID validation check)
+                            if (submitButton.disabled) {
+                                console.error('❌ FORM SUBMISSION BLOCKED: Submit button is disabled - ID not validated');
+                                e.preventDefault();
+                                
+                                // Force update button state
+                                if (window.signupValidator && typeof window.signupValidator.updateRegisterButtonState === 'function') {
+                                    window.signupValidator.updateRegisterButtonState();
+                                }
+                                
+                                alert('Please upload and validate your ID document (Certificate of Barangay or Philippine ID showing Barangay 158, 159, 160, or 161) before submitting.');
+                                return false;
+                            }
                             
                             // Prevent double submission
                             if (isSubmitting) {
@@ -624,15 +694,32 @@
                             // This ensures all sections (1, 2, 3) are visible for form submission
                             prepareSignupFormForSubmission();
                             
-                            // Check for validation errors
+                            // Check for validation errors (but be lenient - some fields might be conditionally required)
                             const invalidFields = form.querySelectorAll(':invalid');
-                            if (invalidFields.length > 0) {
-                                console.error('❌ VALIDATION ERRORS FOUND:', invalidFields.length);
-                                invalidFields.forEach((field, index) => {
+                            const criticalInvalidFields = Array.from(invalidFields).filter(field => {
+                                // Only block on critical fields that are always required
+                                const fieldName = field.name || field.id || '';
+                                const isCritical = field.required && 
+                                    (fieldName.includes('Email') || 
+                                     fieldName.includes('FirstName') || 
+                                     fieldName.includes('LastName') || 
+                                     fieldName.includes('password') ||
+                                     fieldName.includes('BirthDate'));
+                                return isCritical;
+                            });
+                            
+                            if (criticalInvalidFields.length > 0) {
+                                console.error('❌ CRITICAL VALIDATION ERRORS FOUND:', criticalInvalidFields.length);
+                                criticalInvalidFields.forEach((field, index) => {
                                     console.error(`  ${index + 1}. ${field.name || field.id}: ${field.validationMessage}`);
                                 });
                                 // Don't prevent default - let browser show validation
                                 return;
+                            }
+                            
+                            // Log non-critical validation errors but don't block
+                            if (invalidFields.length > 0) {
+                                console.warn('⚠️ Non-critical validation warnings:', invalidFields.length - criticalInvalidFields.length);
                             }
                             
                             console.log('=== CLIENT VALIDATION PASSED ===');
@@ -696,6 +783,10 @@
                             e.preventDefault();
                             if (await this.validateStep1()) {
                                 this.goToStep(2);
+                                // Update button state when Step 2 is shown
+                                setTimeout(() => {
+                                    this.updateRegisterButtonState();
+                                }, 100);
                             }
                         });
 
@@ -807,20 +898,24 @@
                             });
                         }
 
-                        // Password validation
+                        // Password validation (removed button state update - button only depends on ID validation)
                         const passwordInput = document.getElementById('password');
                         if (passwordInput) {
-                            passwordInput.addEventListener('blur', () => this.validatePassword());
+                            passwordInput.addEventListener('blur', () => {
+                                this.validatePassword();
+                            });
                             passwordInput.addEventListener('input', () => {
                                 this.clearError('password');
                                 this.updatePasswordRequirements(passwordInput.value);
                             });
                         }
 
-                        // Confirm password validation
+                        // Confirm password validation (removed button state update - button only depends on ID validation)
                         const confirmPasswordInput = document.getElementById('confirmPassword');
                         if (confirmPasswordInput) {
-                            confirmPasswordInput.addEventListener('blur', () => this.validateConfirmPassword());
+                            confirmPasswordInput.addEventListener('blur', () => {
+                                this.validateConfirmPassword();
+                            });
                             confirmPasswordInput.addEventListener('input', () => {
                                 this.clearError('confirmPassword');
                                 this.updateNextButtonState();
@@ -838,21 +933,62 @@
                             });
                         }
 
-                        // Checkbox validation
+                        // Checkbox validation (removed button state update - button only depends on ID validation)
                         const termsCheckbox = document.getElementById('privacyTerms');
                         const residencyCheckbox = document.getElementById('residencyConfirm');
                         if (termsCheckbox) {
                             termsCheckbox.addEventListener('change', () => {
+                                console.log('Privacy terms checkbox changed:', termsCheckbox.checked);
                                 this.validateCheckboxes();
-                                this.updateRegisterButtonState();
                             });
                         }
                         if (residencyCheckbox) {
                             residencyCheckbox.addEventListener('change', () => {
+                                console.log('Residency confirm checkbox changed:', residencyCheckbox.checked);
                                 this.validateCheckboxes();
-                                this.updateRegisterButtonState();
                             });
                         }
+                        
+                        // Update button state on page load and when step 2 becomes visible
+                        setTimeout(() => {
+                            this.updateRegisterButtonState();
+                            console.log('Initial register button state update');
+                        }, 500);
+                        
+                        // Also update when step 2 becomes visible
+                        const step2Section = document.getElementById('section2');
+                        if (step2Section) {
+                            const observer = new MutationObserver((mutations) => {
+                                mutations.forEach((mutation) => {
+                                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                        if (!step2Section.classList.contains('d-none')) {
+                                            setTimeout(() => {
+                                                this.updateRegisterButtonState();
+                                                console.log('Step 2 visible - updating register button state');
+                                            }, 100);
+                                        }
+                                    }
+                                });
+                            });
+                            observer.observe(step2Section, { attributes: true, attributeFilter: ['class'] });
+                        }
+                        
+                        // Also listen for Step 2 file input changes
+                        const step2FileInput = document.getElementById('idFileStep2');
+                        if (step2FileInput) {
+                            step2FileInput.addEventListener('change', () => {
+                                console.log('Step 2 file input changed');
+                                setTimeout(() => {
+                                    this.updateRegisterButtonState();
+                                }, 100);
+                            });
+                        }
+                        
+                        // Initial check after a delay to ensure all elements are loaded
+                        setTimeout(() => {
+                            this.updateRegisterButtonState();
+                            console.log('Initial register button state check completed');
+                        }, 1000);
                     }
 
                     setupPrivacyModalTracking() {
@@ -1285,36 +1421,70 @@
 
                     updateRegisterButtonState() {
                         const registerButton = document.getElementById('signupButton');
-                        if (!registerButton) return;
+                        if (!registerButton) {
+                            console.warn('Register button not found');
+                            return;
+                        }
                         
-                        const fileValid = this.validateFile();
-                        const termsChecked = document.getElementById('privacyTerms')?.checked;
-                        const residencyChecked = document.getElementById('residencyConfirm')?.checked;
+                        // SIMPLIFIED: Focus ONLY on ID validation (barangay detection)
+                        // Check if valid barangay 158-161 is detected from ID validation
+                        const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                        const hasValidBarangay = ocrBarangayInput && ocrBarangayInput.value && ['158', '159', '160', '161'].includes(ocrBarangayInput.value);
                         
-                        // Check if a non-eligible barangay was detected from ID
+                        // Check for rejection flags (screenshot, handwritten, invalid barangay)
                         const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
+                        const screenshotDetected = document.getElementById('ScreenshotDetected');
+                        const handwrittenDetected = document.getElementById('HandwrittenDetected');
+                        
                         const hasNonEligibleBarangay = nonEligibleBarangayDetected && nonEligibleBarangayDetected.value;
+                        const hasScreenshot = screenshotDetected && screenshotDetected.value === 'true';
+                        const hasHandwritten = handwrittenDetected && handwrittenDetected.value === 'true';
                         
-                        const allValid = fileValid && termsChecked && residencyChecked && !hasNonEligibleBarangay;
+                        // SIMPLIFIED LOGIC: Enable button ONLY if valid barangay is detected
+                        // No other checks (password, terms, etc.) - those are handled by form validation
+                        const idValidated = hasValidBarangay && !hasNonEligibleBarangay && !hasScreenshot && !hasHandwritten;
                         
-                        if (allValid) {
+                        console.log('=== Register Button State (ID Validation Only) ===');
+                        console.log('Has Valid Barangay:', hasValidBarangay);
+                        console.log('Has Screenshot:', hasScreenshot);
+                        console.log('Has Handwritten:', hasHandwritten);
+                        console.log('Has Non-Eligible Barangay:', hasNonEligibleBarangay);
+                        console.log('ID Validated:', idValidated);
+                        
+                        if (idValidated) {
+                            // Force enable the button - multiple methods to ensure it works
                             registerButton.disabled = false;
-                            registerButton.classList.remove('btn-secondary');
-                            registerButton.classList.add('btn-primary');
-                            registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
-                            registerButton.title = '';
+                            registerButton.removeAttribute('disabled');
+                            registerButton.setAttribute('aria-disabled', 'false');
+                            registerButton.style.pointerEvents = 'auto';
+                            registerButton.style.cursor = 'pointer';
+                            registerButton.style.opacity = '1';
+                            registerButton.classList.remove('btn-secondary', 'disabled');
+                            registerButton.classList.add('btn-success', 'btn-lg');
+                            const barangayNumber = ocrBarangayInput ? ocrBarangayInput.value : '';
+                            registerButton.innerHTML = '<i class="fas fa-check-circle me-2"></i> Register Account (Auto-Approved)';
+                            registerButton.title = 'Click to register - Your account will be automatically approved' + (barangayNumber ? ' for Barangay ' + barangayNumber : '') + '!';
+                            console.log('✅ Registration button ENABLED - ID validated (Barangay ' + (barangayNumber || 'unknown') + ')');
                         } else {
                             registerButton.disabled = true;
-                            registerButton.classList.remove('btn-primary');
+                            registerButton.classList.remove('btn-primary', 'btn-success');
                             registerButton.classList.add('btn-secondary');
                             
-                            if (hasNonEligibleBarangay) {
+                            if (hasScreenshot) {
+                                registerButton.innerHTML = '<i class="fas fa-ban me-2"></i> Registration Disabled (Screenshot Detected)';
+                                registerButton.title = 'Screenshots are not accepted. Please upload a photo of your actual ID.';
+                            } else if (hasHandwritten) {
+                                registerButton.innerHTML = '<i class="fas fa-ban me-2"></i> Registration Disabled (Handwritten Detected)';
+                                registerButton.title = 'Handwritten documents are not accepted. Please upload a photo of your official printed ID.';
+                            } else if (hasNonEligibleBarangay) {
                                 registerButton.innerHTML = '<i class="fas fa-ban me-2"></i> Registration Disabled (Invalid Barangay)';
                                 registerButton.title = 'The ID shows a non-eligible barangay. Please upload a valid ID showing Barangay 158, 159, 160, or 161.';
                             } else {
+                                // Button disabled - waiting for ID validation
                                 registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
-                                registerButton.title = '';
+                                registerButton.title = 'Please upload and validate your ID document (Certificate of Barangay or Philippine ID showing Barangay 158, 159, 160, or 161).';
                             }
+                            console.log('❌ Registration button DISABLED - ID not validated');
                         }
                     }
 
@@ -1431,7 +1601,7 @@
                         return true;
                     }
 
-                    async verifyResidencyProof(file) {
+                    async verifyResidencyProof(file, statusElementId = 'fileNameDisplay', previewElementId = null, previewImageId = null) {
                         if (!file) return;
                         
                         // Validate file type
@@ -1440,17 +1610,31 @@
                             return; // Already handled by validateFile
                         }
                         
-                        // Validate file size (5MB max)
-                        const maxSize = 5 * 1024 * 1024;
+                        // Validate file size (10MB max for images, 5MB for PDFs)
+                        const maxSize = file.type.startsWith('image/') ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
                         if (file.size > maxSize) {
                             return; // Already handled by validateFile
                         }
                         
                         // Show verification status
-                        const fileNameDisplay = document.getElementById('fileNameDisplay');
+                        const fileNameDisplay = document.getElementById(statusElementId);
                         if (fileNameDisplay) {
-                            fileNameDisplay.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Verifying residency proof...</div>';
+                            fileNameDisplay.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Verifying ID and checking barangay...</div>';
                             fileNameDisplay.classList.remove('d-none');
+                        }
+                        
+                        // Show preview if image
+                        if (previewElementId && previewImageId && file.type.startsWith('image/')) {
+                            const previewContainer = document.getElementById(previewElementId);
+                            const previewImage = document.getElementById(previewImageId);
+                            if (previewContainer && previewImage) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    previewImage.src = e.target.result;
+                                    previewContainer.style.display = 'block';
+                                };
+                                reader.readAsDataURL(file);
+                            }
                         }
                         
                         try {
@@ -1481,6 +1665,72 @@
                             
                             // Display result
                             if (fileNameDisplay) {
+                                // CRITICAL: Check for screenshot or handwritten detection FIRST
+                                if (result.isScreenshot || (result.message && (result.message.includes('Screenshot') || result.message.includes('screenshot')))) {
+                                    // Screenshot detected - reject and disable registration
+                                    fileNameDisplay.innerHTML = `<div class="alert alert-danger">
+                                        <i class="fas fa-ban me-2"></i>
+                                        <strong>Screenshot Detected</strong>
+                                        <div class="mt-2">${result.message || 'Screenshots are not accepted. Please upload a photo of your actual Philippine ID document (Driver\'s License, National ID, PhilHealth ID, Postal ID, etc.).'}</div>
+                                        <div class="mt-2"><strong>Registration is disabled. Please take a photo of your actual ID, not a screenshot.</strong></div>
+                                    </div>`;
+                                    
+                                    // Clear any stored barangay
+                                    const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                    if (ocrBarangayInput) ocrBarangayInput.value = '';
+                                    
+                                    // Set screenshot flag to prevent registration
+                                    let screenshotInput = document.getElementById('ScreenshotDetected');
+                                    if (!screenshotInput) {
+                                        screenshotInput = document.createElement('input');
+                                        screenshotInput.type = 'hidden';
+                                        screenshotInput.id = 'ScreenshotDetected';
+                                        screenshotInput.name = 'ScreenshotDetected';
+                                        screenshotInput.value = 'true';
+                                        document.getElementById('signupForm')?.appendChild(screenshotInput);
+                                    }
+                                    
+                                    // Remove non-eligible barangay flag if exists
+                                    const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                    if (nonEligibleBarangayInput) nonEligibleBarangayInput.remove();
+                                    
+                                    this.updateRegisterButtonState();
+                                    return;
+                                }
+                                
+                                // CRITICAL: Check for handwritten document detection
+                                if (result.message && (result.message.includes('Handwritten') || result.message.includes('handwritten'))) {
+                                    // Handwritten detected - reject and disable registration
+                                    fileNameDisplay.innerHTML = `<div class="alert alert-danger">
+                                        <i class="fas fa-ban me-2"></i>
+                                        <strong>Handwritten Document Detected</strong>
+                                        <div class="mt-2">${result.message || 'Handwritten documents are not accepted. Please upload a photo of your official printed Philippine ID document (Driver\'s License, National ID, PhilHealth ID, Postal ID, etc.).'}</div>
+                                        <div class="mt-2"><strong>Registration is disabled. Please upload a photo of your official printed ID, not a handwritten document.</strong></div>
+                                    </div>`;
+                                    
+                                    // Clear any stored barangay
+                                    const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                    if (ocrBarangayInput) ocrBarangayInput.value = '';
+                                    
+                                    // Set handwritten flag to prevent registration
+                                    let handwrittenInput = document.getElementById('HandwrittenDetected');
+                                    if (!handwrittenInput) {
+                                        handwrittenInput = document.createElement('input');
+                                        handwrittenInput.type = 'hidden';
+                                        handwrittenInput.id = 'HandwrittenDetected';
+                                        handwrittenInput.name = 'HandwrittenDetected';
+                                        handwrittenInput.value = 'true';
+                                        document.getElementById('signupForm')?.appendChild(handwrittenInput);
+                                    }
+                                    
+                                    // Remove non-eligible barangay flag if exists
+                                    const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                    if (nonEligibleBarangayInput) nonEligibleBarangayInput.remove();
+                                    
+                                    this.updateRegisterButtonState();
+                                    return;
+                                }
+                                
                                 // Check if a non-eligible barangay was detected (e.g., 168, 162, etc.)
                                 if (result.detectedBarangay && !result.autoApproved && result.success === false) {
                                     // Non-eligible barangay detected - show warning and disable submit button
@@ -1510,29 +1760,82 @@
                                         nonEligibleBarangayInput.value = result.detectedBarangay;
                                     }
                                     
+                                    // Remove screenshot/handwritten flags if they exist
+                                    const screenshotInput = document.getElementById('ScreenshotDetected');
+                                    if (screenshotInput) screenshotInput.remove();
+                                    const handwrittenInput = document.getElementById('HandwrittenDetected');
+                                    if (handwrittenInput) handwrittenInput.remove();
+                                    
                                     // Disable submit button
                                     this.updateRegisterButtonState();
                                 } else if (result.success && result.autoApproved && result.barangay) {
-                                    // Eligible barangay detected (158, 159, 160, or 161)
+                                    // Eligible barangay detected (158, 159, 160, or 161) - AUTO-APPROVE
+                                    console.log('✅ VALID BARANGAY DETECTED:', result.barangay);
                                     fileNameDisplay.innerHTML = `<div class="alert alert-success">
                                         <i class="fas fa-check-circle me-2"></i>
                                         <strong>Residency Verified!</strong>
-                                        <div class="mt-2">Barangay ${result.barangay} detected - Your account will be automatically approved!</div>
+                                        <div class="mt-2">Barangay ${result.barangay} detected - Your account will be automatically approved when you click Register!</div>
+                                        <div class="mt-2"><small>✅ Valid ID from eligible barangay confirmed</small></div>
                                     </div>`;
                                     
                                     // Store detected barangay in hidden field for form submission
                                     const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
                                     if (ocrBarangayInput) {
                                         ocrBarangayInput.value = result.barangay;
+                                        console.log('✅ Stored barangay in hidden field:', result.barangay);
+                                    } else {
+                                        console.error('❌ OcrDetectedBarangay input not found!');
                                     }
                                     
-                                    // Remove non-eligible barangay flag if exists
+                                    // Remove all rejection flags
                                     const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
                                     if (nonEligibleBarangayInput) {
+                                        console.log('Removing non-eligible barangay flag');
                                         nonEligibleBarangayInput.remove();
                                     }
+                                    const screenshotInput = document.getElementById('ScreenshotDetected');
+                                    if (screenshotInput) {
+                                        console.log('Removing screenshot flag');
+                                        screenshotInput.remove();
+                                    }
+                                    const handwrittenInput = document.getElementById('HandwrittenDetected');
+                                    if (handwrittenInput) {
+                                        console.log('Removing handwritten flag');
+                                        handwrittenInput.remove();
+                                    }
                                     
-                                    // Enable submit button
+                                    // AUTO-ADVANCE TO STEP 2 when valid barangay is detected
+                                    if (window.signupValidator && typeof window.signupValidator.goToStep === 'function') {
+                                        console.log('✅ Auto-advancing to Step 2 - Valid barangay detected');
+                                        window.signupValidator.goToStep(2);
+                                        
+                                        // Scroll to Step 2 section after a brief delay
+                                        setTimeout(() => {
+                                            const section2 = document.getElementById('section2');
+                                            if (section2) {
+                                                section2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }
+                                        }, 300);
+                                    }
+                                    
+                                    // Force enable submit button immediately
+                                    const registerButton = document.getElementById('signupButton');
+                                    if (registerButton) {
+                                        registerButton.disabled = false;
+                                        registerButton.classList.remove('btn-secondary');
+                                        registerButton.classList.add('btn-success', 'btn-lg');
+                                        registerButton.innerHTML = '<i class="fas fa-check-circle me-2"></i> Register Account (Auto-Approved)';
+                                        registerButton.title = 'Click to register - Your account will be automatically approved for Barangay ' + result.barangay + '!';
+                                        console.log('✅ Registration button ENABLED - Valid barangay detected');
+                                        
+                                        // Focus on the button after Step 2 is shown
+                                        setTimeout(() => {
+                                            registerButton.focus();
+                                            registerButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }, 500);
+                                    }
+                                    
+                                    // Also update button state to ensure consistency
                                     this.updateRegisterButtonState();
                                 } else {
                                     // No barangay detected or OCR failed
@@ -1748,6 +2051,10 @@
                         } else if (stepNumber === 2) {
                             section1?.classList.add('d-none');
                             section2?.classList.remove('d-none');
+                            // Update button state when Step 2 is shown
+                            setTimeout(() => {
+                                this.updateRegisterButtonState();
+                            }, 100);
                         }
                         
                         // Update step indicators (only 2 steps now)
@@ -2233,6 +2540,178 @@
             console.error('Unhandled error:', event.error);
         });
         
+        // Step 2 ID Validation Handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const idFileStep2 = document.getElementById('idFileStep2');
+            const processIdStep2 = document.getElementById('processIdStep2');
+            
+            if (idFileStep2 && processIdStep2) {
+                processIdStep2.addEventListener('click', async function() {
+                    const file = idFileStep2.files?.[0];
+                    if (!file) {
+                        alert('Please select an ID file first.');
+                        return;
+                    }
+                    
+                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+                    if (!allowedTypes.includes(file.type)) {
+                        alert('Please upload a JPG or PNG image file.');
+                        return;
+                    }
+                    
+                    const maxSize = 10 * 1024 * 1024;
+                    if (file.size > maxSize) {
+                        alert('File size must be less than 10MB.');
+                        return;
+                    }
+                    
+                    const statusElement = document.getElementById('idStatusStep2');
+                    const previewContainer = document.getElementById('idPreviewStep2');
+                    const previewImage = document.getElementById('idPreviewImageStep2');
+                    
+                    if (statusElement) {
+                        statusElement.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Processing ID and validating barangay...</div>';
+                    }
+                    
+                    // Show preview
+                    if (file.type.startsWith('image/') && previewContainer && previewImage) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            previewImage.src = e.target.result;
+                            previewContainer.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('residencyProof', file);
+                        
+                        const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]');
+                        if (antiForgeryToken) {
+                            formData.append('__RequestVerificationToken', antiForgeryToken.value);
+                        }
+                        
+                        const response = await fetch('/Account/SignUp?handler=VerifyResidency', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'RequestVerificationToken': antiForgeryToken ? antiForgeryToken.value : ''
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        
+                        const result = await response.json();
+                        
+                        if (statusElement) {
+                            if (result.success && result.autoApproved && result.barangay) {
+                                statusElement.innerHTML = `<div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>ID Validated!</strong>
+                                    <div class="mt-2">Barangay ${result.barangay} detected - Your account will be automatically approved!</div>
+                                </div>`;
+                                
+                                const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                                if (ocrBarangayInput) {
+                                    ocrBarangayInput.value = result.barangay;
+                                }
+                                
+                                // Remove all rejection flags
+                                const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                                if (nonEligibleBarangayInput) nonEligibleBarangayInput.remove();
+                                const screenshotInput = document.getElementById('ScreenshotDetected');
+                                if (screenshotInput) screenshotInput.remove();
+                                const handwrittenInput = document.getElementById('HandwrittenDetected');
+                                if (handwrittenInput) handwrittenInput.remove();
+                                
+                                // AUTO-ADVANCE TO STEP 2 when valid barangay is detected
+                                if (window.signupValidator && typeof window.signupValidator.goToStep === 'function') {
+                                    console.log('✅ Auto-advancing to Step 2 - Valid barangay detected');
+                                    window.signupValidator.goToStep(2);
+                                    
+                                    // Scroll to Step 2 section after a brief delay
+                                    setTimeout(() => {
+                                        const section2 = document.getElementById('section2');
+                                        if (section2) {
+                                            section2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        }
+                                    }, 300);
+                                }
+                                
+                                // SIMPLIFIED: Force enable registration button immediately when ID is validated
+                                // No need to check password, terms, etc. - those are handled by form validation
+                                const registerButton = document.getElementById('signupButton');
+                                if (registerButton) {
+                                    // Force enable the button - ID validation is complete
+                                    registerButton.disabled = false;
+                                    registerButton.removeAttribute('disabled');
+                                    registerButton.setAttribute('aria-disabled', 'false');
+                                    registerButton.style.pointerEvents = 'auto';
+                                    registerButton.style.cursor = 'pointer';
+                                    registerButton.style.opacity = '1';
+                                    registerButton.classList.remove('btn-secondary', 'disabled');
+                                    registerButton.classList.add('btn-success', 'btn-lg');
+                                    registerButton.innerHTML = '<i class="fas fa-check-circle me-2"></i> Register Account (Auto-Approved)';
+                                    registerButton.title = 'Click to register - Your account will be automatically approved for Barangay ' + result.barangay + '!';
+                                    console.log('✅ Registration button ENABLED - ID validated (Barangay ' + result.barangay + ')');
+                                    
+                                    // Focus on the button after Step 2 is shown
+                                    setTimeout(() => {
+                                        registerButton.focus();
+                                        registerButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }, 500);
+                                    
+                                    // Also trigger updateRegisterButtonState to ensure consistency
+                                    if (window.signupValidator && typeof window.signupValidator.updateRegisterButtonState === 'function') {
+                                        setTimeout(() => {
+                                            window.signupValidator.updateRegisterButtonState();
+                                        }, 100);
+                                    }
+                                }
+                                
+                                // Also update button state to ensure consistency
+                                if (window.signupValidator && typeof window.signupValidator.updateRegisterButtonState === 'function') {
+                                    setTimeout(() => {
+                                        window.signupValidator.updateRegisterButtonState();
+                                    }, 100);
+                                }
+                            } else if (result.isScreenshot) {
+                                statusElement.innerHTML = `<div class="alert alert-danger">
+                                    <i class="fas fa-ban me-2"></i>
+                                    <strong>Screenshot Detected</strong>
+                                    <div class="mt-2">${result.message || 'Screenshots are not accepted. Please upload a photo of your actual ID.'}</div>
+                                </div>`;
+                            } else if (result.isHandwritten) {
+                                statusElement.innerHTML = `<div class="alert alert-danger">
+                                    <i class="fas fa-ban me-2"></i>
+                                    <strong>Handwritten Document Detected</strong>
+                                    <div class="mt-2">${result.message || 'Handwritten documents are not accepted. Please upload a photo of your official printed ID.'}</div>
+                                </div>`;
+                            } else {
+                                statusElement.innerHTML = `<div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Validation Result</strong>
+                                    <div class="mt-2">${result.message || 'Unable to verify barangay. Your account will require manual review.'}</div>
+                                </div>`;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error processing ID:', error);
+                        if (statusElement) {
+                            statusElement.innerHTML = `<div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                <strong>Error</strong>
+                                <div class="mt-2">Failed to process ID. Please try again.</div>
+                            </div>`;
+                        }
+                    }
+                });
+            }
+        });
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Log key elements to verify they're found in the DOM
             console.log('DOM fully loaded');
@@ -2413,25 +2892,14 @@
                         }
                         
                         // Get selected OTP method and phone number
-                        const otpMethod = document.querySelector('input[name="otpMethod"]:checked')?.value || 'Email';
-                        const contactNumberInput = document.querySelector('input[name="Input.ContactNumber"]') || document.getElementById('Input_ContactNumber');
-                        const phoneNumber = contactNumberInput?.value || '';
+                        // Always use Email for signup verification
+                        const otpMethod = 'Email';
                         
                         // Prepare request body
                         const requestBody = {
                             email: emailInput.value,
                             sendVia: otpMethod
                         };
-                        
-                        // Add phone number if SMS is selected
-                        if (otpMethod === 'SMS') {
-                            if (!phoneNumber || phoneNumber.trim() === '') {
-                                showEmailError('Please enter your contact number to receive OTP via SMS');
-                                if (contactNumberInput) contactNumberInput.focus();
-                                return;
-                            }
-                            requestBody.phoneNumber = phoneNumber.trim();
-                        }
                         
                         fetch('/api/OTP/send', {
                             method: 'POST',

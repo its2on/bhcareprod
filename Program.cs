@@ -516,6 +516,9 @@ builder.Services.AddScoped<AzureVisionOcrService>();
 // Register AI Vision OCR Service (Gemini)
 builder.Services.AddScoped<AiVisionOcrService>();
 
+// Register Barangay Validation Service (dedicated service for barangay validation)
+builder.Services.AddScoped<BHCARE.Services.BarangayValidationService>();
+
 // Register Azure OCR Service (legacy service still used by some pages)
 builder.Services.AddHttpClient<AzureOcrService>();
 

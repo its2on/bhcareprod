@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -7,6 +8,7 @@ using Barangay.Services;
 using System.Threading.Tasks;
 using System;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Barangay.Controllers
 {
@@ -19,6 +21,7 @@ namespace Barangay.Controllers
         private readonly IEmailSender _emailSender;
         private readonly ISmsService _smsService;
         private readonly IEncryptionService _encryptionService;
+        private readonly IOTPService _otpService;
         private readonly ILogger<OTPController> _logger;
 
         public OTPController(
@@ -27,6 +30,7 @@ namespace Barangay.Controllers
             IEmailSender emailSender,
             ISmsService smsService,
             IEncryptionService encryptionService,
+            IOTPService otpService,
             ILogger<OTPController> logger)
         {
             _context = context;
@@ -34,6 +38,7 @@ namespace Barangay.Controllers
             _emailSender = emailSender;
             _smsService = smsService;
             _encryptionService = encryptionService;
+            _otpService = otpService;
             _logger = logger;
         }
 
@@ -43,27 +48,87 @@ namespace Barangay.Controllers
         {
             try
             {
+                // Check if request is null
+                if (request == null)
+                {
+                    _logger.LogError("OTP request is null");
+                    return BadRequest(new { success = false, message = "Invalid request. Please try again." });
+                }
+
                 // Validate request
-                if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
-                {
-                    return BadRequest(new { success = false, message = "Email or Phone Number is required" });
-                }
+                // Trim email and phone number
+                if (request.Email != null) request.Email = request.Email.Trim();
+                if (request.PhoneNumber != null) request.PhoneNumber = request.PhoneNumber.Trim();
+                
+                _logger.LogInformation("OTP Send Request - Email: {Email}, Phone: {Phone}, SendVia: {SendVia}", 
+                    request.Email ?? "null", request.PhoneNumber ?? "null", request.SendVia ?? "Email");
 
-                if (request.SendVia == "SMS" && string.IsNullOrWhiteSpace(request.PhoneNumber))
-                {
-                    return BadRequest(new { success = false, message = "Phone Number is required for SMS" });
-                }
-
-                if (request.SendVia == "Email" && string.IsNullOrWhiteSpace(request.Email))
-                {
-                    return BadRequest(new { success = false, message = "Email is required for Email verification" });
-                }
-
-                // For storage, always use email (EmailVerifications table uses email as key)
-                // Even if sending via SMS, we need email for storage and lookup
+                // Email is always required for storage (EmailVerifications table uses email as key)
                 if (string.IsNullOrWhiteSpace(request.Email))
                 {
-                    return BadRequest(new { success = false, message = "Email is required for OTP storage and verification" });
+                    _logger.LogWarning("OTP request rejected: Email is required");
+                    return BadRequest(new { success = false, message = "Email is required for OTP verification" });
+                }
+
+                // Validate email format (very lenient - just check for @ and .)
+                if (!request.Email.Contains("@") || !request.Email.Contains("."))
+                {
+                    _logger.LogWarning("OTP request rejected: Invalid email format - {Email}", request.Email);
+                    return BadRequest(new { success = false, message = "Please enter a valid email address" });
+                }
+
+                // Additional basic validation - must have at least one character before @ and after @
+                var emailParts = request.Email.Split('@');
+                if (emailParts.Length != 2 || string.IsNullOrWhiteSpace(emailParts[0]) || string.IsNullOrWhiteSpace(emailParts[1]))
+                {
+                    _logger.LogWarning("OTP request rejected: Invalid email format - {Email}", request.Email);
+                    return BadRequest(new { success = false, message = "Please enter a valid email address" });
+                }
+
+                // Check if domain has at least one dot
+                if (!emailParts[1].Contains("."))
+                {
+                    _logger.LogWarning("OTP request rejected: Invalid email format - missing domain - {Email}", request.Email);
+                    return BadRequest(new { success = false, message = "Please enter a valid email address" });
+                }
+
+                // Normalize SendVia (case-insensitive)
+                var sendVia = (request.SendVia ?? "Email").Trim();
+                if (string.IsNullOrWhiteSpace(sendVia))
+                {
+                    sendVia = "Email";
+                }
+                request.SendVia = sendVia;
+
+                // Validate based on send method
+                if (string.Equals(sendVia, "SMS", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                    {
+                        _logger.LogWarning("OTP request rejected: Phone number required for SMS");
+                        return BadRequest(new { success = false, message = "Phone number is required for SMS verification" });
+                    }
+                    // Validate phone number format (basic validation)
+                    var cleanedPhone = request.PhoneNumber.Replace("-", "").Replace(" ", "").Replace("(", "").Replace(")", "");
+                    var phoneRegex = new System.Text.RegularExpressions.Regex(@"^(\+?63|0)?9\d{9}$");
+                    if (!phoneRegex.IsMatch(cleanedPhone))
+                    {
+                        _logger.LogWarning("OTP request rejected: Invalid phone format - {Phone}", request.PhoneNumber);
+                        return BadRequest(new { success = false, message = "Please enter a valid Philippine phone number (e.g., 09171234567)" });
+                    }
+                    // Update phone number with cleaned version
+                    request.PhoneNumber = cleanedPhone;
+                }
+                else if (string.Equals(sendVia, "Email", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Email validation already done above
+                    _logger.LogInformation("Sending OTP via Email to {Email}", request.Email);
+                }
+                else
+                {
+                    // Default to Email if SendVia is not specified or invalid
+                    request.SendVia = "Email";
+                    _logger.LogInformation("SendVia '{SendVia}' not recognized, defaulting to Email", sendVia);
                 }
 
                 // Check if email is suspended (with fallback if table doesn't exist)
@@ -93,12 +158,12 @@ namespace Barangay.Controllers
                     // Continue without suspension check if table doesn't exist
                 }
 
-                // Generate a 6-digit OTP
-                Random random = new Random();
-                string otp = random.Next(100000, 999999).ToString();
+                // Generate a 6-digit OTP using OTPService (stores in memory cache)
+                // This ensures the OTP is available for validation in OTPVerification page
+                string otp = await _otpService.GenerateOTPAsync(request.Email);
                 
                 // Log the OTP for testing purposes
-                _logger.LogInformation("Generated OTP {OTP} for {Email}", otp, request.Email);
+                _logger.LogInformation("Generated OTP {OTP} for {Email} via OTPService", otp, request.Email);
 
                 try
                 {
@@ -158,31 +223,98 @@ namespace Barangay.Controllers
 
                 // Send OTP via selected method
                 bool sent = false;
-                string sendMethod = request.SendVia ?? "Email"; // Default to Email if not specified
+                string sendMethod = request.SendVia ?? "Email"; // Use normalized SendVia
 
-                if (sendMethod == "SMS" && !string.IsNullOrWhiteSpace(request.PhoneNumber))
+                _logger.LogInformation("Preparing to send OTP via {Method}. PhoneNumber present: {HasPhone}", 
+                    sendMethod, !string.IsNullOrWhiteSpace(request.PhoneNumber));
+
+                if (string.Equals(sendMethod, "SMS", StringComparison.OrdinalIgnoreCase))
                 {
+                    if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                    {
+                        _logger.LogWarning("SMS selected but PhoneNumber is null or empty");
+                        return BadRequest(new { success = false, message = "Phone number is required for SMS verification" });
+                    }
+
                     // Send OTP via SMS
                     string smsMessage = $"Your verification code is: {otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+                    
+                    _logger.LogInformation("Attempting to send SMS to {PhoneNumber} with OTP {OTP}", request.PhoneNumber, otp);
                     
                     try
                     {
                         sent = await _smsService.SendSmsAsync(request.PhoneNumber, smsMessage);
                         if (sent)
                         {
-                            _logger.LogInformation("OTP sent via SMS to {PhoneNumber}", request.PhoneNumber);
+                            _logger.LogInformation("OTP sent via SMS successfully to {PhoneNumber}", request.PhoneNumber);
                             return Ok(new { success = true, message = "Verification code sent successfully via SMS" });
                         }
                         else
                         {
-                            _logger.LogWarning("Failed to send OTP via SMS to {PhoneNumber}", request.PhoneNumber);
-                            return StatusCode(500, new { success = false, message = "Failed to send verification code via SMS. Please try again or use Email option." });
+                            _logger.LogWarning("SMS service returned false for {PhoneNumber}. Check SMS service configuration. The SMS API may be unavailable or misconfigured. Automatically falling back to Email.", request.PhoneNumber);
+                            
+                            // Automatically send via Email as fallback
+                            try
+                            {
+                                string emailMessage = $@"
+                                    <h3>Your Email Verification Code</h3>
+                                    <p>Please use the following code to verify your email address:</p>
+                                    <h2 style='background-color: #f5f5f5; padding: 10px; font-family: monospace; letter-spacing: 5px;'>{otp}</h2>
+                                    <p>This code will expire in 10 minutes.</p>
+                                    <p><small>Note: SMS service is currently unavailable, so the code was sent via Email instead.</small></p>
+                                    <p>If you did not request this code, please ignore this email.</p>";
+
+                                await _emailSender.SendEmailAsync(request.Email, "Email Verification Code", emailMessage);
+                                _logger.LogInformation("OTP sent via Email (SMS fallback) to {Email}", request.Email);
+                                return Ok(new { 
+                                    success = true, 
+                                    message = "Verification code sent successfully via Email (SMS service unavailable)",
+                                    fallbackToEmail = true
+                                });
+                            }
+                            catch (Exception emailEx)
+                            {
+                                _logger.LogError(emailEx, "Error sending email fallback to {Email}", request.Email);
+                                return StatusCode(500, new { 
+                                    success = false, 
+                                    message = "SMS service is unavailable and Email fallback failed. Please try again.",
+                                    smsUnavailable = true
+                                });
+                            }
                         }
                     }
                     catch (Exception smsEx)
                     {
-                        _logger.LogError(smsEx, "Error sending SMS to {PhoneNumber}", request.PhoneNumber);
-                        return StatusCode(500, new { success = false, message = "Failed to send verification code via SMS. Please try again or use Email option." });
+                        _logger.LogError(smsEx, "Exception occurred while sending SMS to {PhoneNumber}. Automatically falling back to Email.", request.PhoneNumber);
+                        
+                        // Automatically send via Email as fallback
+                        try
+                        {
+                            string emailMessage = $@"
+                                <h3>Your Email Verification Code</h3>
+                                <p>Please use the following code to verify your email address:</p>
+                                <h2 style='background-color: #f5f5f5; padding: 10px; font-family: monospace; letter-spacing: 5px;'>{otp}</h2>
+                                <p>This code will expire in 10 minutes.</p>
+                                <p><small>Note: SMS service encountered an error, so the code was sent via Email instead.</small></p>
+                                <p>If you did not request this code, please ignore this email.</p>";
+
+                            await _emailSender.SendEmailAsync(request.Email, "Email Verification Code", emailMessage);
+                            _logger.LogInformation("OTP sent via Email (SMS exception fallback) to {Email}", request.Email);
+                            return Ok(new { 
+                                success = true, 
+                                message = "Verification code sent successfully via Email (SMS service error)",
+                                fallbackToEmail = true
+                            });
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "Error sending email fallback to {Email}", request.Email);
+                            return StatusCode(500, new { 
+                                success = false, 
+                                message = "SMS service error and Email fallback failed. Please try again.",
+                                smsUnavailable = true
+                            });
+                        }
                     }
                 }
                 else
@@ -390,8 +522,14 @@ namespace Barangay.Controllers
 
     public class SendOtpRequest
     {
+        [JsonPropertyName("email")]
         public string Email { get; set; }
+        
+        [ValidateNever] // PhoneNumber is only required when SendVia is "SMS", so skip automatic validation
+        [JsonPropertyName("phoneNumber")]
         public string PhoneNumber { get; set; }
+        
+        [JsonPropertyName("sendVia")]
         public string SendVia { get; set; } = "Email"; // "Email" or "SMS"
     }
 

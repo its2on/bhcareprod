@@ -5,6 +5,7 @@ using Barangay.Data;
 using Barangay.Models;
 using Microsoft.AspNetCore.Authorization;
 using Barangay.Helpers;
+using Microsoft.Extensions.Logging;
 
 namespace Barangay.Pages.Nurse
 {
@@ -12,10 +13,12 @@ namespace Barangay.Pages.Nurse
     public class ControlPanelModel : PageModel
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<ControlPanelModel> _logger;
 
-        public ControlPanelModel(ApplicationDbContext context)
+        public ControlPanelModel(ApplicationDbContext context, ILogger<ControlPanelModel> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public IEnumerable<FormTemplate> FormTemplates { get; set; } = new List<FormTemplate>();
@@ -57,9 +60,47 @@ namespace Barangay.Pages.Nurse
                 .OrderBy(a => a.AppointmentTime)
                 .ToListAsync();
 
-            // Set default max appointments per day (can be configured later)
-            MaxAppointmentsPerDay = 50;
-            TotalAppointments = 50;
+            // Get max appointments per day from DoctorAvailabilities
+            // Query ALL availabilities to see what's in the database
+            var allAvailabilities = await _context.DoctorAvailabilities
+                .Include(da => da.Doctor)
+                .ToListAsync();
+            
+            _logger.LogInformation($"[Nurse Control Panel] Total doctor availabilities in DB: {allAvailabilities.Count}");
+            
+            // Log ALL doctors first to see what's in the database
+            foreach (var da in allAvailabilities)
+            {
+                _logger.LogInformation($"[Nurse Control Panel] ALL - Doctor: {da.Doctor?.FullName ?? da.DoctorId}, MaxSlots: {da.MaxAppointmentsPerDay}, IsAvailable: {da.IsAvailable}");
+            }
+            
+            // Filter to only active ones
+            var doctorAvailabilities = allAvailabilities.Where(da => da.IsAvailable).ToList();
+            
+            _logger.LogInformation($"[Nurse Control Panel] Found {doctorAvailabilities.Count} active doctor availabilities (IsAvailable = true)");
+            
+            if (doctorAvailabilities.Any())
+            {
+                // Log each active doctor's settings
+                foreach (var da in doctorAvailabilities)
+                {
+                    _logger.LogInformation($"[Nurse Control Panel] ACTIVE - Doctor: {da.Doctor?.FullName ?? da.DoctorId}, MaxSlots: {da.MaxAppointmentsPerDay}, IsAvailable: {da.IsAvailable}");
+                }
+                
+                // Use the HIGHEST individual doctor's max appointments (not sum)
+                // This represents the maximum slots available per day from any single doctor
+                MaxAppointmentsPerDay = doctorAvailabilities.Max(da => da.MaxAppointmentsPerDay);
+                TotalAppointments = MaxAppointmentsPerDay;
+                
+                _logger.LogInformation($"[Nurse Control Panel] Selected MAX slots: {MaxAppointmentsPerDay}");
+            }
+            else
+            {
+                // Fallback if no doctor availabilities configured
+                _logger.LogWarning("[Nurse Control Panel] No active doctor availabilities found, using default 100");
+                MaxAppointmentsPerDay = 100;
+                TotalAppointments = 100;
+            }
 
             // Load Services
             Services = await _context.ConsultationServices

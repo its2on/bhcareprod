@@ -90,6 +90,9 @@ namespace Barangay.Models
         [Display(Name = "Time Slot")]
         public string TimeSlot { get; set; }
         
+        [Display(Name = "Doctor")]
+        public string DoctorId { get; set; }
+        
         public static List<string> ConsultationTypes => new List<string>
         {
             "General Consult",

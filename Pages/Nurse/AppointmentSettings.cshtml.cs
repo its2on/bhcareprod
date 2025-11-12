@@ -8,11 +8,13 @@ using Barangay.Data;
 using Barangay.Models;
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
-namespace Barangay.Pages.Doctor
+namespace Barangay.Pages.Nurse
 {
-    [Authorize(Roles = "Doctor")]
+    [Authorize(Roles = "Nurse,Head Nurse")]
     public class AppointmentSettingsModel : PageModel
     {
         private readonly ApplicationDbContext _context;
@@ -34,17 +36,35 @@ namespace Barangay.Pages.Doctor
 
         public string Message { get; set; } = string.Empty;
         public bool IsSuccess { get; set; }
+        public string SelectedDoctorId { get; set; } = string.Empty;
+        public string SelectedDoctorName { get; set; } = string.Empty;
+        public List<ApplicationUser> Doctors { get; set; } = new();
 
-        public async Task<IActionResult> OnGetAsync()
+        public async Task<IActionResult> OnGetAsync(string doctorId = null)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            // Get all doctors for the dropdown
+            var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+            Doctors = doctorsList.ToList();
+
+            // If no doctor is selected, default to the first doctor
+            if (string.IsNullOrEmpty(doctorId) && Doctors.Any())
             {
-                return NotFound();
+                doctorId = Doctors.First().Id;
             }
 
+            if (string.IsNullOrEmpty(doctorId))
+            {
+                Message = "No doctors found in the system.";
+                IsSuccess = false;
+                return Page();
+            }
+
+            SelectedDoctorId = doctorId;
+            var selectedDoctor = Doctors.FirstOrDefault(d => d.Id == doctorId);
+            SelectedDoctorName = selectedDoctor?.FullName ?? "Unknown Doctor";
+
             var availability = await _context.DoctorAvailabilities
-                .FirstOrDefaultAsync(da => da.DoctorId == user.Id);
+                .FirstOrDefaultAsync(da => da.DoctorId == doctorId);
 
             if (availability != null)
             {
@@ -68,7 +88,7 @@ namespace Barangay.Pages.Doctor
                 // Default settings
                 Settings = new DoctorAvailabilitySettings
                 {
-                    MaxAppointmentsPerDay = 30,
+                    MaxAppointmentsPerDay = 50,
                     StartTime = "08:00",
                     EndTime = "17:00",
                     Monday = true,
@@ -85,51 +105,85 @@ namespace Barangay.Pages.Doctor
             return Page();
         }
 
-        public async Task<IActionResult> OnPostAsync()
+        public async Task<IActionResult> OnPostAsync(string doctorId)
         {
             if (!ModelState.IsValid)
             {
                 IsSuccess = false;
                 Message = "Please correct the errors and try again.";
+                
+                // Reload doctors list
+                var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                Doctors = doctorsList.ToList();
+                SelectedDoctorId = doctorId;
+                var selectedDoctor = Doctors.FirstOrDefault(d => d.Id == doctorId);
+                SelectedDoctorName = selectedDoctor?.FullName ?? "Unknown Doctor";
+                
                 return Page();
             }
 
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
+                if (string.IsNullOrEmpty(doctorId))
                 {
-                    return NotFound();
+                    ModelState.AddModelError("", "Doctor selection is required");
+                    IsSuccess = false;
+                    Message = "Please select a doctor.";
+                    
+                    var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                    Doctors = doctorsList.ToList();
+                    return Page();
                 }
 
                 // Parse times
                 if (!TimeSpan.TryParse(Settings.StartTime, out TimeSpan startTime))
                 {
                     ModelState.AddModelError("Settings.StartTime", "Invalid start time format");
+                    
+                    var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                    Doctors = doctorsList.ToList();
+                    SelectedDoctorId = doctorId;
+                    var selectedDoctor = Doctors.FirstOrDefault(d => d.Id == doctorId);
+                    SelectedDoctorName = selectedDoctor?.FullName ?? "Unknown Doctor";
+                    
                     return Page();
                 }
 
                 if (!TimeSpan.TryParse(Settings.EndTime, out TimeSpan endTime))
                 {
                     ModelState.AddModelError("Settings.EndTime", "Invalid end time format");
+                    
+                    var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                    Doctors = doctorsList.ToList();
+                    SelectedDoctorId = doctorId;
+                    var selectedDoctor2 = Doctors.FirstOrDefault(d => d.Id == doctorId);
+                    SelectedDoctorName = selectedDoctor2?.FullName ?? "Unknown Doctor";
+                    
                     return Page();
                 }
 
                 if (endTime <= startTime)
                 {
                     ModelState.AddModelError("Settings.EndTime", "End time must be after start time");
+                    
+                    var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                    Doctors = doctorsList.ToList();
+                    SelectedDoctorId = doctorId;
+                    var selectedDoctor3 = Doctors.FirstOrDefault(d => d.Id == doctorId);
+                    SelectedDoctorName = selectedDoctor3?.FullName ?? "Unknown Doctor";
+                    
                     return Page();
                 }
 
                 var availability = await _context.DoctorAvailabilities
-                    .FirstOrDefaultAsync(da => da.DoctorId == user.Id);
+                    .FirstOrDefaultAsync(da => da.DoctorId == doctorId);
 
                 if (availability == null)
                 {
                     // Create new availability
                     availability = new DoctorAvailability
                     {
-                        DoctorId = user.Id,
+                        DoctorId = doctorId,
                         IsAvailable = Settings.IsAvailable,
                         MaxAppointmentsPerDay = Settings.MaxAppointmentsPerDay,
                         StartTime = startTime,
@@ -148,11 +202,13 @@ namespace Barangay.Pages.Doctor
                     availability.CalculateSlotDuration();
 
                     _context.DoctorAvailabilities.Add(availability);
-                    _logger.LogInformation($"Created new availability settings for doctor {user.Id}");
+                    _logger.LogInformation($"Created new availability settings for doctor {doctorId} by nurse {User.Identity?.Name}");
                 }
                 else
                 {
                     // Update existing availability
+                    _logger.LogInformation($"[Nurse] Updating availability for doctor {doctorId} - Old MaxSlots: {availability.MaxAppointmentsPerDay}, New MaxSlots: {Settings.MaxAppointmentsPerDay}");
+                    
                     availability.IsAvailable = Settings.IsAvailable;
                     availability.MaxAppointmentsPerDay = Settings.MaxAppointmentsPerDay;
                     availability.StartTime = startTime;
@@ -169,21 +225,33 @@ namespace Barangay.Pages.Doctor
                     // Recalculate slot duration
                     availability.CalculateSlotDuration();
 
-                    _logger.LogInformation($"Updated availability settings for doctor {user.Id}");
+                    // Mark as modified to ensure EF Core tracks the change
+                    _context.Entry(availability).State = EntityState.Modified;
+
+                    _logger.LogInformation($"[Nurse] Updated availability settings for doctor {doctorId} by nurse {User.Identity?.Name} - SlotDuration: {availability.SlotDurationMinutes} minutes");
                 }
 
-                await _context.SaveChangesAsync();
+                var savedChanges = await _context.SaveChangesAsync();
+                _logger.LogInformation($"[Nurse] SaveChangesAsync completed - {savedChanges} entities saved");
 
                 IsSuccess = true;
-                Message = $"Settings saved successfully! Each appointment slot will be approximately {availability.SlotDurationMinutes} minutes.";
+                Message = $"Settings saved successfully! Each appointment slot will be approximately {availability.SlotDurationMinutes} minutes. (Max: {availability.MaxAppointmentsPerDay} slots/day)";
 
-                return Page();
+                // Reload page data
+                return RedirectToPage(new { doctorId = doctorId });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error saving appointment settings");
                 IsSuccess = false;
                 Message = "An error occurred while saving settings. Please try again.";
+                
+                var doctorsList = await _userManager.GetUsersInRoleAsync("Doctor");
+                Doctors = doctorsList.ToList();
+                SelectedDoctorId = doctorId;
+                var selectedDoctor4 = Doctors.FirstOrDefault(d => d.Id == doctorId);
+                SelectedDoctorName = selectedDoctor4?.FullName ?? "Unknown Doctor";
+                
                 return Page();
             }
         }
@@ -193,7 +261,7 @@ namespace Barangay.Pages.Doctor
     {
         [Required]
         [Range(1, 200, ErrorMessage = "Max appointments per day must be between 1 and 200")]
-        public int MaxAppointmentsPerDay { get; set; } = 30;
+        public int MaxAppointmentsPerDay { get; set; } = 50;
 
         [Required]
         public string StartTime { get; set; } = "08:00";
@@ -225,4 +293,3 @@ namespace Barangay.Pages.Doctor
         }
     }
 }
-

@@ -245,12 +245,119 @@ namespace Barangay.Controllers
             }
         }
 
+        /// <summary>
+        /// Get available doctors for a specific date based on their working days
+        /// </summary>
+        [HttpGet("available-doctors")]
+        public async Task<IActionResult> GetAvailableDoctors([FromQuery] string date)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(date))
+                {
+                    return BadRequest(new { success = false, message = "Date is required" });
+                }
+
+                var parsedDate = DateTimeHelper.ParseDate(date);
+                if (parsedDate == DateTime.MinValue)
+                {
+                    return BadRequest(new { success = false, message = "Invalid date format. Use yyyy-MM-dd" });
+                }
+
+                // Check if date is in the past
+                if (parsedDate.Date < DateTime.Today)
+                {
+                    return Ok(new
+                    {
+                        success = false,
+                        message = "Cannot book appointments in the past",
+                        doctors = Array.Empty<object>()
+                    });
+                }
+
+                // Get all active doctor availabilities
+                var doctorAvailabilities = await _context.DoctorAvailabilities
+                    .Include(da => da.Doctor)
+                    .Where(da => da.IsAvailable)
+                    .ToListAsync();
+
+                // Filter doctors who work on the selected day
+                var availableDoctors = doctorAvailabilities
+                    .Where(da => da.IsAvailableOnDate(parsedDate))
+                    .Select(da => new
+                    {
+                        doctorId = da.DoctorId,
+                        doctorName = da.Doctor != null ? $"Dr. {da.Doctor.FullName}" : "Unknown Doctor",
+                        workingHours = FormatTimeSpanRange(da.StartTime, da.EndTime),
+                        maxAppointments = da.MaxAppointmentsPerDay
+                    })
+                    .ToList();
+
+                if (!availableDoctors.Any())
+                {
+                    var dayName = parsedDate.DayOfWeek.ToString();
+                    return Ok(new
+                    {
+                        success = false,
+                        message = $"No doctors are available on {dayName}s. Please select another date.",
+                        doctors = Array.Empty<object>(),
+                        dayOfWeek = dayName
+                    });
+                }
+
+                _logger.LogInformation($"Found {availableDoctors.Count} available doctors for {date}");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"{availableDoctors.Count} doctor(s) available",
+                    doctors = availableDoctors,
+                    count = availableDoctors.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting available doctors: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while retrieving available doctors"
+                });
+            }
+        }
+
         private async Task<bool> IsWeekendEnabled(string doctorId)
         {
             var availability = await _context.DoctorAvailabilities
                 .FirstOrDefaultAsync(da => da.DoctorId == doctorId);
 
             return availability != null && (availability.Saturday || availability.Sunday);
+        }
+
+        /// <summary>
+        /// Format TimeSpan range as 12-hour time with AM/PM
+        /// </summary>
+        private string FormatTimeSpanRange(TimeSpan start, TimeSpan end)
+        {
+            return $"{FormatTimeSpan(start)} - {FormatTimeSpan(end)}";
+        }
+
+        /// <summary>
+        /// Convert TimeSpan to 12-hour format with AM/PM
+        /// </summary>
+        private string FormatTimeSpan(TimeSpan time)
+        {
+            var hours = time.Hours;
+            var minutes = time.Minutes;
+            var period = hours >= 12 ? "PM" : "AM";
+            
+            // Convert to 12-hour format
+            if (hours == 0)
+                hours = 12;
+            else if (hours > 12)
+                hours -= 12;
+            
+            return $"{hours}:{minutes:D2} {period}";
         }
     }
 }

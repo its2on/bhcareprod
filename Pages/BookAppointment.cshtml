@@ -256,19 +256,44 @@
                             <h5 class="mb-0">Appointment Details</h5>
                         </div>
                         <div class="card-body">
-                            <!-- Doctor selection is now handled automatically. 
-                                 A hidden input will pass the ID of the first available doctor. -->
-                            <input type="hidden" id="DoctorId" name="DoctorId" value="@((!string.IsNullOrEmpty(Model.DefaultDoctorId)) ? Model.DefaultDoctorId : (Model.Doctors != null && Model.Doctors.Any() ? Model.Doctors.First().UserId : string.Empty))" />
-
-                            <!-- Replace the date input field with a more robust implementation -->
+                            <!-- Date selection - first step -->
                             <div class="mb-3">
-                                <label for="appointmentDate" class="form-label">Date</label>
+                                <label for="appointmentDate" class="form-label">Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control" id="appointmentDate" name="appointmentDate" required min="@DateTimeHelper.Now.ToString("yyyy-MM-dd")">
                                 <input type="hidden" name="BookingModel.AppointmentDate" id="hiddenAppointmentDate">
                                 <div id="dateValidationMessage" class="invalid-feedback"></div>
+                                <div class="form-text">Select a date to see available doctors</div>
+                            </div>
+
+                            <!-- Doctor display - shows available doctors (no manual selection) -->
+                            <div class="mb-3">
+                                <label class="form-label">Assigned Doctor <span class="text-danger">*</span></label>
+                                
+                                <!-- Hidden input for selected doctor ID -->
+                                <input type="hidden" id="DoctorId" name="DoctorId" required />
+                                
+                                <!-- Doctor availability banner -->
+                                <div id="doctorAvailabilityBanner" class="alert alert-info mb-2" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fa-solid fa-user-doctor me-2"></i>
+                                            <span id="doctorAvailabilityText">Loading available doctors...</span>
+                                        </div>
+                                        <span class="badge bg-primary" id="doctorCountBadge">0</span>
+                                    </div>
+                                </div>
+                                
+                                <div id="doctorInfoMessage" class="form-text text-muted">Available doctor(s) will appear after selecting a date.</div>
+                                
+                                <!-- Display assigned doctors list -->
+                                <div id="assignedDoctorsList" style="display: none;">
+                                    <div class="list-group" id="doctorsListContainer">
+                                        <!-- Doctors will be populated here -->
+                                    </div>
+                                </div>
                             </div>
                             
-                            <!-- Update the consultation type dropdown to trigger time slot updates -->
+                            <!-- Consultation type selection -->
                             <div class="mb-3">
                                 <label for="consultationType" class="form-label">Consultation Type</label>
                                 <select class="form-select" id="consultationType" name="consultationType" required>
@@ -334,10 +359,11 @@
                         <div class="card-body">
                             <ol class="ps-3">
                                 <li>Select your preferred date</li>
-                                <li>Choose your consultation type</li>
-                                <li>Select available time slot</li>
-                                <li>Fill in your details</li>
-                                <li>Complete health assessment (General Consult only)</li>
+                                <li>Choose your assigned doctor</li>
+                                <li>Select consultation type</li>
+                                <li>Pick available time slot</li>
+                                <li>Fill in patient details</li>
+                                <li>Complete health assessment (if required)</li>
                                 <li>Submit your booking</li>
                             </ol>
                             
@@ -650,25 +676,128 @@
                 }
             });
 
-            // Date validation - TEMPORARILY DISABLED FOR TESTING
+            // Date selection - Load available doctors
             $('#appointmentDate').on('change', function() {
-                const selectedDate = new Date($(this).val());
-                const day = selectedDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+                const selectedDate = $(this).val();
                 const validationMessage = $('#dateValidationMessage');
                 
-                // TEMPORARILY COMMENTED OUT FOR TESTING
-                // if (day === 0 || day === 6) { // Sunday or Saturday
-                //     validationMessage.text('Appointments are not available on weekends. Please select a weekday.');
-                //     $(this).addClass('is-invalid');
-                // } else {
-                //     validationMessage.text('');
-                //     $(this).removeClass('is-invalid');
-                // }
-                
-                // Always clear validation for testing
+                // Clear validation
                 validationMessage.text('');
                 $(this).removeClass('is-invalid');
+                
+                // Load available doctors for the selected date
+                loadAvailableDoctors(selectedDate);
             });
+            
+            // Function to load available doctors based on selected date
+            function loadAvailableDoctors(selectedDate) {
+                const doctorHiddenInput = $('#DoctorId');
+                const doctorBanner = $('#doctorAvailabilityBanner');
+                const doctorInfoMessage = $('#doctorInfoMessage');
+                const doctorsListContainer = $('#doctorsListContainer');
+                const assignedDoctorsList = $('#assignedDoctorsList');
+                
+                if (!selectedDate) {
+                    doctorHiddenInput.val('');
+                    doctorBanner.hide();
+                    assignedDoctorsList.hide();
+                    doctorInfoMessage.text('Available doctor(s) will appear after selecting a date.');
+                    return;
+                }
+                
+                // Show loading state
+                doctorBanner.show();
+                $('#doctorAvailabilityText').text('Loading available doctors...');
+                $('#doctorCountBadge').text('...');
+                assignedDoctorsList.hide();
+                doctorsListContainer.empty();
+                
+                console.log('[BookAppointment] Fetching available doctors for date:', selectedDate);
+                
+                // Fetch available doctors from API
+                $.ajax({
+                    url: `/api/appointment-slots/available-doctors?date=${selectedDate}`,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('[Doctors API] Response:', response);
+                        
+                        if (!response.success || !response.doctors || response.doctors.length === 0) {
+                            // No doctors available
+                            doctorHiddenInput.val('');
+                            doctorBanner.removeClass('alert-info alert-success').addClass('alert-warning');
+                            $('#doctorAvailabilityText').html(`<i class="fa-solid fa-exclamation-triangle me-2"></i>${response.message || 'No doctors available'}`);
+                            $('#doctorCountBadge').text('0');
+                            doctorInfoMessage.removeClass('text-muted').addClass('text-danger')
+                                .html(`<i class="fa-solid fa-exclamation-triangle me-2"></i>${response.message || 'No doctors are available on this date. Please select another day.'}`);
+                            assignedDoctorsList.hide();
+                            
+                            // Clear time slots as well
+                            $('#timeSlot').html('<option value="" selected disabled>No doctors available</option>');
+                            $('#slotAvailabilityBanner').hide();
+                            return;
+                        }
+                        
+                        // Display doctors in a list
+                        const count = response.doctors.length;
+                        doctorsListContainer.empty();
+                        
+                        $.each(response.doctors, function(index, doctor) {
+                            const listItem = `
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fa-solid fa-user-doctor me-2"></i>${doctor.doctorName}</h6>
+                                            <small class="text-muted"><i class="fa-solid fa-clock me-1"></i>${doctor.workingHours}</small>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill">Available</span>
+                                    </div>
+                                </div>
+                            `;
+                            doctorsListContainer.append(listItem);
+                        });
+                        
+                        // Show doctors list
+                        assignedDoctorsList.show();
+                        
+                        // Update banner
+                        doctorBanner.removeClass('alert-warning alert-info').addClass('alert-success');
+                        $('#doctorAvailabilityText').html(`<i class="fa-solid fa-check-circle me-2"></i>${count} doctor${count > 1 ? 's' : ''} available on this date`);
+                        $('#doctorCountBadge').text(count);
+                        
+                        doctorInfoMessage.removeClass('text-danger').addClass('text-success')
+                            .html(`<i class="fa-solid fa-check-circle me-2"></i>${count} doctor${count > 1 ? 's' : ''} assigned to this date`);
+                        
+                        // Auto-select the first doctor (for time slot loading)
+                        const firstDoctor = response.doctors[0];
+                        doctorHiddenInput.val(firstDoctor.doctorId);
+                        
+                        console.log('[BookAppointment] Auto-selected doctor:', firstDoctor.doctorName, 'ID:', firstDoctor.doctorId);
+                        console.log('[BookAppointment] Doctor ID set in hidden input:', doctorHiddenInput.val());
+                        console.log('[BookAppointment] Loaded', count, 'available doctors');
+                        
+                        // Trigger time slots update if consultation type is already selected
+                        const consultationType = $('#consultationType').val();
+                        console.log('[BookAppointment] Current consultation type:', consultationType);
+                        
+                        if (consultationType) {
+                            console.log('[BookAppointment] Consultation type already selected, loading time slots...');
+                            updateTimeSlots();
+                        } else {
+                            console.log('[BookAppointment] Waiting for consultation type to be selected before loading time slots');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('[Doctors API] Error:', error);
+                        doctorHiddenInput.val('');
+                        doctorBanner.removeClass('alert-info alert-success').addClass('alert-danger');
+                        $('#doctorAvailabilityText').html('<i class="fa-solid fa-exclamation-circle me-2"></i>Error loading doctors');
+                        $('#doctorCountBadge').text('!');
+                        doctorInfoMessage.removeClass('text-muted').addClass('text-danger')
+                            .text('Error loading doctors. Please try again.');
+                        assignedDoctorsList.hide();
+                    }
+                });
+            }
             
             // Function to update available time slots based on date and consultation type
             function updateTimeSlots() {
@@ -830,13 +959,6 @@
                 }
             }
             
-            // Event listener for date input changes
-            $('#appointmentDate').on('change', function() {
-                const selectedDate = $(this).val();
-                console.log('[BookAppointment] Date changed to:', selectedDate);
-                updateTimeSlots();
-            });
-            
             // Event listener for birth date changes to update forms
             $('#dateOfBirth, #birthDate').on('change', function() {
                 console.log('[BookAppointment] Birth date changed, updating forms');
@@ -913,7 +1035,13 @@
             // Event listener for consultation type changes
             $('#consultationType').on('change', function() {
                 const selectedType = $(this).val();
+                const doctorId = $('#DoctorId').val();
+                const selectedDate = $('#appointmentDate').val();
+                
                 console.log('[BookAppointment] Consultation type changed to:', selectedType);
+                console.log('[BookAppointment] Current doctor ID:', doctorId);
+                console.log('[BookAppointment] Current date:', selectedDate);
+                
                 updateTimeSlots();
                 updateAvailableForms(); // Update forms based on selected service
                 

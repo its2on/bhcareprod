@@ -6,9 +6,9 @@ using Barangay.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
 
-namespace Barangay.Pages.Admin
+namespace Barangay.Pages.Nurse
 {
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Roles = "Nurse,Head Nurse")]
     public class FormBuilderModel : PageModel
     {
         private readonly ApplicationDbContext _context;
@@ -248,4 +248,3 @@ namespace Barangay.Pages.Admin
         public int DisplayOrder { get; set; }
     }
 }
-

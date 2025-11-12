@@ -152,17 +152,59 @@ Return the information in JSON format with these exact keys:
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
-                var response = await _httpClient.PostAsync(url, content);
-
-                if (!response.IsSuccessStatusCode)
+                // Try different model names and API versions
+                // Common Gemini models: gemini-1.5-flash, gemini-1.5-pro, gemini-pro, gemini-pro-vision
+                var modelNames = new[] { "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro" };
+                var apiVersions = new[] { "v1beta", "v1" };
+                HttpResponseMessage response = null;
+                string errorContent = null;
+                string successfulModel = null;
+                string successfulVersion = null;
+                
+                foreach (var apiVersion in apiVersions)
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Gemini API error: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                    foreach (var modelName in modelNames)
+                    {
+                        var url = $"https://generativelanguage.googleapis.com/{apiVersion}/models/{modelName}:generateContent?key={_apiKey}";
+                        _logger.LogInformation("Trying Gemini API: {Version} / {Model}", apiVersion, modelName);
+                        
+                        response = await _httpClient.PostAsync(url, content);
+                        
+                        if (response.IsSuccessStatusCode)
+                        {
+                            successfulModel = modelName;
+                            successfulVersion = apiVersion;
+                            _logger.LogInformation("✓ Gemini API call successful: {Version} / {Model}", apiVersion, modelName);
+                            break;
+                        }
+                        else
+                        {
+                            errorContent = await response.Content.ReadAsStringAsync();
+                            _logger.LogWarning("Gemini API {Version}/{Model} failed: {StatusCode}", apiVersion, modelName, response.StatusCode);
+                            
+                            // If 404, try next model/version
+                            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    if (response != null && response.IsSuccessStatusCode)
+                    {
+                        break; // Success, exit both loops
+                    }
+                }
+
+                if (response == null || !response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Gemini API unavailable after trying all models/versions. This is not critical - system will use standard OCR.");
+                    _logger.LogInformation("Falling back to standard OCR services (Local OCR / Azure OCR)");
+                    // Return gracefully - the system will fall back to other OCR services automatically
                     return new IdExtractionResult
                     {
                         Success = false,
-                        Message = $"Gemini API error: {response.StatusCode}"
+                        Message = "AI Vision service temporarily unavailable. Using standard OCR instead."
                     };
                 }
 

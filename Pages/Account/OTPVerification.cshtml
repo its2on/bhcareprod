@@ -65,13 +65,30 @@
             
             <div class="otp-info-box mb-4">
                 <div class="info-icon">
-                    <i class="fas fa-envelope"></i>
+                    <i class="fas fa-envelope" id="deliveryIcon"></i>
                 </div>
                 <div class="info-content">
-                    <h5>Check Your Email</h5>
-                    <p class="mb-0">We've sent a 6-digit verification code to:</p>
-                    <strong class="email-address">@Model.UserEmail</strong>
+                    <h5 id="deliveryTitle">Check Your Email</h5>
+                    <p class="mb-0" id="deliveryMessage">We've sent a 6-digit verification code to:</p>
+                    <strong class="email-address" id="deliveryAddress">@Model.UserEmail</strong>
                 </div>
+            </div>
+            
+            <!-- Verification Method Selection -->
+            <div class="mb-4">
+                <label class="form-label small">Choose verification method:</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="otpMethod" id="otpMethodEmail" value="Email" checked>
+                    <label class="btn btn-outline-primary" for="otpMethodEmail">
+                        <i class="fas fa-envelope me-1"></i> Email
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="otpMethod" id="otpMethodSMS" value="SMS">
+                    <label class="btn btn-outline-primary" for="otpMethodSMS">
+                        <i class="fas fa-sms me-1"></i> SMS
+                    </label>
+                </div>
+                <small class="form-text text-muted d-block mt-2">Select how you want to receive your verification code</small>
             </div>
             
             <div class="form-group mb-4">
@@ -258,7 +275,7 @@
             const verifyButton = document.getElementById('verifyButton');
             const resendButton = document.getElementById('resendButton');
             const countdownElement = document.getElementById('countdown');
-            const resendCountdownElement = document.getElementById('resendCountdown');
+            let resendCountdownElement = document.getElementById('resendCountdown'); // Use 'let' because it gets reassigned
             
             let timeLeft = 300; // 5 minutes in seconds
             let resendTimeLeft = 60; // 1 minute for resend
@@ -302,11 +319,188 @@
             const countdownInterval = setInterval(updateCountdown, 1000);
             const resendInterval = setInterval(updateResendCountdown, 1000);
             
+            // Handle verification method toggle
+            const otpMethodEmail = document.getElementById('otpMethodEmail');
+            const otpMethodSMS = document.getElementById('otpMethodSMS');
+            const deliveryIcon = document.getElementById('deliveryIcon');
+            const deliveryTitle = document.getElementById('deliveryTitle');
+            const deliveryMessage = document.getElementById('deliveryMessage');
+            const deliveryAddress = document.getElementById('deliveryAddress');
+            const userEmail = '@Html.Raw(Model.UserEmail)';
+            const userPhoneNumber = '@Html.Raw(Model.UserPhoneNumber ?? "")';
+            const hasPhoneNumber = userPhoneNumber && userPhoneNumber.trim() !== '';
+            
+            // Disable SMS option if no phone number
+            if (!hasPhoneNumber && otpMethodSMS) {
+                otpMethodSMS.disabled = true;
+                otpMethodSMS.parentElement.style.opacity = '0.5';
+                otpMethodSMS.parentElement.style.cursor = 'not-allowed';
+            }
+            
+            function updateDeliveryDisplay(method) {
+                if (method === 'SMS') {
+                    deliveryIcon.className = 'fas fa-sms';
+                    deliveryTitle.textContent = 'Check Your SMS';
+                    deliveryMessage.textContent = 'We\'ve sent a 6-digit verification code to:';
+                    deliveryAddress.textContent = hasPhoneNumber ? userPhoneNumber : userEmail;
+                } else {
+                    deliveryIcon.className = 'fas fa-envelope';
+                    deliveryTitle.textContent = 'Check Your Email';
+                    deliveryMessage.textContent = 'We\'ve sent a 6-digit verification code to:';
+                    deliveryAddress.textContent = userEmail;
+                }
+            }
+            
+            // Don't automatically send OTP on page load - it should have been sent during login
+            // Only send when user explicitly switches methods or clicks "Resend Code"
+            
+            if (otpMethodEmail) {
+                otpMethodEmail.addEventListener('change', function() {
+                    if (this.checked) {
+                        updateDeliveryDisplay('Email');
+                        // Automatically send OTP when switching to Email
+                        console.log('Switching to Email, sending OTP');
+                        sendOTP('Email');
+                    }
+                });
+            }
+            
+            if (otpMethodSMS) {
+                otpMethodSMS.addEventListener('change', function() {
+                    if (this.checked) {
+                        updateDeliveryDisplay('SMS');
+                        // Automatically send OTP when switching to SMS
+                        console.log('Switching to SMS, sending OTP');
+                        sendOTP('SMS');
+                    }
+                });
+            }
+            
+            // Function to send OTP via selected method
+            async function sendOTP(method) {
+                try {
+                    const requestBody = {
+                        email: userEmail,
+                        sendVia: method
+                    };
+                    
+                    // Add phone number if SMS is selected
+                    if (method === 'SMS') {
+                        console.log('SMS method selected');
+                        console.log('hasPhoneNumber:', hasPhoneNumber);
+                        console.log('userPhoneNumber:', userPhoneNumber);
+                        console.log('userPhoneNumber trimmed:', userPhoneNumber ? userPhoneNumber.trim() : 'null');
+                        
+                        if (!hasPhoneNumber || !userPhoneNumber || userPhoneNumber.trim() === '') {
+                            console.error('No phone number available, switching to Email');
+                            otpMethodEmail.checked = true;
+                            updateDeliveryDisplay('Email');
+                            // Automatically send Email OTP
+                            setTimeout(() => sendOTP('Email'), 300);
+                            return;
+                        }
+                        const phoneNumberToSend = userPhoneNumber.trim();
+                        requestBody.phoneNumber = phoneNumberToSend;
+                        console.log('Phone number added to request:', phoneNumberToSend);
+                    }
+                    
+                    console.log('Sending OTP via', method, 'to', method === 'SMS' ? userPhoneNumber : userEmail);
+                    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+                    
+                    const response = await fetch('/api/OTP/send', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    // Check if response is ok before parsing
+                    if (!response.ok) {
+                        // Try to parse error response
+                        let errorData;
+                        try {
+                            const responseText = await response.text();
+                            console.error('OTP API Error Response:', responseText);
+                            try {
+                                errorData = JSON.parse(responseText);
+                            } catch (parseError) {
+                                errorData = { message: responseText || `Server error: ${response.status} ${response.statusText}` };
+                            }
+                        } catch (e) {
+                            console.error('Error parsing error response:', e);
+                            errorData = { message: `Server error: ${response.status} ${response.statusText}` };
+                        }
+                        const errorMessage = errorData.message || errorData.error || `Failed to send verification code: ${response.status}`;
+                        console.error('OTP Send Error:', errorMessage);
+                        
+                        if (method === 'SMS') {
+                            console.log('SMS failed with HTTP error:', errorMessage);
+                            alert('Failed to send SMS: ' + errorMessage + '\n\nYou can try switching to Email or click "Resend Code" to try again.');
+                            return;
+                        } else {
+                            throw new Error(errorMessage);
+                        }
+                    }
+                    
+                    // Parse successful response
+                    let data;
+                    try {
+                        const responseText = await response.text();
+                        console.log('OTP API Response:', responseText);
+                        data = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('Error parsing response:', parseError);
+                        if (method === 'SMS') {
+                            console.log('Failed to parse SMS response');
+                            alert('Error: Unable to parse server response. Please try clicking "Resend Code" or switch to Email.');
+                            return;
+                        }
+                        throw new Error('Invalid response from server');
+                    }
+                    
+                    if (data.success) {
+                        console.log('OTP sent successfully via', method);
+                        // Reset countdown timers
+                        timeLeft = 300;
+                        resendTimeLeft = 60;
+                        resendButton.disabled = true;
+                        resendButton.innerHTML = '<i class="fas fa-redo me-2"></i>Resend Code (<span id="resendCountdown">60</span>s)';
+                        // Re-initialize resend countdown element reference
+                        const newResendCountdown = document.getElementById('resendCountdown');
+                        if (newResendCountdown) {
+                            resendCountdownElement = newResendCountdown;
+                        }
+                    } else {
+                        console.error('Failed to send OTP:', data.message);
+                        const errorMsg = data.message || 'Unknown error';
+                        if (method === 'SMS') {
+                            // Show error but don't automatically switch - let user decide
+                            console.log('SMS failed:', errorMsg);
+                            alert('Failed to send SMS: ' + errorMsg + '\n\nYou can try switching to Email or click "Resend Code" to try again.');
+                        } else {
+                            alert('Failed to send verification code: ' + errorMsg);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error sending OTP:', error);
+                    const errorMessage = error.message || 'Network error or server unavailable';
+                    if (method === 'SMS') {
+                        // Show error but don't automatically switch - let user decide
+                        console.log('SMS error occurred:', errorMessage);
+                        alert('Error sending SMS: ' + errorMessage + '\n\nYou can try switching to Email or click "Resend Code" to try again.');
+                    } else {
+                        console.error('Email OTP also failed:', error);
+                        alert('Error sending verification code: ' + errorMessage + '\n\nPlease check your internet connection and try again.');
+                    }
+                }
+            }
+            
             // Handle resend button click
             resendButton.addEventListener('click', function() {
                 if (!resendButton.disabled) {
-                    // Reload page to resend OTP
-                    window.location.reload();
+                    const selectedMethod = document.querySelector('input[name="otpMethod"]:checked')?.value || 'Email';
+                    sendOTP(selectedMethod);
                 }
             });
             

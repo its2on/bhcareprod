@@ -1318,17 +1318,68 @@ namespace Barangay.Services
             _logger.LogInformation("📝 Validating document with text length: {Length} characters", upperText.Length);
             
             // CRITICAL: Check for screenshot or illustration indicators
-            var invalidIndicators = new[] 
-            { 
-                "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", 
-                "WINDOWS", "MACOS", "ANDROID", "IOS",
-                "CHATGPT", "ILLUSTRATION", "CARTOON", "DRAWING",
-                "GENERATED", "ARTIFICIAL", "FAKE"
+            // Comprehensive list of screenshot indicators based on common mobile/desktop UI elements
+            var screenshotIndicators = new[] { 
+                "SCREENSHOT", "SCREEN SHOT", "SCREENSHOT SAVED", "SCREEN CAPTURE", "SCREENSHOT CAPTURED",
+                "CAPTURE", "SNAP", "SNAPSHOT", "SCREEN RECORDING", "SCREENSHOT TOOL",
+                "WINDOWS", "MACOS", "ANDROID", "IOS", "IPHONE", "IPAD",
+                "GALLERY", "PHOTOS", "CAMERA ROLL", "PHOTO LIBRARY", "PICTURE GALLERY",
+                "PRINT SCREEN", "PRTSC", "PRT SCR", "PRINTSCREEN",
+                "SHARE", "SAVE IMAGE", "DOWNLOAD", "IMAGE SAVED", "SAVED TO GALLERY",
+                "SCREENSHOT APP", "TAKE SCREENSHOT", "SCREENSHOT NOTIFICATION",
+                "FILE MANAGER", "FILES APP", "GOOGLE PHOTOS", "ICLOUD PHOTOS",
+                "SCREENSHOT FOLDER", "SCREENSHOTS", "SCREENSHOTS FOLDER"
             };
-            if (invalidIndicators.Any(indicator => upperText.Contains(indicator)))
+            
+            var invalidContentIndicators = new[] 
+            { 
+                "CHATGPT", "ILLUSTRATION", "CARTOON", "DRAWING",
+                "GENERATED", "ARTIFICIAL", "FAKE", "AI GENERATED"
+            };
+            
+            if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
+            }
+            
+            if (invalidContentIndicators.Any(indicator => upperText.Contains(indicator)))
             {
                 _logger.LogWarning("⚠️ Document validation failed: Invalid content indicators found");
-                return (false, "Invalid Image");
+                return (false, "Invalid Image - Please upload a photo of your official printed ID");
+            }
+            
+            // CRITICAL: Check for handwritten document indicators
+            var handwrittenPhrases = new[] { 
+                "HANDWRITTEN", "HAND WRITTEN", "WRITTEN BY HAND", "MANUAL SIGNATURE", 
+                "SIGNED BY HAND", "PEN", "PENCIL", "HANDWRITE", "MANUALLY WRITTEN"
+            };
+            if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
+            {
+                _logger.LogWarning("⚠️ Document validation failed: Handwritten document indicators found");
+                return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
+            }
+            
+            // Detect handwritten patterns
+            var letterCount = text.Count(char.IsLetter);
+            if (letterCount >= 20)
+            {
+                var mixedCaseRatio = text.Count(char.IsLower) / (double)Math.Max(letterCount, 1);
+                var hasExcessiveMixedCase = mixedCaseRatio > 0.3 && mixedCaseRatio < 0.7;
+                var irregularSpacingPattern = Regex.IsMatch(text, @"\w\s{3,}\w");
+                var lineBreakCount = text.Count(c => c == '\n' || c == '\r');
+                var hasIrregularLineBreaks = lineBreakCount > 20 && lineBreakCount < 100;
+                
+                int handwritingScore = 0;
+                if (hasExcessiveMixedCase) handwritingScore++;
+                if (irregularSpacingPattern) handwritingScore++;
+                if (hasIrregularLineBreaks) handwritingScore++;
+                
+                if (handwritingScore >= 2)
+                {
+                    _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                    return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
+                }
             }
             
             // Required Philippine ID markers - must contain at least one

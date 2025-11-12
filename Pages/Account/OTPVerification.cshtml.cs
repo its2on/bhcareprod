@@ -54,6 +54,8 @@ namespace Barangay.Pages.Account
         [BindProperty]
         public bool IsAdmin { get; set; } = false;
 
+        public string? UserPhoneNumber { get; set; }
+
         private async Task<ApplicationUser?> FindUserAsync(string emailOrUsername)
         {
             // First try the standard methods
@@ -180,6 +182,25 @@ namespace Barangay.Pages.Account
                 Password = password;
                 RememberMe = rememberMe;
                 IsAdmin = isAdmin;
+
+                // Get user's phone number for SMS option
+                if (user != null)
+                {
+                    try
+                    {
+                        var phoneNumber = user.PhoneNumber;
+                        if (!string.IsNullOrEmpty(phoneNumber) && _encryptionService.IsEncrypted(phoneNumber))
+                        {
+                            phoneNumber = _encryptionService.Decrypt(phoneNumber);
+                        }
+                        UserPhoneNumber = phoneNumber;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error retrieving phone number for user {Email}", email);
+                        UserPhoneNumber = null;
+                    }
+                }
 
                 _logger.LogInformation($"OTP verification page loaded for user: {email}");
                 return Page();

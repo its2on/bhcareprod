@@ -1,7 +1,8 @@
 @page
-@model Barangay.Pages.Doctor.AppointmentSettingsModel
+@model Barangay.Pages.Nurse.AppointmentSettingsModel
 @{
     ViewData["Title"] = "Appointment Settings";
+    Layout = "~/Pages/Shared/_NurseLayout.cshtml";
 }
 
 <div class="container-fluid px-4">
@@ -10,11 +11,11 @@
             <h1 class="h3 mb-0 text-gray-800">
                 <i class="fa-solid fa-cog me-2"></i>Appointment Settings
             </h1>
-            <p class="text-muted mb-0">Configure your daily appointment slots and working hours</p>
+            <p class="text-muted mb-0">Configure daily appointment slots and working hours for doctors</p>
         </div>
         <div>
-            <a asp-page="./Consultation" class="btn btn-secondary">
-                <i class="fa-solid fa-arrow-left me-2"></i>Back to Consultation
+            <a asp-page="./ControlPanel" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Control Panel
             </a>
         </div>
     </div>
@@ -28,7 +29,39 @@
         </div>
     }
 
+    <!-- Doctor Selection -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fa-solid fa-user-doctor me-2"></i>Select Doctor
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Doctor</label>
+                    <select id="doctorSelect" class="form-select" onchange="changeDoctorSelection()">
+                        @foreach (var doctor in Model.Doctors)
+                        {
+                            <option value="@doctor.Id" selected="@(doctor.Id == Model.SelectedDoctorId)">
+                                @doctor.FullName @(!string.IsNullOrEmpty(doctor.Specialization) ? $"({doctor.Specialization})" : "")
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="alert alert-info mb-0 w-100">
+                        <i class="fa-solid fa-info-circle me-2"></i>
+                        Currently configuring: <strong>@Model.SelectedDoctorName</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <form method="post">
+        <input type="hidden" name="doctorId" value="@Model.SelectedDoctorId" />
+        
         <div class="row">
             <!-- Daily Slot Configuration -->
             <div class="col-lg-6 mb-4">
@@ -47,7 +80,7 @@
                             <span asp-validation-for="Settings.MaxAppointmentsPerDay" class="text-danger"></span>
                             <div class="form-text">
                                 <i class="fa-solid fa-info-circle me-1"></i>
-                                The system will automatically divide your working hours into this many equal time slots.
+                                The system will automatically divide working hours into this many equal time slots (1-200).
                             </div>
                         </div>
 
@@ -99,7 +132,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">Select the days you are available for appointments</p>
+                        <p class="text-muted">Select the days the doctor is available for appointments</p>
 
                         <div class="list-group list-group-flush">
                             <div class="list-group-item">
@@ -199,7 +232,7 @@
             <button type="submit" class="btn btn-primary btn-lg">
                 <i class="fa-solid fa-save me-2"></i>Save Settings
             </button>
-            <a asp-page="./Consultation" class="btn btn-secondary btn-lg">
+            <a asp-page="./ControlPanel" class="btn btn-secondary btn-lg">
                 <i class="fa-solid fa-times me-2"></i>Cancel
             </a>
         </div>
@@ -210,9 +243,15 @@
     <partial name="_ValidationScriptsPartial" />
     
     <script>
+        // Change doctor selection
+        function changeDoctorSelection() {
+            const doctorId = $('#doctorSelect').val();
+            window.location.href = `?doctorId=${doctorId}`;
+        }
+        
         // Update slot duration calculation in real-time
         function updateSlotDuration() {
-            const maxSlots = parseInt($('#Settings_MaxAppointmentsPerDay').val()) || 30;
+            const maxSlots = parseInt($('#Settings_MaxAppointmentsPerDay').val()) || 50;
             const startTime = $('#Settings_StartTime').val() || '08:00';
             const endTime = $('#Settings_EndTime').val() || '17:00';
             
@@ -240,4 +279,3 @@
         updateSlotDuration();
     </script>
 }
-

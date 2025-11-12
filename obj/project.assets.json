@@ -14041,11 +14041,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREAyos2\\BHCARE-main\\Barangay.csproj",
+      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\Barangay.csproj",
       "projectName": "Barangay",
-      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREAyos2\\BHCARE-main\\Barangay.csproj",
+      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\Barangay.csproj",
       "packagesPath": "C:\\Users\\Ben\\.nuget\\packages\\",
-      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREAyos2\\BHCARE-main\\obj\\",
+      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCAREHABOL\\BHCARE-main\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Ben\\AppData\\Roaming\\NuGet\\NuGet.Config"

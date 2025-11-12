@@ -1,8 +1,8 @@
 @page "{id:int?}"
-@model Barangay.Pages.Admin.FormBuilderModel
+@model Barangay.Pages.Nurse.FormBuilderModel
 @{
     ViewData["Title"] = Model.IsEdit ? "Edit Form" : "Create Form";
-    Layout = "~/Pages/Shared/_AdminLayout.cshtml";
+    Layout = "~/Pages/Shared/_NurseLayout.cshtml";
 }
 
 <style>
@@ -265,7 +265,7 @@
 
 <div class="top-bar">
     <div class="d-flex align-items-center">
-        <a href="/Admin/ControlPanel" class="btn btn-light me-3">
+        <a href="/Nurse/ControlPanel" class="btn btn-light me-3">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
         <div>

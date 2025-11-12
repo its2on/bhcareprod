@@ -668,6 +668,13 @@ namespace Barangay.Pages.Admin
                         _logger.LogWarning("No permissions selected for staff member");
                     }
 
+                    // Sync with DoctorAvailability if this is a doctor
+                    if (StaffMember.Role == "Doctor" || roleToAssign == "Doctor")
+                    {
+                        _logger.LogInformation($"Syncing DoctorAvailability for new doctor {user.Id} with working days: {StaffMember.WorkingDays}");
+                        await SyncDoctorAvailabilityAsync(StaffMember, user.Id);
+                    }
+
                     await transaction.CommitAsync();
 
                     // Log audit trail
@@ -819,6 +826,95 @@ namespace Barangay.Pages.Admin
             if (string.Equals(r, "admin staff", StringComparison.OrdinalIgnoreCase) || string.Equals(r, "adminstaff", StringComparison.OrdinalIgnoreCase) || string.Equals(r, "staff", StringComparison.OrdinalIgnoreCase)) return "Admin Staff";
             // Fallback: capitalize first letter
             return char.ToUpper(r[0]) + r.Substring(1);
+        }
+
+        private async Task SyncDoctorAvailabilityAsync(StaffMember staffMember, string userId)
+        {
+            try
+            {
+                // Find or create DoctorAvailability record
+                var doctorAvailability = await _context.DoctorAvailabilities
+                    .FirstOrDefaultAsync(da => da.DoctorId == userId);
+
+                if (doctorAvailability == null)
+                {
+                    // Create new DoctorAvailability record
+                    doctorAvailability = new DoctorAvailability
+                    {
+                        DoctorId = userId,
+                        IsAvailable = staffMember.IsActive,
+                        LastUpdated = DateTime.Now
+                    };
+                    _context.DoctorAvailabilities.Add(doctorAvailability);
+                }
+                else
+                {
+                    // Update existing record
+                    doctorAvailability.IsAvailable = staffMember.IsActive;
+                    doctorAvailability.LastUpdated = DateTime.Now;
+                }
+
+                // Parse working days from StaffMember
+                var workingDays = staffMember.WorkingDays?.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(d => d.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
+
+                // Update day availability
+                doctorAvailability.Monday = workingDays.Contains("Monday");
+                doctorAvailability.Tuesday = workingDays.Contains("Tuesday");
+                doctorAvailability.Wednesday = workingDays.Contains("Wednesday");
+                doctorAvailability.Thursday = workingDays.Contains("Thursday");
+                doctorAvailability.Friday = workingDays.Contains("Friday");
+                doctorAvailability.Saturday = workingDays.Contains("Saturday");
+                doctorAvailability.Sunday = workingDays.Contains("Sunday");
+
+                // Parse working hours from StaffMember
+                if (!string.IsNullOrEmpty(staffMember.WorkingHours))
+                {
+                    var timeMatch = Regex.Match(
+                        staffMember.WorkingHours, 
+                        @"(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?", 
+                        RegexOptions.IgnoreCase);
+
+                    if (timeMatch.Success)
+                    {
+                        var startHour = int.Parse(timeMatch.Groups[1].Value);
+                        var startMinute = int.Parse(timeMatch.Groups[2].Value);
+                        var startPeriod = timeMatch.Groups[3].Value.ToUpper();
+                        var endHour = int.Parse(timeMatch.Groups[4].Value);
+                        var endMinute = int.Parse(timeMatch.Groups[5].Value);
+                        var endPeriod = timeMatch.Groups[6].Value.ToUpper();
+
+                        // Convert to 24-hour format
+                        if (startPeriod == "PM" && startHour != 12) startHour += 12;
+                        else if (startPeriod == "AM" && startHour == 12) startHour = 0;
+
+                        if (endPeriod == "PM" && endHour != 12) endHour += 12;
+                        else if (endPeriod == "AM" && endHour == 12) endHour = 0;
+
+                        doctorAvailability.StartTime = new TimeSpan(startHour, startMinute, 0);
+                        doctorAvailability.EndTime = new TimeSpan(endHour, endMinute, 0);
+                    }
+                }
+                
+                // Set max daily patients if provided
+                if (staffMember.MaxDailyPatients > 0)
+                {
+                    doctorAvailability.MaxAppointmentsPerDay = staffMember.MaxDailyPatients;
+                }
+
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation($"Synced DoctorAvailability for doctor {userId}: " +
+                    $"Mon={doctorAvailability.Monday}, Tue={doctorAvailability.Tuesday}, " +
+                    $"Wed={doctorAvailability.Wednesday}, Thu={doctorAvailability.Thursday}, " +
+                    $"Fri={doctorAvailability.Friday}, Sat={doctorAvailability.Saturday}, " +
+                    $"Sun={doctorAvailability.Sunday}, Hours={doctorAvailability.StartTime}-{doctorAvailability.EndTime}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error syncing DoctorAvailability for staff member {staffMember.Id}");
+            }
         }
 
         private void GenerateTimeSlots()
