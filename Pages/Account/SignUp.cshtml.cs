@@ -520,19 +520,34 @@ namespace Barangay.Pages.Account
                                 bool isBarangayValid = !string.IsNullOrWhiteSpace(barangayNumber) && 
                                                       validBarangaysList.Contains(barangayNumber);
                                 
-                                ocrResult = new OcrResult
+                                // REJECT if Azure Vision already determined it's invalid (Success = false)
+                                // This happens when barangay is not in the valid list
+                                if (!azureResult.Success)
                                 {
-                                    // Set Success to true if barangay is valid, false otherwise
-                                    // This allows the downstream logic to handle both cases correctly
-                                    Success = isBarangayValid,
-                                    BarangayNumber = barangayNumber,
-                                    Message = isBarangayValid 
-                                        ? $"Residency verified in Barangay {barangayNumber}"
-                                        : !string.IsNullOrWhiteSpace(barangayNumber)
-                                            ? $"The document shows Barangay {barangayNumber}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Your account will require manual review by an administrator."
-                                            : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please ensure your document clearly shows your barangay number.",
-                                    ExtractedText = azureResult.ExtractedText
-                                };
+                                    _logger.LogWarning("Azure Vision OCR rejected ID: {Message}", azureResult.Message);
+                                    ocrResult = new OcrResult
+                                    {
+                                        Success = false,
+                                        BarangayNumber = barangayNumber,
+                                        Message = azureResult.Message, // Use the rejection message from Azure Vision
+                                        ExtractedText = azureResult.ExtractedText
+                                    };
+                                }
+                                else
+                                {
+                                    ocrResult = new OcrResult
+                                    {
+                                        // Set Success to true if barangay is valid, false otherwise
+                                        Success = isBarangayValid,
+                                        BarangayNumber = barangayNumber,
+                                        Message = isBarangayValid 
+                                            ? $"Residency verified in Barangay {barangayNumber}"
+                                            : !string.IsNullOrWhiteSpace(barangayNumber)
+                                                ? $"The document shows Barangay {barangayNumber}, which is not eligible for automatic verification. Only Barangay 158, 159, 160, or 161 are eligible. Please upload a valid ID showing one of these barangays."
+                                                : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please upload a valid ID showing Barangay 158, 159, 160, or 161.",
+                                        ExtractedText = azureResult.ExtractedText
+                                    };
+                                }
                                 
                                 _logger.LogInformation("Azure Vision OCR completed. Barangay: {Barangay}, Success: {Success}, Valid: {Valid}", 
                                     barangayNumber, ocrResult.Success, isBarangayValid);
@@ -1498,10 +1513,17 @@ namespace Barangay.Pages.Account
                 // Use Azure Vision for structured data if available
                 var combinedText = localOcrResult?.ExtractedText ?? azureOcrResult?.ExtractedText ?? "";
                 
+                // CRITICAL: If Azure Vision rejected the ID (Success = false), reject it completely
+                // This happens when barangay is not in the valid list (158-161)
+                bool shouldReject = azureOcrResult != null && !azureOcrResult.Success;
+                
                 var combinedResult = new IdExtractionResult
                 {
-                    Success = (localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false),
-                    Message = azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document.",
+                    // REJECT if Azure Vision rejected it, otherwise use OR logic
+                    Success = shouldReject ? false : ((localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false)),
+                    Message = shouldReject 
+                        ? azureOcrResult.Message 
+                        : (azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document."),
                     ExtractedText = combinedText,
                     BarangayNumber = azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "",
                     IsBarangayValid = !string.IsNullOrEmpty(azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "") &&

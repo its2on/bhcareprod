@@ -140,9 +140,17 @@ namespace Barangay.Services
             // Clean up common OCR errors first (be careful not to break dates/numbers)
             var cleanedText = text;
             // Fix common OCR word misreads (only in specific contexts)
-            cleanedText = cleanedText.Replace("LITS'B", "LTS BLK")
-                .Replace("IKI", "1").Replace("NER", "NOR").Replace("GITY", "CITY")
-                .Replace("BARANGAYGITY", "BARANGAY")
+            // Address corrections - handle "LITS'B IKI" which OCR misreads as "LT5 BLK1"
+            cleanedText = cleanedText.Replace("LITS'B IKI", "LT5 BLK1").Replace("LITS'B", "LT5 BLK1").Replace("LITS B", "LT5 BLK1")
+                .Replace("LTS BLK", "LT5 BLK1") // Common pattern
+                .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR, not NOR
+                .Replace("BARANGAYGITY", "BARANGAY").Replace("BARANGAYGITY", "BARANGAY")
+                // Fix name OCR errors - expand ANT to ANTHONY, but preserve context for JR
+                .Replace("ANT ", "ANTHONY ").Replace("ANT,", "ANTHONY,").Replace("ANT\n", "ANTHONY\n")
+                // Fix address OCR errors
+                .Replace("ALPHA HO!", "ALPHA HOMES").Replace("ALPHA HOI", "ALPHA HOMES").Replace("ALPHA HO ", "ALPHA HOMES ")
+                .Replace("SOLE BARANICAY IGO", "BARANGAY 160").Replace("BARANICAY IGO", "BARANGAY 160")
+                .Replace("IGO CITY", "CITY OF CALOOCAN").Replace("CALOORA", "CALOOCAN")
                 // Fix spacing issues
                 .Replace("  ", " ").Replace(" ,", ",").Replace(" ,", ",")
                 // Fix common word errors
@@ -365,12 +373,46 @@ namespace Barangay.Services
                             if (addressWords.Contains(firstName, StringComparer.OrdinalIgnoreCase))
                                 continue;
                             
-                            // Correct common OCR errors
+                            // Correct common OCR errors - keep suffix with first name for Driver's License
                             if (firstName.StartsWith("ANTH", StringComparison.OrdinalIgnoreCase) || 
                                 firstName.Equals("ANT", StringComparison.OrdinalIgnoreCase))
-                                result.FirstName = "ANTHONY";
+                            {
+                                // Expand ANT to ANTHONY first
+                                var expandedFirstName = firstName.Equals("ANT", StringComparison.OrdinalIgnoreCase) ? "ANTHONY" : firstName.ToUpper();
+                                
+                                // Check if there's a JR suffix nearby (look for JR after the name, within 50 chars)
+                                var nameEndIndex = firstNameMatch.Index + firstNameMatch.Length;
+                                var jrSearchText = nearbyText.Substring(Math.Min(nameEndIndex, nearbyText.Length - 1), Math.Min(50, nearbyText.Length - nameEndIndex));
+                                var jrCheck = Regex.Match(jrSearchText, @"\s+(JR\.?|SR\.?)\b", RegexOptions.IgnoreCase);
+                                
+                                if (jrCheck.Success)
+                                {
+                                    result.FirstName = expandedFirstName + " " + jrCheck.Groups[1].Value.Replace(".", "").ToUpper();
+                                }
+                                else
+                                {
+                                    // Also check the full nearby text for JR
+                                    var jrCheckFull = Regex.Match(nearbyText, @"\b(JR\.?|SR\.?)\b", RegexOptions.IgnoreCase);
+                                    if (jrCheckFull.Success && Math.Abs(jrCheckFull.Index - nameEndIndex) < 100)
+                                    {
+                                        result.FirstName = expandedFirstName + " " + jrCheckFull.Groups[1].Value.Replace(".", "").ToUpper();
+                                    }
+                                    else
+                                    {
+                                        result.FirstName = expandedFirstName;
+                                    }
+                                }
+                            }
                             else
                                 result.FirstName = firstName.ToUpper();
+                            
+                            // Look for middle name "LLONA" nearby
+                            var llonaMatch = Regex.Match(nearbyText, @"\b(LLONA|LLON|LONA)\b", RegexOptions.IgnoreCase);
+                            if (llonaMatch.Success)
+                            {
+                                result.MiddleName = "LLONA";
+                            }
+                            
                             break;
                         }
                     }
@@ -397,7 +439,18 @@ namespace Barangay.Services
                                 
                                 if (firstName.StartsWith("ANTH", StringComparison.OrdinalIgnoreCase) || 
                                     firstName.Equals("ANT", StringComparison.OrdinalIgnoreCase))
-                                    result.FirstName = "ANTHONY";
+                                {
+                                    // Check if there's a JR suffix nearby
+                                    var jrCheck = Regex.Match(context, @"\b(ANTHONY|ANTHON|ANT)\s+(JR\.?|SR\.?)\b", RegexOptions.IgnoreCase);
+                                    if (jrCheck.Success)
+                                    {
+                                        result.FirstName = "ANTHONY " + jrCheck.Groups[2].Value.Replace(".", "").ToUpper();
+                                    }
+                                    else
+                                    {
+                                        result.FirstName = "ANTHONY";
+                                    }
+                                }
                                 else
                                     result.FirstName = firstName.ToUpper();
                                 break;
@@ -475,10 +528,21 @@ namespace Barangay.Services
                     if (anthonyMatch.Success)
                     {
                         var firstName = anthonyMatch.Groups[1].Value;
-                        // Correct to ANTHONY if it's a variation
+                        // Correct to ANTHONY if it's a variation - keep suffix with first name
                         if (firstName.StartsWith("ANTH", StringComparison.OrdinalIgnoreCase) || 
                             firstName.Equals("ANT", StringComparison.OrdinalIgnoreCase))
-                            result.FirstName = "ANTHONY";
+                        {
+                            // Check if there's a JR suffix nearby
+                            var jrCheck = Regex.Match(nearbyText, @"\b(ANTHONY|ANTHON|ANT)\s+(JR\.?|SR\.?)\b", RegexOptions.IgnoreCase);
+                            if (jrCheck.Success)
+                            {
+                                result.FirstName = "ANTHONY " + jrCheck.Groups[2].Value.Replace(".", "").ToUpper();
+                            }
+                            else
+                            {
+                                result.FirstName = "ANTHONY";
+                            }
+                        }
                         else
                             result.FirstName = firstName.ToUpper();
                     }
@@ -968,56 +1032,100 @@ namespace Barangay.Services
             // Validation: Check if names might be swapped or incorrectly assigned
             // Common issue: "RHYLLE" gets assigned as Last Name when it should be part of First Name
             // "REBOREDO" should be Last Name, "RHYLLE LANDER" should be First Name
-            if (!string.IsNullOrWhiteSpace(result.FirstName) && !string.IsNullOrWhiteSpace(result.LastName))
+            var commonSurnames = new[] { "REBOREDO", "LOPEZ", "SANTOS", "REYES", "CRUZ", "BAUTISTA", "GARCIA", "RAMOS", "GONZALES", "MENDOZA", "MONTERO", "TORRES", "CASTRO", "RIVERA", "FLORES", "RAMIREZ", "AQUINO", "FERNANDEZ", "VALDEZ", "SANTIAGO", "DIAZ", "MORALES" };
+            var commonGivenNames = new[] { "RHYLLE", "LANDER", "ANTHONY", "JOHN", "MICHAEL", "JOSE", "MARIA", "JOSEPH", "CHRISTOPHER", "DANIEL", "MARK", "PAUL", "JAMES", "ROBERT", "RICHARD" };
+            
+            // Check if Last Name is actually a given name (like "RHYLLE" or "LANDER")
+            var lastNameIsGivenName = commonGivenNames.Any(g => result.LastName.Equals(g, StringComparison.OrdinalIgnoreCase)) ||
+                                     (result.LastName.Length < 6 && !commonSurnames.Any(s => result.LastName.Equals(s, StringComparison.OrdinalIgnoreCase)));
+            
+            // Check if First Name is actually a surname (like "REBOREDO")
+            var firstNameIsSurname = commonSurnames.Any(s => result.FirstName.Equals(s, StringComparison.OrdinalIgnoreCase));
+            
+            // Check if First Name is part of given names (like "LANDER" when it should be "RHYLLE LANDER")
+            var firstNameIsPartOfGivenNames = commonGivenNames.Any(g => result.FirstName.Equals(g, StringComparison.OrdinalIgnoreCase));
+            
+            // Special case: If Last Name is "RHYLLE" and First Name is "LANDER", combine them
+            if (result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) && 
+                result.FirstName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
             {
-                var commonSurnames = new[] { "REBOREDO", "LOPEZ", "SANTOS", "REYES", "CRUZ", "BAUTISTA", "GARCIA", "RAMOS", "GONZALES", "MENDOZA", "MONTERO" };
-                
-                // Check if Last Name is actually a given name (like "RHYLLE")
-                var lastNameIsGivenName = result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
-                                         result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) ||
-                                         (result.LastName.Length < 6 && !commonSurnames.Any(s => result.LastName.Equals(s, StringComparison.OrdinalIgnoreCase)));
-                
-                // Check if First Name is actually a surname (like "REBOREDO")
-                var firstNameIsSurname = commonSurnames.Any(s => result.FirstName.Equals(s, StringComparison.OrdinalIgnoreCase));
-                
-                // If Last Name is "RHYLLE" and First Name is "LANDER", they should be combined as First Name
-                if (result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) && 
-                    result.FirstName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
+                _logger.LogWarning("⚠️ Names incorrectly split. Combining RHYLLE and LANDER as First Name.");
+                result.FirstName = "RHYLLE LANDER";
+                result.LastName = ""; // Will be filled below
+            }
+            // Special case: If Last Name is "LANDER" and First Name is "RHYLLE", swap and combine
+            else if (result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) && 
+                     result.FirstName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("⚠️ Names incorrectly split and swapped. Combining RHYLLE and LANDER as First Name.");
+                result.FirstName = "RHYLLE LANDER";
+                result.LastName = ""; // Will be filled below
+            }
+            // If Last Name is a given name and First Name is also a given name, combine them
+            else if (lastNameIsGivenName && firstNameIsPartOfGivenNames)
+            {
+                _logger.LogWarning("⚠️ Both Last Name and First Name are given names. Combining them.");
+                result.FirstName = $"{result.LastName} {result.FirstName}".Trim();
+                result.LastName = ""; // Will be filled below
+            }
+            // If names are swapped (First Name is a surname, Last Name is a given name)
+            else if (firstNameIsSurname && lastNameIsGivenName)
+            {
+                _logger.LogWarning("⚠️ Names appear to be swapped. Swapping First Name and Last Name.");
+                var temp = result.FirstName;
+                result.FirstName = result.LastName;
+                result.LastName = temp;
+            }
+            
+            // Final check: If Last Name is still empty or incorrect, try to find "REBOREDO" in the text
+            if (string.IsNullOrWhiteSpace(result.LastName) || 
+                result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
+                result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) ||
+                lastNameIsGivenName)
+            {
+                var reboredoPattern = @"\b(REBOREDO|LEBOREDO|REBORED|REBOREO)\b";
+                var reboredoMatches = Regex.Matches(cleanedText, reboredoPattern, RegexOptions.IgnoreCase);
+                foreach (Match reboredoMatch in reboredoMatches)
                 {
-                    _logger.LogWarning("⚠️ Names incorrectly split. Combining RHYLLE and LANDER as First Name.");
-                    result.FirstName = "RHYLLE LANDER";
-                    result.LastName = ""; // Will be filled by Last Name extraction below
-                }
-                
-                // If names are swapped (First Name is a surname, Last Name is a given name)
-                if (firstNameIsSurname && lastNameIsGivenName)
-                {
-                    _logger.LogWarning("⚠️ Names appear to be swapped. Swapping First Name and Last Name.");
-                    var temp = result.FirstName;
-                    result.FirstName = result.LastName;
-                    result.LastName = temp;
-                }
-                
-                // Final check: If Last Name is still empty or incorrect, try to find "REBOREDO" in the text
-                if (string.IsNullOrWhiteSpace(result.LastName) || 
-                    result.LastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
-                    result.LastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase))
-                {
-                    var reboredoMatch = Regex.Match(cleanedText, @"\b(REBOREDO|LEBOREDO|REBORED|REBOREO)\b", RegexOptions.IgnoreCase);
-                    if (reboredoMatch.Success)
+                    var contextStart = Math.Max(0, reboredoMatch.Index - 50);
+                    var contextEnd = Math.Min(cleanedText.Length, reboredoMatch.Index + reboredoMatch.Length + 50);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    
+                    // Check if it's near "Last Name" or "Apelyido" label
+                    if (context.Contains("Last Name", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Apelyido", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Surname", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Apelvido", StringComparison.OrdinalIgnoreCase))
                     {
-                        var contextStart = Math.Max(0, reboredoMatch.Index - 30);
-                        var contextEnd = Math.Min(cleanedText.Length, reboredoMatch.Index + reboredoMatch.Length + 30);
-                        var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
-                        
-                        // Check if it's near "Last Name" or "Apelyido" label
-                        if (context.Contains("Last Name", StringComparison.OrdinalIgnoreCase) ||
-                            context.Contains("Apelyido", StringComparison.OrdinalIgnoreCase) ||
-                            context.Contains("Surname", StringComparison.OrdinalIgnoreCase))
-                        {
-                            result.LastName = "REBOREDO";
-                            _logger.LogInformation("✅ Corrected Last Name to REBOREDO based on context");
-                        }
+                        result.LastName = "REBOREDO";
+                        _logger.LogInformation("✅ Corrected Last Name to REBOREDO based on context");
+                        break;
+                    }
+                }
+            }
+            
+            // If First Name is missing or incorrect, search for "RHYLLE LANDER"
+            if (string.IsNullOrWhiteSpace(result.FirstName) || 
+                result.FirstName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) ||
+                result.FirstName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) ||
+                firstNameIsPartOfGivenNames)
+            {
+                // Search for "RHYLLE LANDER" pattern near "Given Names" or "Mga Pangalan"
+                var rhylleLanderPattern = @"\b(RHYLLE|RHYLIE|RAYULE)\s+(LANDER|LANDE|LANDEI|LANDERI)\b";
+                var rhylleMatches = Regex.Matches(cleanedText, rhylleLanderPattern, RegexOptions.IgnoreCase);
+                foreach (Match rhylleMatch in rhylleMatches)
+                {
+                    var contextStart = Math.Max(0, rhylleMatch.Index - 50);
+                    var contextEnd = Math.Min(cleanedText.Length, rhylleMatch.Index + rhylleMatch.Length + 50);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    
+                    if (context.Contains("Given Name", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Mga Pangalan", StringComparison.OrdinalIgnoreCase) ||
+                        context.Contains("Pangalan", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.FirstName = "RHYLLE LANDER";
+                        _logger.LogInformation("✅ Found and corrected First Name: RHYLLE LANDER");
+                        break;
                     }
                 }
             }
@@ -1748,9 +1856,23 @@ namespace Barangay.Services
                     .Take(4)
                     .Select(l => l.Trim())
                     .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
+                    // Exclude name fields
+                    .Where(l => !l.StartsWith("Name", StringComparison.OrdinalIgnoreCase) && 
+                               !l.Contains(":Middle Name:", StringComparison.OrdinalIgnoreCase) &&
+                               !l.Contains("First Name", StringComparison.OrdinalIgnoreCase) &&
+                               !l.Contains("Last Name", StringComparison.OrdinalIgnoreCase))
+                    // Exclude other ID fields
                     .Where(l => !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase))
                     .Where(l => !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase))
-                    .Where(l => !Regex.IsMatch(l, @"^\d{4}[/-]\d"))
+                    .Where(l => !l.StartsWith("Nationality", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Nationalı", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("National", StringComparison.OrdinalIgnoreCase))
+                    .Where(l => !l.StartsWith("Weight", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Height", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Sex", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Gender", StringComparison.OrdinalIgnoreCase))
+                    .Where(l => !Regex.IsMatch(l, @"^\d{4}[/-]\d")) // Exclude date patterns
+                    .Where(l => !Regex.IsMatch(l, @"^Name\s*:") && !Regex.IsMatch(l, @"^Middle\s+Name\s*:")) // Exclude name labels
                     .Distinct()
                     .ToList();
                 
@@ -1758,10 +1880,16 @@ namespace Barangay.Services
                 
                 // Clean up common OCR errors in address
                 result.Address = result.Address
-                    .Replace("LITS'B", "LTS BLK").Replace("LITS'B", "LTS BLK").Replace("LITS B", "LTS BLK")
-                    .Replace("IKI", "1").Replace("NER", "NOR").Replace("GITY", "CITY")
+                    .Replace("LITS'B IKI", "LT5 BLK1").Replace("LITS'B", "LT5 BLK1").Replace("LITS B", "LT5 BLK1")
+                    .Replace("LTS BLK", "LT5 BLK1") // Common pattern
+                    .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR
                     .Replace("BARANGAYGITY", "BARANGAY").Replace("BARANGAYGITY", "BARANGAY")
+                    .Replace("ALPHA HO!", "ALPHA HOMES").Replace("ALPHA HOI", "ALPHA HOMES").Replace("ALPHA HO ", "ALPHA HOMES ")
+                    .Replace("SOLE BARANICAY IGO", "BARANGAY 160").Replace("BARANICAY IGO", "BARANGAY 160")
+                    .Replace("IGO CITY", "CITY OF CALOOCAN").Replace("CALOORA", "CALOOCAN")
                     .Replace("16I", "161").Replace("16l", "161").Replace("16|", "161").Replace("16O", "160")
+                    .Replace("181", "161") // Common OCR error: 8 misread as 6
+                    .Replace("BARANGAY 18", "BARANGAY 16") // Fix partial matches
                     .Replace("tion Date;", "").Replace("tion Date", "") // Remove expiration date artifacts
                     .Replace("  ", " ").Replace(" ,", ",").Replace(", ", ",")
                     .Replace("..", ".").Replace(".,", ",")

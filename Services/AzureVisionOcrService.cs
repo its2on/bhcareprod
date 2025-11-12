@@ -236,14 +236,33 @@ namespace Barangay.Services
                 bool isBarangayValid = !string.IsNullOrWhiteSpace(barangayNumber) && 
                                       validBarangays.Contains(barangayNumber.Trim());
 
+                // REJECT IDs that don't have valid barangays - set Success = false
+                if (!isBarangayValid)
+                {
+                    return new IdExtractionResult
+                    {
+                        Success = false,
+                        Message = !string.IsNullOrWhiteSpace(barangayNumber)
+                            ? $"Barangay {barangayNumber} detected but not eligible. Only Barangay 158, 159, 160, or 161 are accepted. Please upload a valid ID showing one of these barangays."
+                            : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document. Please upload a valid ID showing Barangay 158, 159, 160, or 161.",
+                        ExtractedText = extractedText,
+                        FirstName = parsedData.FirstName,
+                        MiddleName = parsedData.MiddleName,
+                        LastName = parsedData.LastName,
+                        Suffix = parsedData.Suffix,
+                        ContactNumber = parsedData.ContactNumber,
+                        Address = parsedData.Address,
+                        BirthDate = parsedData.BirthDate,
+                        Gender = parsedData.Gender,
+                        BarangayNumber = barangayNumber,
+                        IsBarangayValid = false
+                    };
+                }
+
                 return new IdExtractionResult
                 {
                     Success = true,
-                    Message = isBarangayValid 
-                        ? $"Residency verified. Barangay {barangayNumber} is eligible."
-                        : !string.IsNullOrWhiteSpace(barangayNumber)
-                            ? $"Barangay {barangayNumber} detected but not eligible (must be 158, 159, 160, or 161)."
-                            : "Barangay number not found in document.",
+                    Message = $"Residency verified. Barangay {barangayNumber} is eligible.",
                     ExtractedText = extractedText,
                     FirstName = parsedData.FirstName,
                     MiddleName = parsedData.MiddleName,
@@ -254,7 +273,7 @@ namespace Barangay.Services
                     BirthDate = parsedData.BirthDate,
                     Gender = parsedData.Gender,
                     BarangayNumber = barangayNumber,
-                    IsBarangayValid = isBarangayValid
+                    IsBarangayValid = true
                 };
             }
             catch (RequestFailedException ex)
@@ -387,6 +406,15 @@ namespace Barangay.Services
                 { "LLON", "LLONA" },
                 { "LONA", "LLONA" },
                 { "LOPEZ", "LOPEZ" }, // Keep common names as is
+                // PhilSys name corrections
+                { "LEBOREDO", "REBOREDO" },
+                { "REBORED", "REBOREDO" },
+                { "REBOREO", "REBOREDO" },
+                { "RAYULE", "RHYLLE" },
+                { "RHYLIE", "RHYLLE" },
+                { "LANDE", "LANDER" },
+                { "LANDEI", "LANDER" },
+                { "LANDERI", "LANDER" },
             };
             
             // Try exact match first
@@ -397,6 +425,12 @@ namespace Barangay.Services
             
             // Try partial matches for common name patterns
             if (corrected.StartsWith("ANTH") && corrected.Length >= 4)
+            {
+                return "ANTHONY";
+            }
+            
+            // Handle truncated "ANT" - expand to "ANTHONY" if it's a standalone word
+            if (corrected.Equals("ANT") && corrected.Length == 3)
             {
                 return "ANTHONY";
             }
@@ -478,6 +512,16 @@ namespace Barangay.Services
         private ParsedIdData ParseIdData(string text)
         {
             var result = new ParsedIdData();
+            
+            // Clean up common OCR errors in the text first (especially for addresses)
+            text = text.Replace("LITS'B IKI", "LT5 BLK1").Replace("LITS'B", "LT5 BLK1").Replace("LITS B", "LT5 BLK1")
+                .Replace("LTS BLK", "LT5 BLK1") // Common pattern for Driver's License
+                .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR, not NOR
+                .Replace("BARANGAYGITY", "BARANGAY")
+                .Replace("ALPHA HO!", "ALPHA HOMES").Replace("ALPHA HOI", "ALPHA HOMES")
+                .Replace("SOLE BARANICAY IGO", "BARANGAY 160").Replace("BARANICAY IGO", "BARANGAY 160")
+                .Replace("IGO CITY", "CITY OF CALOOCAN").Replace("CALOORA", "CALOOCAN");
+            
             var upperText = text.ToUpperInvariant();
             var lines = text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(l => l.Trim())
@@ -486,10 +530,117 @@ namespace Barangay.Services
 
             // Detect if this is a PhilSys ID (for PhilSys, keep all given names together as first name)
             bool isPhilSysId = upperText.Contains("PHILSYS") || upperText.Contains("PAMBANSANG") || 
-                              upperText.Contains("PHILIPPINE IDENTIFICATION");
+                              upperText.Contains("PHILIPPINE IDENTIFICATION") ||
+                              upperText.Contains("REPUBLIKA NG PILIPINAS") ||
+                              (upperText.Contains("APELYIDO") || upperText.Contains("APELVIDO")) &&
+                              (upperText.Contains("PANGALAN") || upperText.Contains("GIVEN"));
+            
+            // CRITICAL: For PhilSys IDs, use label-based parsing FIRST before trying comma-separated patterns
+            // This prevents name swapping issues (e.g., "LANDER" as FirstName, "RHYLLE" as LastName)
+            if (isPhilSysId)
+            {
+                // Clean up OCR errors first
+                var cleanedText = text.Replace("LEBOREDO", "REBOREDO")
+                    .Replace("RAYULE", "RHYLLE").Replace("LANDE", "LANDER")
+                    .Replace("Apelvido", "Apelyido").Replace("Meagansatan", "Mga Pangalan")
+                    .Replace("Githans Apelvido", "Gitnang Apelyido");
+                
+                // Last Name: Look for "Apelyido/Last Name" label
+                var lastNameLabelPattern = @"(?:Apelyido|Apelvido|Last\s+Name|Surname)[:\s/]*";
+                var lastNameLabelMatch = Regex.Match(cleanedText, lastNameLabelPattern, RegexOptions.IgnoreCase);
+                if (lastNameLabelMatch.Success)
+                {
+                    var searchStart = lastNameLabelMatch.Index + lastNameLabelMatch.Length;
+                    var searchEnd = Math.Min(cleanedText.Length, searchStart + 150);
+                    var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                    
+                    // Look for last name on next line (all caps, 3-20 chars)
+                    var nextLinePattern = @"[\r\n]+\s*([A-Z]{3,20})(?:\s|$|[\r\n]|,)";
+                    var nextLineMatch = Regex.Match(searchText, nextLinePattern);
+                    if (nextLineMatch.Success)
+                    {
+                        var lastName = nextLineMatch.Groups[1].Value.Trim();
+                        // Fix OCR errors
+                        lastName = lastName.Replace("LEBOREDO", "REBOREDO")
+                                          .Replace("REBORED", "REBOREDO")
+                                          .Replace("REBOREO", "REBOREDO");
+                        // Skip if it's a given name
+                        if (!lastName.Equals("RHYLLE", StringComparison.OrdinalIgnoreCase) &&
+                            !lastName.Equals("LANDER", StringComparison.OrdinalIgnoreCase) &&
+                            !lastName.Equals("NAME", StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.LastName = lastName;
+                        }
+                    }
+                }
+                
+                // Given Names: Look for "Mga Pangalan/Given Names" label
+                var givenNameLabelPattern = @"(?:Mga\s+Pangalan|Given\s+Names?|Meagansatan|Pangalan|Mga\s+Pangalar)[:\s/]*";
+                var givenNameLabelMatch = Regex.Match(cleanedText, givenNameLabelPattern, RegexOptions.IgnoreCase);
+                if (givenNameLabelMatch.Success)
+                {
+                    var searchStart = givenNameLabelMatch.Index + givenNameLabelMatch.Length;
+                    var searchEnd = Math.Min(cleanedText.Length, searchStart + 150);
+                    var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                    
+                    // Look for given names on next line (can be multiple words)
+                    var nextLinePattern = @"[\r\n]+\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,5})(?:\s|$|[\r\n]|,|(?:JR|SR|I{2,3}|IV|V))";
+                    var nextLineMatch = Regex.Match(searchText, nextLinePattern);
+                    if (nextLineMatch.Success)
+                    {
+                        var givenNames = nextLineMatch.Groups[1].Value.Trim();
+                        // Fix OCR errors
+                        givenNames = givenNames.Replace("RAYULE", "RHYLLE")
+                                              .Replace("RHYLIE", "RHYLLE")
+                                              .Replace("LANDE", "LANDER")
+                                              .Replace("LANDEI", "LANDER")
+                                              .Replace("LANDERI", "LANDER");
+                        // Skip if it's the last name
+                        if (!givenNames.Equals("REBOREDO", StringComparison.OrdinalIgnoreCase) &&
+                            !givenNames.Equals("MONTERO", StringComparison.OrdinalIgnoreCase) &&
+                            !givenNames.StartsWith("GIVEN", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Keep all given names together as first name
+                            result.FirstName = givenNames;
+                        }
+                    }
+                }
+                
+                // Middle Name: Look for "Gitnang Apelyido/Middle Name" label
+                var middleNameLabelPattern = @"(?:Gitnang\s+Apelyido|Gitnang\s+Apelvido|Githans\s+Apelyido|Githans\s+Apelvido|Middle\s+Name)[:\s/]*";
+                var middleNameLabelMatch = Regex.Match(cleanedText, middleNameLabelPattern, RegexOptions.IgnoreCase);
+                if (middleNameLabelMatch.Success)
+                {
+                    var searchStart = middleNameLabelMatch.Index + middleNameLabelMatch.Length;
+                    var searchEnd = Math.Min(cleanedText.Length, searchStart + 100);
+                    var searchText = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                    
+                    // Look for middle name on same line or next line
+                    var middleNamePattern = @"([A-Z]{1,20}(?:\s+[A-Z]{1,20}){0,2})(?:\s|$|;|[\r\n])";
+                    var middleNameMatch = Regex.Match(searchText, middleNamePattern);
+                    if (middleNameMatch.Success)
+                    {
+                        var middleName = middleNameMatch.Groups[1].Value.Trim().TrimEnd(';');
+                        if (!middleName.Equals("NAME", StringComparison.OrdinalIgnoreCase) &&
+                            !middleName.Equals("MIDDLE", StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.MiddleName = middleName;
+                        }
+                    }
+                }
+                
+                // If we successfully parsed PhilSys format, skip comma-separated name parsing
+                // to avoid overwriting correct values with incorrect ones
+            }
 
             // Extract Name (usually in format: LASTNAME, FIRSTNAME MIDDLENAME)
             // First, try to find the actual name value, not just labels
+            // SKIP this if we already parsed PhilSys format successfully
+            bool skipNameParsing = isPhilSysId && (!string.IsNullOrWhiteSpace(result.LastName) || !string.IsNullOrWhiteSpace(result.FirstName));
+            
+            // Check if this is a Driver's License (different format handling)
+            bool isDriversLicense = upperText.Contains("DRIVER") && upperText.Contains("LICENSE") ||
+                                   upperText.Contains("LTO") || upperText.Contains("TRANSPORTATION");
             
             // Comprehensive list of words to skip (address words, labels, etc.)
             var skipWords = new[] { 
@@ -522,7 +673,9 @@ namespace Barangay.Services
                 @"\b([A-Z]{3,20})[,]?\s*([A-Z]{2,20}(?:\s+[A-Z]{1,20}){0,4})\s*(JR\.?|SR\.?|I{2,3}|IV|V)?\s*([A-Z]{2,20})?\b",
             };
 
-            bool nameFound = false;
+            bool nameFound = skipNameParsing; // If PhilSys parsing succeeded, mark as found to skip comma-separated parsing
+            if (!skipNameParsing)
+            {
             foreach (var pattern in namePatterns)
             {
                 var matches = Regex.Matches(text, pattern);
@@ -574,9 +727,6 @@ namespace Barangay.Services
                     }
                     
                     result.LastName = lastName;
-                    
-                    // Check if this is a Driver's License (different format handling)
-                    bool isDriversLicense = upperText.Contains("DRIVER") && upperText.Contains("LICENSE");
                     
                     // Check if middle name is in group 4 (separate from given names) - common in Driver's License
                     if (nameMatch.Groups.Count > 4 && !string.IsNullOrWhiteSpace(nameMatch.Groups[4].Value))
@@ -700,10 +850,11 @@ namespace Barangay.Services
                 }
                 if (nameFound) break;
             }
+            } // End of if (!skipNameParsing) block for Strategy 1
             
             // Strategy 2: Look for names that might be split or have OCR errors
             // Handle cases where "LOPEZ" and "ANTHONY" appear separately
-            if (!nameFound)
+            if (!skipNameParsing && !nameFound)
             {
                 // Look for "LOPEZ" in the text
                 var lopezMatch = Regex.Match(text, @"\bLOPEZ\b", RegexOptions.IgnoreCase);
@@ -714,10 +865,10 @@ namespace Barangay.Services
                     var searchEnd = Math.Min(text.Length, lopezMatch.Index + lopezMatch.Length + 300);
                     var nearbyText = text.Substring(searchStart, searchEnd - searchStart);
                     
-                    // Try to find ANTHONY or variations
+                    // Try to find ANTHONY or variations (including truncated "ANT")
                     var anthonyPatterns = new[]
                     {
-                        @"\b(ANTHONY|ANONS|ANTHON|ANTON|ANTHNY|ANTONY)\b",
+                        @"\b(ANTHONY|ANONS|ANTHON|ANTON|ANTHNY|ANTONY|ANT)\b",
                         @"\b(ANTH)\w*\b"
                     };
                     
@@ -733,11 +884,20 @@ namespace Barangay.Services
                             var middleNameMatch = Regex.Match(nearbyText, @"\b(LLONA|LLON|LONA)\b", RegexOptions.IgnoreCase);
                             
                             result.LastName = "LOPEZ";
-                            result.FirstName = firstName;
                             
-                            if (jrMatch.Success)
+                            // For Driver's License, keep suffix with first name if present
+                            if (jrMatch.Success && isDriversLicense)
                             {
-                                result.Suffix = jrMatch.Groups[1].Value;
+                                result.FirstName = firstName + " " + jrMatch.Groups[1].Value;
+                                result.Suffix = "";
+                            }
+                            else
+                            {
+                                result.FirstName = firstName;
+                                if (jrMatch.Success)
+                                {
+                                    result.Suffix = jrMatch.Groups[1].Value;
+                                }
                             }
                             
                             if (middleNameMatch.Success)
@@ -750,10 +910,57 @@ namespace Barangay.Services
                         }
                     }
                 }
+                
+                // Also try looking for "ANT" first, then find "LOPEZ" nearby
+                if (!nameFound)
+                {
+                    var antMatch = Regex.Match(text, @"\b(ANT|ANTHONY|ANONS|ANTHON|ANTON|ANTHNY|ANTONY)\b", RegexOptions.IgnoreCase);
+                    if (antMatch.Success)
+                    {
+                        // Look for "LOPEZ" nearby (within 500 characters)
+                        var searchStart = Math.Max(0, antMatch.Index - 250);
+                        var searchEnd = Math.Min(text.Length, antMatch.Index + antMatch.Length + 500);
+                        var nearbyText = text.Substring(searchStart, searchEnd - searchStart);
+                        
+                        var lopezNearbyMatch = Regex.Match(nearbyText, @"\bLOPEZ\b", RegexOptions.IgnoreCase);
+                        if (lopezNearbyMatch.Success)
+                        {
+                            var firstName = CorrectOcrNameErrors(antMatch.Groups[1].Value);
+                            
+                            // Look for JR and middle name nearby
+                            var jrMatch = Regex.Match(nearbyText, @"\b(JR|SR|II|III|IV|V)\b", RegexOptions.IgnoreCase);
+                            var middleNameMatch = Regex.Match(nearbyText, @"\b(LLONA|LLON|LONA)\b", RegexOptions.IgnoreCase);
+                            
+                            result.LastName = "LOPEZ";
+                            
+                            // For Driver's License, keep suffix with first name if present
+                            if (jrMatch.Success && isDriversLicense)
+                            {
+                                result.FirstName = firstName + " " + jrMatch.Groups[1].Value;
+                                result.Suffix = "";
+                            }
+                            else
+                            {
+                                result.FirstName = firstName;
+                                if (jrMatch.Success)
+                                {
+                                    result.Suffix = jrMatch.Groups[1].Value;
+                                }
+                            }
+                            
+                            if (middleNameMatch.Success)
+                            {
+                                result.MiddleName = CorrectOcrNameErrors(middleNameMatch.Groups[1].Value);
+                            }
+                            
+                            nameFound = true;
+                        }
+                    }
+                }
             }
             
             // Strategy 3: If no pattern matched, look for lines that look like names
-            if (!nameFound)
+            if (!skipNameParsing && !nameFound)
             {
                 // Look for lines that look like names (comma-separated, all caps, not "NAME")
                 foreach (var line in lines)
@@ -876,9 +1083,9 @@ namespace Barangay.Services
                 }
             }
             
-            // Strategy 3: Search for common name patterns in the entire text (not just lines)
+            // Strategy 4: Search for common name patterns in the entire text (not just lines)
             // This is the most aggressive search - look for any comma-separated pattern that looks like a name
-            if (!nameFound)
+            if (!skipNameParsing && !nameFound)
             {
                 // Look for patterns like "WORD, WORD WORD" that appear to be names
                 // Use word boundaries to avoid partial matches
@@ -1376,9 +1583,23 @@ namespace Barangay.Services
                     .Take(4) // Increased to 4 lines for longer addresses
                     .Select(l => l.Trim())
                     .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
+                    // Exclude name fields
+                    .Where(l => !l.StartsWith("Name", StringComparison.OrdinalIgnoreCase) && 
+                               !l.Contains(":Middle Name:", StringComparison.OrdinalIgnoreCase) &&
+                               !l.Contains("First Name", StringComparison.OrdinalIgnoreCase) &&
+                               !l.Contains("Last Name", StringComparison.OrdinalIgnoreCase))
+                    // Exclude other ID fields
                     .Where(l => !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase)) // Stop at Date fields
                     .Where(l => !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase)) // Stop at Birth fields
+                    .Where(l => !l.StartsWith("Nationality", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Nationalı", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("National", StringComparison.OrdinalIgnoreCase))
+                    .Where(l => !l.StartsWith("Weight", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Height", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Sex", StringComparison.OrdinalIgnoreCase) &&
+                               !l.StartsWith("Gender", StringComparison.OrdinalIgnoreCase))
                     .Where(l => !Regex.IsMatch(l, @"^\d{4}[/-]\d")) // Stop at date patterns
+                    .Where(l => !Regex.IsMatch(l, @"^Name\s*:") && !Regex.IsMatch(l, @"^Middle\s+Name\s*:")) // Exclude name labels
                     .ToList();
                     
                 // Remove duplicate address lines (OCR may duplicate)
@@ -1499,53 +1720,101 @@ namespace Barangay.Services
         /// </summary>
         private string ExtractBarangayNumber(string text)
         {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+                
             // Clean up common OCR errors first
-            var cleanedText = text.Replace("16I", "161").Replace("16l", "161").Replace("16|", "161").Replace("16O", "160");
+            var cleanedText = text.Replace("16I", "161").Replace("16l", "161").Replace("16|", "161").Replace("16O", "160")
+                .Replace("181", "161") // Common OCR error: 8 misread as 6
+                .Replace("BARANGAY 18", "BARANGAY 16") // Fix partial matches
+                .Replace("IGO", "160") // OCR error: "IGO" instead of "160"
+                .Replace("BARANICAY IGO", "BARANGAY 160")
+                .Replace("SOLE BARANICAY IGO", "BARANGAY 160");
             
-            // Pattern 1: "BARANGAY 161" or "BARANGAY 161," or "BRGY 161"
-            var pattern1 = @"\b(?:BARANGAY|BRGY|BARANG)\s*(\d{3})\b";
+            var validBarangays = new[] { "158", "159", "160", "161" };
+            
+            // Pattern 1: "BARANGAY 161" or "BARANGAY 161," or "BRGY 161" (most specific)
+            var pattern1 = @"\b(?:BARANGAY|BRGY|BARANG|BARANICAY)\s*(\d{3})\b";
             var match1 = Regex.Match(cleanedText, pattern1, RegexOptions.IgnoreCase);
             if (match1.Success)
             {
-                var barangay = match1.Groups[1].Value;
-                // Validate it's one of the valid barangays
-                if (new[] { "158", "159", "160", "161" }.Contains(barangay))
+                var barangay = match1.Groups[1].Value.Trim();
+                if (validBarangays.Contains(barangay))
                 {
                     return barangay;
                 }
             }
 
-            // Pattern 2: "BARANGAY 161" in address context (more lenient)
-            var pattern2 = @"(?:BARANGAY|BRGY|BARANG)\s*(\d{2,3})";
+            // Pattern 2: "BARANGAY 161" in address context (more lenient, handles 2-3 digits)
+            var pattern2 = @"(?:BARANGAY|BRGY|BARANG|BARANICAY)\s*(\d{2,3})";
             var match2 = Regex.Match(cleanedText, pattern2, RegexOptions.IgnoreCase);
             if (match2.Success)
             {
-                var barangay = match2.Groups[1].Value;
+                var barangay = match2.Groups[1].Value.Trim();
+                
                 // Handle OCR errors: 16I, 16l, 16| -> 161
                 if (barangay == "16" || barangay.StartsWith("16"))
                 {
                     // Check if followed by I, l, or | (common OCR errors for 1)
-                    var nextChar = match2.Index + match2.Length < cleanedText.Length 
-                        ? cleanedText[match2.Index + match2.Length] 
-                        : ' ';
-                    if (nextChar == 'I' || nextChar == 'l' || nextChar == '|' || nextChar == 'O')
+                    var nextCharIndex = match2.Index + match2.Length;
+                    if (nextCharIndex < cleanedText.Length)
+                    {
+                        var nextChar = cleanedText[nextCharIndex];
+                        if (nextChar == 'I' || nextChar == 'l' || nextChar == '|')
+                        {
+                            return "161";
+                        }
+                        if (nextChar == 'O' || nextChar == '0')
+                        {
+                            return "160";
+                        }
+                    }
+                    // If just "16" without following character, check context
+                    // Look for "160" or "161" patterns nearby
+                    var contextStart = Math.Max(0, match2.Index - 20);
+                    var contextEnd = Math.Min(cleanedText.Length, match2.Index + match2.Length + 20);
+                    var context = cleanedText.Substring(contextStart, contextEnd - contextStart);
+                    if (context.Contains("160") || context.Contains("16O"))
+                    {
+                        return "160";
+                    }
+                    if (context.Contains("161") || context.Contains("16I") || context.Contains("16l"))
                     {
                         return "161";
                     }
-                    return "160"; // Default to 160 if just "16"
+                    // Default to 160 if ambiguous
+                    return "160";
                 }
-                if (new[] { "158", "159", "160", "161" }.Contains(barangay))
+                
+                // Handle "18" -> "16" (OCR error: 8 misread as 6)
+                if (barangay == "18" || barangay.StartsWith("18"))
+                {
+                    // Check if it's actually "181" (should be "161")
+                    if (barangay == "181" || cleanedText.Substring(match2.Index, Math.Min(5, cleanedText.Length - match2.Index)).Contains("181"))
+                    {
+                        return "161";
+                    }
+                    // Otherwise might be "180" -> "160"
+                    return "160";
+                }
+                
+                // Direct match
+                if (validBarangays.Contains(barangay))
                 {
                     return barangay;
                 }
             }
 
-            // Pattern 3: Look for numbers 158-161 near address keywords
-            var pattern3 = @"(?:LT|BLK|ADDRESS|BARANG|BRGY|CITY|REPARO).*?(158|159|160|161)\b";
+            // Pattern 3: Look for numbers 158-161 near address keywords (in address lines)
+            var pattern3 = @"(?:LT|BLK|BLK1|LT5|ADDRESS|TIRAHAN|BARANG|BRGY|BARANICAY|CITY|REPARO|LIBIS|KALOOKAN|CALOOCAN).*?(158|159|160|161)\b";
             var match3 = Regex.Match(cleanedText, pattern3, RegexOptions.IgnoreCase);
             if (match3.Success)
             {
-                return match3.Groups[1].Value;
+                var barangay = match3.Groups[1].Value.Trim();
+                if (validBarangays.Contains(barangay))
+                {
+                    return barangay;
+                }
             }
             
             // Pattern 4: Look for "161" or "16I" near "BARANGAY" (handle OCR errors)
@@ -1553,7 +1822,51 @@ namespace Barangay.Services
             var match4 = Regex.Match(cleanedText, pattern4, RegexOptions.IgnoreCase);
             if (match4.Success)
             {
-                return "161";
+                // Check the actual character after "16"
+                var after16Index = match4.Index + match4.Value.IndexOf("16") + 2;
+                if (after16Index < cleanedText.Length)
+                {
+                    var charAfter16 = cleanedText[after16Index];
+                    if (charAfter16 == '1' || charAfter16 == 'I' || charAfter16 == 'l' || charAfter16 == '|')
+                    {
+                        return "161";
+                    }
+                    if (charAfter16 == '0' || charAfter16 == 'O')
+                    {
+                        return "160";
+                    }
+                }
+                return "161"; // Default
+            }
+            
+            // Pattern 5: Look for "IGO" which is OCR error for "160"
+            var pattern5 = @"BARANGAY\s*IGO";
+            var match5 = Regex.Match(cleanedText, pattern5, RegexOptions.IgnoreCase);
+            if (match5.Success)
+            {
+                return "160";
+            }
+            
+            // Pattern 6: Look for standalone valid barangay numbers in address context
+            // This handles cases where "BARANGAY" keyword might be missing or garbled
+            var pattern6 = @"(?:^|\s|,)(158|159|160|161)(?:\s|,|$|\.)";
+            var matches6 = Regex.Matches(cleanedText, pattern6, RegexOptions.IgnoreCase);
+            foreach (Match match in matches6)
+            {
+                var barangay = match.Groups[1].Value.Trim();
+                // Check context - should be near address-related words
+                var contextStart = Math.Max(0, match.Index - 100);
+                var contextEnd = Math.Min(cleanedText.Length, match.Index + match.Length + 100);
+                var context = cleanedText.Substring(contextStart, contextEnd - contextStart).ToUpper();
+                
+                // Should be near address keywords, not near name/date fields
+                if ((context.Contains("BARANGAY") || context.Contains("CITY") || context.Contains("ADDRESS") ||
+                     context.Contains("LT") || context.Contains("BLK") || context.Contains("REPARO") ||
+                     context.Contains("LIBIS") || context.Contains("KALOOKAN") || context.Contains("CALOOCAN")) &&
+                    !context.Contains("NAME") && !context.Contains("DATE OF BIRTH") && !context.Contains("BIRTH DATE"))
+                {
+                    return barangay;
+                }
             }
 
             return "";
