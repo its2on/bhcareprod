@@ -340,8 +340,19 @@
                             
                             <div class="mb-3">
                                 <label for="reasonForConsultation" class="form-label">Reason for consultation</label>
-                                <textarea class="form-control" id="reasonForConsultation" name="ReasonForVisit" rows="4" required maxlength="400" aria-describedby="reasonHelp"></textarea>
-                                <div id="reasonHelp" class="form-text">Please be specific and respectful. Max 400 characters.</div>
+                                <textarea class="form-control"
+                                          id="reasonForConsultation"
+                                          name="ReasonForVisit"
+                                          rows="4"
+                                          required
+                                          maxlength="300"
+                                          pattern="^[A-Za-z0-9\s]{1,300}$"
+                                          title="Letters, numbers, and spaces only. Max 300 characters."
+                                          aria-describedby="reasonHelp reasonCharCounter"></textarea>
+                                <div id="reasonHelp" class="form-text">Letters, numbers, and spaces only. Please be respectful.</div>
+                                <div class="form-text">
+                                    <small id="reasonCharCounter">0/300 characters</small>
+                                </div>
                             </div>
                             
                             <button type="button" id="toStep2Button" class="btn btn-primary btn-lg">
@@ -496,6 +507,20 @@
             
             // Initialize the form state based on user details
             const userDetails = @Html.Raw(Json.Serialize(Model.UserDetails));
+            const reasonField = $('#reasonForConsultation');
+            const reasonCharCounter = $('#reasonCharCounter');
+            const sanitizeReasonInput = function () {
+                let value = reasonField.val() || '';
+                value = value.replace(/[^A-Za-z0-9\s]/g, '').substring(0, 300);
+                if (value !== reasonField.val()) {
+                    reasonField.val(value);
+                }
+                if (reasonCharCounter.length) {
+                    reasonCharCounter.text(`${value.length}/300 characters`);
+                }
+            };
+            reasonField.on('input blur', sanitizeReasonInput);
+            sanitizeReasonInput();
             
             if (userDetails) {
                 // Split full name into first and last name
@@ -1350,7 +1375,8 @@
                             $('#selectedTimeDisplay').show();
                         }
                         if (formData.reasonForVisit) {
-                            $('#reasonForVisit').val(formData.reasonForVisit);
+                            reasonField.val(formData.reasonForVisit);
+                            sanitizeReasonInput();
                         }
                         
                         console.log('[BookAppointment] Form data restored from session storage');
@@ -1410,7 +1436,7 @@
                     appointmentDate: $('#appointmentDate').val(),
                     consultationType: $('#consultationType').val(),
                     timeSlot: $('#timeSlot').val(),
-                    reasonForVisit: $('#reasonForVisit').val(),
+                    reasonForVisit: reasonField.val(),
                     bookingForOther: isBookingForOther ? 'true' : 'false',
                     bookingForOtherHidden: $('#bookingForOtherHidden').val(),
                     relationship: $('#relationship').val()
@@ -1528,7 +1554,7 @@
                 }
 
                 // Profanity filter for reason for visit (basic EN/TL list)
-                const reason = $('#reasonForConsultation').val() || '';
+                const reason = reasonField.val() || '';
                 const badWords = [
                     'fuck','shit','bitch','asshole','bastard','damn',
                     'puta','putang ina','pakyu','ulol','gago','tarantado','tangina'
@@ -1539,7 +1565,7 @@
                     return pattern.test(reason);
                 });
                 if (containsBadWord) {
-                    $('#reasonForConsultation').addClass('is-invalid');
+                    reasonField.addClass('is-invalid');
                     isValid = false;
                     // Re-enable button since validation failed
                     $button.prop('disabled', false);
@@ -1551,7 +1577,7 @@
                         confirmButtonColor: '#ffc107'
                     });
                 } else {
-                    $('#reasonForConsultation').removeClass('is-invalid');
+                    reasonField.removeClass('is-invalid');
                 }
                 
                 // Always validate time slot - check both the select and ensure hidden field is synced

@@ -87,8 +87,8 @@ namespace Barangay.Pages.User
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
                 Address = user.Address,
-                DateOfBirth = user.BirthDate ?? DateTime.MinValue,
-                Gender = user.Gender
+                DateOfBirth = user.BirthDate ?? DateTime.Today,
+                Gender = user.Gender ?? string.Empty
             };
 
 
@@ -114,11 +114,29 @@ namespace Barangay.Pages.User
                 if (ModelState.ContainsKey(k)) ModelState.Remove(k);
             }
 
-            if (!ModelState.IsValid)
+            UserProfile.FirstName = (UserProfile.FirstName ?? string.Empty).Trim();
+            UserProfile.LastName = (UserProfile.LastName ?? string.Empty).Trim();
+            UserProfile.Email = (UserProfile.Email ?? string.Empty).Trim();
+            UserProfile.PhoneNumber = (UserProfile.PhoneNumber ?? string.Empty).Trim();
+            UserProfile.Address = (UserProfile.Address ?? string.Empty).Trim();
+            UserProfile.Gender = (UserProfile.Gender ?? string.Empty).Trim();
+
+            var isDateMissing = UserProfile.DateOfBirth == DateTime.MinValue || UserProfile.DateOfBirth == default;
+
+            ModelState.Clear();
+
+            if (isDateMissing)
+            {
+                ModelState.AddModelError("UserProfile.DateOfBirth", "Date of birth is required.");
+            }
+
+            var isProfileValid = TryValidateModel(UserProfile, nameof(UserProfile));
+
+            if (!isProfileValid || !ModelState.IsValid)
             {
                 foreach (var key in ModelState.Keys)
                 {
-                    foreach(var error in ModelState[key].Errors)
+                    foreach (var error in ModelState[key].Errors)
                     {
                         _logger.LogWarning("ModelState Error in Settings Page - Key: {Key}, Error: {ErrorMessage}", key, error.ErrorMessage);
                     }
@@ -334,27 +352,42 @@ namespace Barangay.Pages.User
 
     public class UserProfileViewModel
     {
+        [Required(ErrorMessage = "First name is required")]
         [Display(Name = "First Name")]
-        public string FirstName { get; set; }
+        [StringLength(50, MinimumLength = 1, ErrorMessage = "First name must be between 1 and 50 characters.")]
+        [RegularExpression(@"^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$", ErrorMessage = "First name can only contain letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9.")]
+        public string FirstName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Last name is required")]
         [Display(Name = "Last Name")]
-        public string LastName { get; set; }
+        [StringLength(50, MinimumLength = 1, ErrorMessage = "Last name must be between 1 and 50 characters.")]
+        [RegularExpression(@"^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$", ErrorMessage = "Last name can only contain letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9.")]
+        public string LastName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Email is required")]
         [Display(Name = "Email")]
-        public string Email { get; set; }
+        [EmailAddress(ErrorMessage = "Invalid email address format")]
+        [StringLength(254, ErrorMessage = "Email address cannot exceed 254 characters.")]
+        public string Email { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Contact number is required")]
         [Display(Name = "Phone Number")]
-        public string PhoneNumber { get; set; }
+        [RegularExpression(@"^(?:09\d{9}|\+63\d{9,12})$", ErrorMessage = "Contact number must be 11 digits starting with 09 or 12-15 digits starting with +63.")]
+        public string PhoneNumber { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Complete address is required")]
         [Display(Name = "Address")]
-        public string Address { get; set; }
+        [StringLength(200, MinimumLength = 10, ErrorMessage = "Address must be between 10 and 200 characters.")]
+        public string Address { get; set; } = string.Empty;
 
         [Display(Name = "Date of Birth")]
         [DataType(DataType.Date)]
         public DateTime DateOfBirth { get; set; }
 
+        [Required(ErrorMessage = "Gender is required")]
         [Display(Name = "Gender")]
-        public string Gender { get; set; }
+        [RegularExpression(@"^(Male|Female|Other|Prefer not to say)$", ErrorMessage = "Please select a valid gender option.")]
+        public string Gender { get; set; } = string.Empty;
     }
 
     public class ChangePasswordViewModel

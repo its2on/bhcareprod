@@ -61,12 +61,22 @@
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label asp-for="UserProfile.FirstName" class="form-label"></label>
-                                        <input asp-for="UserProfile.FirstName" class="form-control">
+                                        <input asp-for="UserProfile.FirstName"
+                                               class="form-control"
+                                               maxlength="50"
+                                               minlength="1"
+                                               pattern="^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$"
+                                               title="Letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9 (max 50 characters)">
                                         <span asp-validation-for="UserProfile.FirstName" class="text-danger"></span>
                                     </div>
                                     <div class="col-md-6">
                                         <label asp-for="UserProfile.LastName" class="form-label"></label>
-                                        <input asp-for="UserProfile.LastName" class="form-control">
+                                        <input asp-for="UserProfile.LastName"
+                                               class="form-control"
+                                               maxlength="50"
+                                               minlength="1"
+                                               pattern="^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$"
+                                               title="Letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9 (max 50 characters)">
                                         <span asp-validation-for="UserProfile.LastName" class="text-danger"></span>
                                     </div>
                                 </div>
@@ -74,18 +84,26 @@
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label asp-for="UserProfile.Email" class="form-label"></label>
-                                        <input asp-for="UserProfile.Email" class="form-control" readonly>
+                                        <input asp-for="UserProfile.Email" class="form-control" readonly maxlength="254">
                                     </div>
                                     <div class="col-md-6">
                                         <label asp-for="UserProfile.PhoneNumber" class="form-label"></label>
-                                        <input asp-for="UserProfile.PhoneNumber" class="form-control">
+                                        <input asp-for="UserProfile.PhoneNumber"
+                                               class="form-control"
+                                               maxlength="15"
+                                               pattern="^(?:09\d{9}|\+63\d{9,12})$"
+                                               title="Enter 11 digits starting with 09 or 12–15 digits starting with +63">
                                         <span asp-validation-for="UserProfile.PhoneNumber" class="text-danger"></span>
                                     </div>
                                 </div>
 
                                 <div class="mb-3">
                                     <label asp-for="UserProfile.Address" class="form-label"></label>
-                                    <input asp-for="UserProfile.Address" class="form-control">
+                                    <input asp-for="UserProfile.Address"
+                                           class="form-control"
+                                           maxlength="200"
+                                           minlength="10"
+                                           title="Address must be between 10 and 200 characters.">
                                     <span asp-validation-for="UserProfile.Address" class="text-danger"></span>
                                 </div>
 

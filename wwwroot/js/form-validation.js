@@ -19,8 +19,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Allows only 09XXXXXXXXX or +639XXXXXXXXX formats
         contactNumber: /^(09\d{9}|\+639\d{9})$/,
         
-        // Allows letters, spaces, hyphens and apostrophes
-        name: /^[A-Za-z\s\-']+$/,
+        // Allows letters, spaces, hyphens, apostrophes, periods, and digits 1-9
+        name: /^[A-Za-z\s\-'.1-9]+$/,
+        nameCharFilter: /[^A-Za-z\s\-'.1-9]/g,
+        nameDigitRepeat: /([1-9]).*\1/,
         
         // Checks for repeating characters (same character repeated 5+ times)
         repeatingChars: /(.)\1{4,}/,
@@ -32,7 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Error messages
     const errorMessages = {
         contactNumber: 'Contact number must be in format 09XXXXXXXXX or +639XXXXXXXXX',
-        nameFormat: 'Only letters, spaces, hyphens, and apostrophes are allowed',
+        nameFormat: 'Only letters, spaces, hyphens, apostrophes, periods, and digits 1-9 are allowed',
+        nameDigitRepeat: 'Each digit 1-9 can only appear once in the name',
         nameRepeating: 'Name contains too many repeating characters',
         username: 'Username must be between 3-15 characters and can contain letters, numbers, and special characters'
     };
@@ -198,8 +201,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let filteredValue = value;
         
         // Remove characters that aren't letters, spaces, hyphens or apostrophes
-        if (!patterns.name.test(value)) {
-            filteredValue = value.replace(/[^A-Za-z\s\-']/g, '');
+        if (patterns.nameCharFilter.test(value)) {
+            filteredValue = value.replace(patterns.nameCharFilter, '');
             
             // Only update if we made changes to avoid cursor jumping
             if (filteredValue !== value) {
@@ -210,6 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Real-time validation for repeating characters
         if (patterns.repeatingChars.test(filteredValue)) {
             updateValidationState(input, false, errorMessages.nameRepeating);
+        } else if (patterns.nameDigitRepeat.test(filteredValue)) {
+            updateValidationState(input, false, errorMessages.nameDigitRepeat);
         } else if (filteredValue) {
             clearValidationState(input);
         }
@@ -233,9 +238,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         }
         
-        // Check format (letters, spaces, hyphens, apostrophes)
+        // Check format (letters, spaces, hyphens, apostrophes, periods, digits 1-9)
         if (!patterns.name.test(value)) {
             updateValidationState(input, false, errorMessages.nameFormat);
+            return false;
+        }
+
+        // Ensure digits 1-9 are not repeated
+        if (patterns.nameDigitRepeat.test(value)) {
+            updateValidationState(input, false, errorMessages.nameDigitRepeat);
             return false;
         }
         

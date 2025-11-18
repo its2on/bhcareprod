@@ -15,7 +15,6 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div id="step1Indicator" class="step-indicator active">1. Personal</div>
                 <div id="step2Indicator" class="step-indicator">2. Security</div>
-                <div id="step3Indicator" class="step-indicator">3. Verification</div>
             </div>
             <div class="progress mt-2" style="height: 6px;">
                 <div id="registrationProgress" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
@@ -97,7 +96,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-envelope"></i>
                                 </span>
-                                <input asp-for="Input.Email" class="form-control" placeholder="Email address" type="email" aria-label="Email input" />
+                                <input asp-for="Input.Email" class="form-control" placeholder="Email address" type="email" aria-label="Email input" maxlength="254" />
                             </div>
                             <div class="invalid-feedback" id="emailError">Email address is required</div>
                         </div>
@@ -128,20 +127,20 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.FirstName" class="form-label">First Name <span class="required">*</span></label>
-                            <input asp-for="Input.FirstName" class="form-control" placeholder="First name" aria-label="First name input" />
+                            <input asp-for="Input.FirstName" class="form-control" placeholder="First name" aria-label="First name input" maxlength="50" />
                             <div class="invalid-feedback" id="firstNameError">First name is required</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.MiddleName" class="form-label">Middle Name <span class="text-muted">(Optional)</span></label>
-                            <input asp-for="Input.MiddleName" class="form-control" placeholder="Middle name (optional)" aria-label="Middle name input (optional)" />
+                            <input asp-for="Input.MiddleName" class="form-control" placeholder="Middle name (optional)" aria-label="Middle name input (optional)" maxlength="50" />
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
                             <label asp-for="Input.LastName" class="form-label">Last Name <span class="required">*</span></label>
-                            <input asp-for="Input.LastName" class="form-control" placeholder="Last name" aria-label="Last name input" />
+                            <input asp-for="Input.LastName" class="form-control" placeholder="Last name" aria-label="Last name input" maxlength="50" />
                             <div class="invalid-feedback" id="lastNameError">Last name is required</div>
                         </div>
                     </div>
@@ -151,7 +150,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="Input.Suffix" class="form-label">Suffix <span class="text-muted">(Optional)</span></label>
-                            <input asp-for="Input.Suffix" class="form-control" placeholder="Suffix (optional)" aria-label="Suffix input (optional)" />
+                            <input asp-for="Input.Suffix" class="form-control" placeholder="Suffix (optional)" aria-label="Suffix input (optional)" maxlength="10" />
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -161,7 +160,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-phone"></i>
                                 </span>
-                                <input asp-for="Input.ContactNumber" class="form-control" placeholder="e.g., 09171234567" aria-label="Contact number input" />
+                                <input asp-for="Input.ContactNumber" class="form-control" placeholder="e.g., 09171234567" aria-label="Contact number input" maxlength="13" />
                             </div>
                             <div class="invalid-feedback" id="contactNumberError">Contact number is required</div>
                             <small class="form-text text-muted">Valid formats: 09XXXXXXXXX or +639XXXXXXXXX</small>
@@ -177,7 +176,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-map-marker-alt"></i>
                                 </span>
-                                <textarea asp-for="Input.Address" class="form-control" rows="2" placeholder="House No., Street, Barangay, City" aria-label="Complete address input"></textarea>
+                                <textarea asp-for="Input.Address" class="form-control" rows="2" placeholder="House No., Street, Barangay, City" aria-label="Complete address input" maxlength="200"></textarea>
                             </div>
                             <div class="invalid-feedback" id="addressError">Complete address is required</div>
                             <small class="form-text text-muted">Please provide your complete address including house number, street, barangay, and city</small>
@@ -249,7 +248,7 @@
                         <label asp-for="Input.GuardianFirstName" class="form-label">Guardian's First Name <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input asp-for="Input.GuardianFirstName" class="form-control" id="guardianFirstName" data-required="true" placeholder="Enter guardian's first name" />
+                            <input asp-for="Input.GuardianFirstName" class="form-control" id="guardianFirstName" data-required="true" placeholder="Enter guardian's first name" maxlength="50" />
                         </div>
                     </div>
                     
@@ -257,7 +256,7 @@
                         <label asp-for="Input.GuardianLastName" class="form-label">Guardian's Last Name <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input asp-for="Input.GuardianLastName" class="form-control" id="guardianLastName" data-required="true" placeholder="Enter guardian's last name" />
+                            <input asp-for="Input.GuardianLastName" class="form-control" id="guardianLastName" data-required="true" placeholder="Enter guardian's last name" maxlength="50" />
                         </div>
                     </div>
 
@@ -288,7 +287,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-lock"></i>
                                 </span>
-                                <input asp-for="Input.Password" class="form-control" type="password" id="password" aria-label="Password input" aria-describedby="passwordRequirements" />
+                                <input asp-for="Input.Password" class="form-control" type="password" id="password" aria-label="Password input" aria-describedby="passwordRequirements" maxlength="100" />
                                 <button class="btn btn-outline-secondary toggle-password" type="button" id="togglePassword" tabindex="0" aria-label="Toggle password visibility">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -338,7 +337,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-lock"></i>
                                 </span>
-                                <input asp-for="Input.ConfirmPassword" class="form-control" type="password" id="confirmPassword" aria-label="Confirm password input" />
+                                <input asp-for="Input.ConfirmPassword" class="form-control" type="password" id="confirmPassword" aria-label="Confirm password input" maxlength="100" />
                                 <button class="btn btn-outline-secondary toggle-password" type="button" id="toggleConfirmPassword" tabindex="0" aria-label="Toggle confirm password visibility">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -358,39 +357,52 @@
                         </div>
                     </div>
                 </div>
-                <!-- Navigation: Step 2 -->
-                <div class="d-flex justify-content-between mt-3">
-                    <button type="button" id="backToPersonal" class="btn btn-outline-secondary">Back</button>
-                    <button type="button" id="nextToVerification" class="btn btn-primary">Next</button>
-                </div>
-            </div>
-            
-            <!-- Residency Verification Section -->
-            <div id="section3" class="section d-none">
-                <h4 class="text-primary"><i class="far fa-address-card"></i> Residency Verification</h4>
                 
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <span class="text-dark">Please upload your Barangay Clearance or valid ID to verify your residency in Barangay 158, 159, 160,161.</span>
-                </div>
-                
-                <div class="form-group">
-                    <label asp-for="Input.ResidencyProof" class="form-label">Residency Proof <span class="required">*</span></label>
-                    <input asp-for="Input.ResidencyProof" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg" id="residencyProofFile" aria-label="Residency proof file input" />
-                    <div class="invalid-feedback" id="fileError">Please upload your residency proof document</div>
-                    <div id="fileNameDisplay" class="file-info mt-2 d-none"></div>
-                    <div class="mt-2">
-                        <small class="form-text text-dark">
-                            <ul class="ps-3 mb-0">
-                                <li>Accepted file types: PDF, PNG, JPG, JPEG</li>
-                                <li>Maximum file size: 5MB</li>
-                                <li>Documents must clearly show your name and address</li>
-                            </ul>
-                        </small>
+                <!-- Terms and Conditions Modal -->
+                <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="termsModalLabel">Data Privacy Terms</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <h6>Republic Act 10173 - Data Privacy Act of 2012</h6>
+                                <p class="text-dark">The Barangay Health Center is committed to protecting your personal information in accordance with the Data Privacy Act of 2012 (Republic Act 10173).</p>
+                                
+                                <h6>Information We Collect</h6>
+                                <p class="text-dark">We collect personal information such as your name, contact information, residency details, and health information for the purpose of providing you with health services.</p>
+                                
+                                <h6>How We Use Your Information</h6>
+                                <p class="text-dark">Your information will be used for:</p>
+                                <ul>
+                                    <li class="text-dark">Processing your health service requests</li>
+                                    <li class="text-dark">Creating and maintaining your patient record</li>
+                                    <li class="text-dark">Communicating with you about appointments and health services</li>
+                                    <li class="text-dark">Verifying your identity and residency</li>
+                                </ul>
+                                
+                                <h6>Protection of Your Information</h6>
+                                <p class="text-dark">We implement appropriate security measures to protect your personal information against unauthorized access or disclosure.</p>
+                                
+                                <h6>Your Rights</h6>
+                                <p class="text-dark">You have the right to:</p>
+                                <ul>
+                                    <li class="text-dark">Be informed about how your data is processed</li>
+                                    <li class="text-dark">Access your personal information</li>
+                                    <li class="text-dark">Correct inaccuracies in your data</li>
+                                    <li class="text-dark">Object to processing in certain circumstances</li>
+                                </ul>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" id="acceptTerms" data-bs-dismiss="modal">Accept Terms</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <p class="mb-2 text-dark">Your document will be reviewed by an administrator for verification.</p>
+                <p class="mb-2 text-dark mt-4">Your document will be reviewed by an administrator for verification.</p>
                 
                 <div class="form-group">
                     <div class="form-check">
@@ -423,9 +435,10 @@
                 <div id="checkboxErrorContainer" class="alert alert-danger mt-3 d-none">
                     <strong>Error:</strong> <span id="checkboxErrorMessage">You must agree to the terms and conditions and confirm your residency</span>
                 </div>
-                <!-- Navigation + Submit: Step 3 -->
+                
+                <!-- Navigation + Submit: Step 2 -->
                 <div class="d-flex justify-content-between mt-3">
-                    <button type="button" id="backToSecurity" class="btn btn-outline-secondary">Back</button>
+                    <button type="button" id="backToPersonal" class="btn btn-outline-secondary">Back</button>
                     <button type="submit" class="btn btn-primary" id="signupButton">
                         <i class="fas fa-user-plus me-2"></i> Register Account
                     </button>
@@ -553,14 +566,7 @@
                             this.updateRegisterButtonState();
                         }, 100);
                         
-                        // Also update when file changes (for pre-uploaded files)
-                        setTimeout(() => {
-                            const fileInput = document.getElementById('residencyProofFile') || document.getElementById('Input_ResidencyProof');
-                            if (fileInput && fileInput.files && fileInput.files.length > 0) {
-                                console.log('✅ File already uploaded, updating button state');
-                                this.updateRegisterButtonState();
-                            }
-                        }, 500);
+                        // File upload removed (Step 3 removed)
                     }
 
                     setupStepNavigation() {
@@ -572,11 +578,35 @@
                             }
                         });
 
-                        // Step 2 to Step 3
-                        document.getElementById('nextToVerification')?.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            if (this.validateStep2()) {
-                                this.goToStep(3);
+                        // Step 2 now submits the form directly
+                        document.getElementById('signupButton')?.addEventListener('click', async (e) => {
+                            // Validate Step 2 (password) and checkboxes before submitting
+                        const step2Valid = this.validateStep2();
+                        const checkboxesValid = this.validateStep3(); // Checkboxes validation
+                        const barangayVerified = this.isBarangayAutoVerified();
+                            
+                            // Log OCR-detected barangay value before submission
+                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                            if (ocrBarangayInput) {
+                                console.log('🔍 Form submission - OcrDetectedBarangay value:', ocrBarangayInput.value);
+                            }
+                            
+                            if (!step2Valid || !checkboxesValid || !barangayVerified) {
+                                e.preventDefault();
+                                // Show error message if checkboxes are not checked
+                                if (!checkboxesValid) {
+                                    const errorContainer = document.getElementById('checkboxErrorContainer');
+                                    if (errorContainer) {
+                                        errorContainer.classList.remove('d-none');
+                                    }
+                                }
+                                
+                                if (!barangayVerified) {
+                                    this.showStepError('Please scan your Philippine ID on Step 1 so we can auto-verify that you are from Barangay 158, 159, 160, or 161 before registering.');
+                                }
+                            } else {
+                                // Form is valid, allow submission
+                                console.log('✅ Form validation passed - submitting...');
                             }
                         });
 
@@ -586,10 +616,6 @@
                             this.goToStep(1);
                         });
 
-                        document.getElementById('backToSecurity')?.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            this.goToStep(2);
-                        });
                     }
 
                     setupRealTimeValidation() {
@@ -713,16 +739,7 @@
                             });
                         }
 
-                        // File input validation - check both possible IDs
-                        const fileInput = document.getElementById('residencyProofFile') || document.getElementById('Input_ResidencyProof');
-                        if (fileInput) {
-                            fileInput.addEventListener('change', () => {
-                                this.validateFile();
-                                this.updateRegisterButtonState();
-                                // Automatically verify residency proof when file is uploaded
-                                this.verifyResidencyProof(fileInput.files[0]);
-                            });
-                        }
+                        // File input validation removed (Step 3 removed - no file upload required)
 
                         // Checkbox validation
                         const termsCheckbox = document.getElementById('privacyTerms');
@@ -911,9 +928,9 @@
                             return false;
                         }
                         
-                        const namePattern = /^[a-zA-Z\s'\-]+$/;
+                        const namePattern = /^[a-zA-Z0-9\s'\-]+$/;
                         if (!namePattern.test(value)) {
-                            this.showError(field.toLowerCase(), `${field} can only contain letters, spaces, hyphens, and apostrophes`);
+                            this.showError(field.toLowerCase(), `${field} can only contain letters, numbers, spaces, hyphens, and apostrophes`);
                             return false;
                         }
                         
@@ -1118,39 +1135,28 @@
                     }
 
                     updateNextButtonState() {
-                        const nextButton = document.getElementById('nextToVerification');
-                        if (!nextButton) return;
-                        
-                        const password = document.getElementById('password')?.value;
-                        const confirmPassword = document.getElementById('confirmPassword')?.value;
-                        
-                        const allRequirementsMet = this.checkAllPasswordRequirements(password);
-                        const passwordsMatch = password && confirmPassword && password === confirmPassword;
-                        
-                        if (allRequirementsMet && passwordsMatch) {
-                            nextButton.disabled = false;
-                            nextButton.classList.remove('btn-secondary');
-                            nextButton.classList.add('btn-primary');
-                        } else {
-                            nextButton.disabled = true;
-                            nextButton.classList.remove('btn-primary');
-                            nextButton.classList.add('btn-secondary');
-                        }
+                        // Step 3 removed - this function now updates the Register button
+                        this.updateRegisterButtonState();
                     }
 
                     updateRegisterButtonState() {
                         const registerButton = document.getElementById('signupButton');
                         if (!registerButton) return;
                         
-                        const fileValid = this.validateFile();
+                        // File validation removed (Step 3 removed)
+                        const password = document.getElementById('password')?.value;
+                        const confirmPassword = document.getElementById('confirmPassword')?.value;
+                        const allRequirementsMet = this.checkAllPasswordRequirements(password);
+                        const passwordsMatch = password && confirmPassword && password === confirmPassword;
                         const termsChecked = document.getElementById('privacyTerms')?.checked;
                         const residencyChecked = document.getElementById('residencyConfirm')?.checked;
+                        const barangayVerified = this.isBarangayAutoVerified();
                         
                         // Check if a non-eligible barangay was detected from ID
                         const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
                         const hasNonEligibleBarangay = nonEligibleBarangayDetected && nonEligibleBarangayDetected.value;
                         
-                        const allValid = fileValid && termsChecked && residencyChecked && !hasNonEligibleBarangay;
+                        const allValid = allRequirementsMet && passwordsMatch && termsChecked && residencyChecked && barangayVerified && !hasNonEligibleBarangay;
                         
                         if (allValid) {
                             registerButton.disabled = false;
@@ -1166,11 +1172,43 @@
                             if (hasNonEligibleBarangay) {
                                 registerButton.innerHTML = '<i class="fas fa-ban me-2"></i> Registration Disabled (Invalid Barangay)';
                                 registerButton.title = 'The ID shows a non-eligible barangay. Please upload a valid ID showing Barangay 158, 159, 160, or 161.';
+                            } else if (!barangayVerified) {
+                                registerButton.innerHTML = '<i class="fas fa-id-card me-2"></i> Scan ID to Register';
+                                registerButton.title = 'Upload and scan your Philippine ID (Barangay 158, 159, 160, or 161) to continue.';
                             } else {
                                 registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
                                 registerButton.title = '';
                             }
                         }
+                    }
+
+                    isBarangayAutoVerified() {
+                        const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                        if (!ocrBarangayInput) {
+                            return false;
+                        }
+
+                        const value = (ocrBarangayInput.value || '').trim();
+                        if (!value) {
+                            return false;
+                        }
+
+                        const match = value.match(/\d+/);
+                        if (!match) {
+                            return false;
+                        }
+
+                        const normalizedBarangay = match[0];
+                        const eligibleBarangays = ['158', '159', '160', '161'];
+                        const isVerified = eligibleBarangays.includes(normalizedBarangay);
+
+                        console.log('📍 Barangay auto-verification check:', {
+                            rawValue: value,
+                            normalizedBarangay,
+                            isVerified
+                        });
+
+                        return isVerified;
                     }
 
                     updatePasswordStrength(password) {
@@ -1244,32 +1282,8 @@
                     }
 
                     validateFile() {
-                        // Try both possible IDs for the file input
-                        let fileInput = document.getElementById('residencyProofFile');
-                        if (!fileInput) {
-                            fileInput = document.getElementById('Input_ResidencyProof');
-                        }
-                        
-                        const file = fileInput?.files?.[0];
-                        
-                        if (!file) {
-                            this.showError('file', 'Please upload your residency proof document');
-                            return false;
-                        }
-                        
-                        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-                        if (!allowedTypes.includes(file.type)) {
-                            this.showError('file', 'Please upload a PDF, JPG, or PNG file');
-                            return false;
-                        }
-                        
-                        const maxSize = 5 * 1024 * 1024; // 5MB
-                        if (file.size > maxSize) {
-                            this.showError('file', 'File size must be less than 5MB');
-                            return false;
-                        }
-                        
-                        this.clearError('file');
+                        // File validation removed (Step 3 removed - no file upload required)
+                        // This function is kept for compatibility but always returns true
                         return true;
                     }
 
@@ -1292,13 +1306,13 @@
                         // Validate file type
                         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
                         if (!allowedTypes.includes(file.type)) {
-                            return; // Already handled by validateFile
+                            return; // Invalid file type
                         }
                         
                         // Validate file size (5MB max)
                         const maxSize = 5 * 1024 * 1024;
                         if (file.size > maxSize) {
-                            return; // Already handled by validateFile
+                            return; // File too large
                         }
                         
                         // Show verification status
@@ -1472,17 +1486,13 @@
                     }
 
                     validateStep3() {
-                        const fileValid = this.validateFile();
+                        // Step 3 removed - checkboxes are now in Step 2
                         const checkboxesValid = this.validateCheckboxes();
-                        
-                        const isValid = fileValid && checkboxesValid;
-                        
-                        // Don't show duplicate error - validation feedback is already shown inline
                         
                         // Update register button state
                         this.updateRegisterButtonState();
                         
-                        return isValid;
+                        return checkboxesValid;
                     }
 
                     async validateAllSteps() {
@@ -1610,8 +1620,6 @@
                         if (stepNumber === 1) {
                             setTimeout(() => this.updateStep1NextButtonState(), 100);
                         } else if (stepNumber === 2) {
-                            this.updateNextButtonState();
-                        } else if (stepNumber === 3) {
                             this.updateRegisterButtonState();
                         }
                         
@@ -1619,8 +1627,7 @@
                         if (progressText) {
                             const stepTexts = {
                                 1: 'Step 1: Personal Information',
-                                2: 'Step 2: Account Security',
-                                3: 'Step 3: Residency Verification'
+                                2: 'Step 2: Account Security'
                             };
                             progressText.textContent = stepTexts[stepNumber] || '';
                         }
@@ -1638,7 +1645,7 @@
                 // Initialize validator when DOM is loaded
                 document.addEventListener('DOMContentLoaded', function() {
                     console.log('DOM Content Loaded - initializing SignUp page');
-                    new SignUpValidator();
+                    window.signUpValidator = new SignUpValidator();
                 });
                 
                 // Password toggle functionality
@@ -1779,50 +1786,6 @@
             
 
         </form>
-    </div>
-</div>
-
-<!-- Terms and Conditions Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="termsModalLabel">Data Privacy Terms</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <h6>Republic Act 10173 - Data Privacy Act of 2012</h6>
-                <p class="text-dark">The Barangay Health Center is committed to protecting your personal information in accordance with the Data Privacy Act of 2012 (Republic Act 10173).</p>
-                
-                <h6>Information We Collect</h6>
-                <p class="text-dark">We collect personal information such as your name, contact information, residency details, and health information for the purpose of providing you with health services.</p>
-                
-                <h6>How We Use Your Information</h6>
-                <p class="text-dark">Your information will be used for:</p>
-                <ul>
-                    <li class="text-dark">Processing your health service requests</li>
-                    <li class="text-dark">Creating and maintaining your patient record</li>
-                    <li class="text-dark">Communicating with you about appointments and health services</li>
-                    <li class="text-dark">Verifying your identity and residency</li>
-                </ul>
-                
-                <h6>Protection of Your Information</h6>
-                <p class="text-dark">We implement appropriate security measures to protect your personal information against unauthorized access or disclosure.</p>
-                
-                <h6>Your Rights</h6>
-                <p class="text-dark">You have the right to:</p>
-                <ul>
-                    <li class="text-dark">Be informed about how your data is processed</li>
-                    <li class="text-dark">Access your personal information</li>
-                    <li class="text-dark">Correct inaccuracies in your data</li>
-                    <li class="text-dark">Object to processing in certain circumstances</li>
-                </ul>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="acceptTerms" data-bs-dismiss="modal">Accept Terms</button>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -2006,7 +1969,7 @@
             }
         }
         
-        /* Fix checkbox alignment in Step 3 */
+        /* Fix checkbox alignment */
         .form-check {
             display: flex;
             align-items: flex-start;
@@ -2024,12 +1987,12 @@
             line-height: 1.5;
         }
         
-        #section3 .form-check {
+        #section2 .form-check {
             min-height: 1.5rem;
             padding-left: 0;
         }
         
-        #section3 .form-check-input {
+        #section2 .form-check-input {
             float: none;
             margin-left: 0;
         }
@@ -3266,8 +3229,66 @@
                         // Show success notification
                         let notificationMessage = '';
                         let alertClass = 'alert-success';
+                        let showVerificationStatus = false;
                         
-                        if (result.isBarangayValid && result.autoApproved) {
+                        // Check if barangay 159 or 160 for auto-verification with old verification indicator style
+                        if (result.isBarangayValid && result.autoApproved && (result.barangay === '159' || result.barangay === '160')) {
+                            // Show old verification indicator style for barangays 159-160
+                            showVerificationStatus = true;
+                            notificationMessage = `<div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Residency Verified!</strong>
+                                <div class="mt-2">Barangay ${result.barangay} detected - Your account will be automatically approved!</div>
+                            </div>`;
+                            
+                            // Store detected barangay in hidden field for form submission
+                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                            if (ocrBarangayInput) {
+                                ocrBarangayInput.value = result.barangay;
+                            }
+                            
+                            // Remove non-eligible barangay flag if exists
+                            const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                            if (nonEligibleBarangayInput) {
+                                nonEligibleBarangayInput.remove();
+                            }
+                            
+                            // Update register button state (enable if all conditions are met)
+                            // Try to access validator instance or update button directly
+                            const registerButton = document.getElementById('signupButton');
+                            if (registerButton && window.signUpValidator) {
+                                window.signUpValidator.updateRegisterButtonState();
+                            } else if (registerButton) {
+                                // Directly check and enable button if conditions are met
+                                const termsChecked = document.getElementById('privacyTerms')?.checked;
+                                const residencyChecked = document.getElementById('residencyConfirm')?.checked;
+                                // Note: File validation is for step 3 which was removed, so we skip it
+                                if (termsChecked && residencyChecked) {
+                                    registerButton.disabled = false;
+                                    registerButton.classList.remove('btn-secondary');
+                                    registerButton.classList.add('btn-primary');
+                                    registerButton.innerHTML = '<i class="fas fa-user-plus me-2"></i> Register Account';
+                                    registerButton.title = '';
+                                }
+                            }
+                        } else if (result.isBarangayValid && result.autoApproved) {
+                            // For barangays 158 and 161, also set the hidden field and show verification status
+                            const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
+                            if (ocrBarangayInput && result.barangay) {
+                                ocrBarangayInput.value = result.barangay;
+                                console.log('✅ Set OcrDetectedBarangay to:', result.barangay);
+                            }
+                            
+                            // Remove non-eligible barangay flag if exists
+                            const nonEligibleBarangayInput = document.getElementById('NonEligibleBarangayDetected');
+                            if (nonEligibleBarangayInput) {
+                                nonEligibleBarangayInput.remove();
+                            }
+                            
+                            if (window.signUpValidator) {
+                                window.signUpValidator.updateRegisterButtonState();
+                            }
+                            
                             notificationMessage = `<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle me-1"></i>Eligible barangay detected (${result.barangay}) - account will be auto-approved!</small></div>`;
                         } else if (result.barangay && !result.isBarangayValid) {
                             alertClass = 'alert-warning';
@@ -3277,10 +3298,22 @@
                             notificationMessage = `<div class="mt-1"><small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Unable to verify residency. No valid Barangay number (158, 159, 160, 161) found in the document.</small></div>`;
                         }
                         
-                        if (filledFields.length > 0 || notificationMessage) {
+                        if (showVerificationStatus) {
+                            // Show verification status indicator (old style) for barangays 159-160
+                            let extractedHtml = '';
+                            if (filledFields.length > 0) {
+                                extractedHtml += `<div class="alert alert-info mb-2">
+                                    <div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>
+                                    <div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>
+                                </div>`;
+                            }
+                            extractedHtml += notificationMessage;
+                            scannerResult.innerHTML = extractedHtml;
+                            scannerResult.classList.remove('d-none');
+                        } else if (filledFields.length > 0 || notificationMessage) {
                             let extractedHtml = `<div class="alert ${alertClass}">`;
-                        if (filledFields.length > 0) {
-                            extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
+                            if (filledFields.length > 0) {
+                                extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
                             }
                             extractedHtml += notificationMessage;
                             extractedHtml += '<div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>';

@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Text.RegularExpressions;
 using Barangay.Attributes;
 using Barangay.Services;
 using Barangay.Extensions;
@@ -38,6 +39,15 @@ namespace Barangay.Pages.Doctor
         private readonly IAppointmentReminderService _appointmentReminderService;
         private readonly IAuditTrailService _auditTrail;
         private readonly INotificationService _notificationService;
+        private static readonly Regex EmojiRegex = new(@"[\uD800-\uDBFF][\uDC00-\uDFFF]", RegexOptions.Compiled);
+        private static readonly Regex HtmlTagRegex = new(@"<[^>]+>", RegexOptions.Compiled);
+        private static readonly Regex ScriptTagRegex = new(@"<\s*/?\s*script", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ChiefComplaintPattern = new(@"^[A-Za-z0-9 \t\.,;:!?'""()\-/]+$", RegexOptions.Compiled);
+        private static readonly Regex DiagnosisPattern = new(@"^[A-Za-z0-9 \t\.,;:!?'""()\-/]+$", RegexOptions.Compiled);
+        private static readonly Regex TreatmentPattern = new(@"^[A-Za-z0-9 \t\r\n\.,;:!?'""()\-/]+$", RegexOptions.Compiled);
+        private static readonly Regex AdditionalNotesPattern = new(@"^[A-Za-z0-9 \t\r\n\.,;:!?'""()\-/]+$", RegexOptions.Compiled);
+        private static readonly Regex FollowUpReasonPattern = new(@"^[A-Za-z0-9 \t\.,;:!?'""()\-/]+$", RegexOptions.Compiled);
+        private static readonly Regex PrescriptionPattern = new(@"^[A-Za-z0-9 \t\r\n\.,;:!?'""()\-/xX]+$", RegexOptions.Compiled);
 
         public ConsultationModel(
             ApplicationDbContext context,
@@ -928,6 +938,12 @@ namespace Barangay.Pages.Doctor
             AppointmentId = appointmentToSave.Id;
             PatientId = appointmentToSave.PatientId;
 
+            if (!ValidateConsultationInputs())
+            {
+                await OnGetAsync(AppointmentId);
+                return Page();
+            }
+
             if (!ModelState.IsValid)
             {
                 // If model state is invalid, we need to reload the data for the page
@@ -1253,6 +1269,145 @@ namespace Barangay.Pages.Doctor
                 await OnGetAsync(AppointmentId);
                 return Page();
             }
+        }
+
+        private bool ValidateConsultationInputs()
+        {
+            bool isValid = true;
+
+            ChiefComplaint = NormalizeInput(ChiefComplaint);
+            Diagnosis = NormalizeInput(Diagnosis);
+            Treatment = NormalizeInput(Treatment, allowLineBreaks: true);
+            Notes = NormalizeInput(Notes, allowLineBreaks: true);
+            FollowUpReason = NormalizeInput(FollowUpReason);
+            Prescribe = NormalizeInput(Prescribe, allowLineBreaks: true);
+
+            if (!ValidateField(ChiefComplaint, true, 20, 300, ChiefComplaintPattern, nameof(ChiefComplaint)))
+            {
+                isValid = false;
+            }
+
+            if (!ValidateField(Diagnosis, true, 20, 500, DiagnosisPattern, nameof(Diagnosis)))
+            {
+                isValid = false;
+            }
+
+            if (!ValidateField(Treatment, true, 20, 700, TreatmentPattern, nameof(Treatment), allowLineBreaks: true))
+            {
+                isValid = false;
+            }
+
+            if (!ValidateField(Notes, false, 0, 700, AdditionalNotesPattern, nameof(Notes), allowLineBreaks: true, rejectBraces: true))
+            {
+                isValid = false;
+            }
+
+            if (!ValidateField(FollowUpReason, false, 10, 300, FollowUpReasonPattern, nameof(FollowUpReason)))
+            {
+                isValid = false;
+            }
+
+            if (!ValidateField(Prescribe, false, 20, 1000, PrescriptionPattern, nameof(Prescribe), allowLineBreaks: true))
+            {
+                isValid = false;
+            }
+
+            Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes;
+            FollowUpReason = string.IsNullOrWhiteSpace(FollowUpReason) ? null : FollowUpReason;
+            Prescribe = string.IsNullOrWhiteSpace(Prescribe) ? null : Prescribe;
+
+            if (string.IsNullOrWhiteSpace(FollowUpReason))
+            {
+                FollowUpDate = null;
+                FollowUpTime = null;
+            }
+
+            if (!isValid)
+            {
+                ModelState.AddModelError(string.Empty, "Please correct the highlighted fields.");
+            }
+
+            return isValid;
+        }
+
+        private static string NormalizeInput(string? value, bool allowLineBreaks = false)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var normalized = value.Trim();
+
+            if (allowLineBreaks)
+            {
+                normalized = Regex.Replace(normalized, @"[ \t]+", " ");
+                normalized = normalized.Replace("\r", string.Empty);
+                normalized = Regex.Replace(normalized, @"\n{3,}", "\n\n");
+            }
+            else
+            {
+                normalized = Regex.Replace(normalized, @"\s+", " ");
+            }
+
+            return normalized;
+        }
+
+        private bool ValidateField(string? value, bool required, int minLength, int maxLength, Regex allowedCharacters, string fieldName, bool allowLineBreaks = false, bool rejectBraces = false)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (required)
+                {
+                    ModelState.AddModelError(fieldName, $"{fieldName} is required.");
+                    return false;
+                }
+                return true;
+            }
+
+            if (value.Length < minLength || value.Length > maxLength)
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} must be between {minLength} and {maxLength} characters.");
+                return false;
+            }
+
+            if (!allowLineBreaks && value.Contains('\n'))
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} must be a single paragraph without line breaks.");
+                return false;
+            }
+
+            if (EmojiRegex.IsMatch(value))
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} cannot contain emojis or unsupported symbols.");
+                return false;
+            }
+
+            if (HtmlTagRegex.IsMatch(value) || value.Contains("<") || value.Contains(">"))
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} cannot contain HTML tags or angle brackets.");
+                return false;
+            }
+
+            if (ScriptTagRegex.IsMatch(value) || value.IndexOf("javascript", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} cannot contain script content.");
+                return false;
+            }
+
+            if (rejectBraces && (value.Contains("{") || value.Contains("}")))
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} cannot contain braces or angle brackets.");
+                return false;
+            }
+
+            if (!allowedCharacters.IsMatch(value))
+            {
+                ModelState.AddModelError(fieldName, $"{fieldName} contains invalid characters.");
+                return false;
+            }
+
+            return true;
         }
 
         // Consultation summary email methods removed - no longer needed

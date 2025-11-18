@@ -93,6 +93,7 @@
                             <thead>
                                 <tr>
                                     <th>Patient</th>
+                                    <th>Family Number</th>
                                     <th>Date</th>
                                     <th>Time</th>
                                     <th>Status</th>
@@ -107,6 +108,7 @@
                                     {
                                         <tr>
                                             <td>@appointment.PatientName</td>
+                                            <td>@(string.IsNullOrWhiteSpace(appointment.FamilyNumber) ? "N/A" : appointment.FamilyNumber)</td>
                                             <td data-sort="@appointment.AppointmentDate.ToString("yyyy-MM-dd")">@DateTimeHelper.GetFormattedDatePhilippine(appointment.AppointmentDate)</td>
                                             <td data-sort="@appointment.AppointmentTime.TotalMinutes">@appointment.AppointmentTime.Hours.ToString("00"):@appointment.AppointmentTime.Minutes.ToString("00")</td>
                                             <td>
@@ -132,7 +134,6 @@
                                                     </a>
                                                 }
                                             </td>
-                                            <td style="display: none;">@(appointment.FamilyNumber ?? "")</td>
                                         </tr>
                                     }
                                 }
@@ -339,11 +340,11 @@
             
             // Initialize DataTable with enhanced configuration
             const table = $('#appointmentsTable').DataTable({
-                "order": [[1, "desc"], [2, "desc"]], // Sort by Date desc, then Time desc
+                "order": [[2, "desc"], [3, "desc"]], // Sort by Date desc, then Time desc
                 "pageLength": 25,
                 "responsive": true,
                 "language": {
-                    "search": "Search by patient name, date, time, or family number:",
+                    "search": "Search by patient name, family number, date, or time:",
                     "lengthMenu": "Show _MENU_ appointments per page",
                     "info": "Showing _START_ to _END_ of _TOTAL_ appointments",
                     "infoEmpty": "No appointments found",
@@ -353,31 +354,27 @@
                 },
                 "columnDefs": [
                     {
-                        "targets": [3, 4], // Status, Type columns - not searchable
+                        "targets": [4, 5], // Status, Type columns - not searchable
                         "searchable": false
                     },
                     {
-                        "targets": [0, 1, 2, 6], // Patient, Date, Time, and FamilyNumber columns - searchable
+                        "targets": [0, 1, 2, 3], // Patient, FamilyNumber, Date, and Time columns - searchable
                         "searchable": true
                     },
                     {
-                        "targets": [1], // Date column - use data-sort attribute for accurate sorting
+                        "targets": [2], // Date column - use data-sort attribute for accurate sorting
                         "type": "date",
                         "orderDataType": "dom-data-sort"
                     },
                     {
-                        "targets": [2], // Time column - use data-sort attribute for accurate sorting
+                        "targets": [3], // Time column - use data-sort attribute for accurate sorting
                         "type": "num",
                         "orderDataType": "dom-data-sort"
                     },
                     {
-                        "targets": [5], // Actions column
+                        "targets": [6], // Actions column
                         "orderable": false,
                         "searchable": false
-                    },
-                    {
-                        "targets": [6], // FamilyNumber column - hidden but searchable
-                        "visible": false
                     }
                 ],
                 "drawCallback": function(settings) {
@@ -388,7 +385,7 @@
                 }
             });
             
-            // Custom search function to search in Patient column (index 0), Date column (index 1), Time column (index 2), and FamilyNumber (index 6)
+            // Custom search function to search in Patient column (index 0), FamilyNumber (index 1), Date column (index 2), and Time column (index 3)
             var customSearchFunction = function(settings, data, dataIndex) {
                 // Only apply custom search to appointmentsTable
                 var tableId = $(settings.nTable).attr('id');
@@ -402,11 +399,11 @@
                 if (searchValue === '') {
                     return true; // Show all if search is empty
                 }
-                // Search in Patient column (index 0), Date column (index 1), Time column (index 2), and FamilyNumber (index 6)
+                // Search in Patient column (index 0), FamilyNumber (index 1), Date column (index 2), and Time column (index 3)
                 var patientName = (data[0] || '').toLowerCase();
-                var appointmentDate = (data[1] || '').toLowerCase();
-                var appointmentTime = (data[2] || '').toLowerCase();
-                var familyNumber = (data[6] || '').toLowerCase(); // FamilyNumber is now in the data array at index 6
+                var familyNumber = (data[1] || '').toLowerCase();
+                var appointmentDate = (data[2] || '').toLowerCase();
+                var appointmentTime = (data[3] || '').toLowerCase();
                 
                 return patientName.indexOf(searchValue) !== -1 || 
                        appointmentDate.indexOf(searchValue) !== -1 || 

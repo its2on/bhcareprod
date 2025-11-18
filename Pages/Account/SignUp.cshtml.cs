@@ -190,36 +190,38 @@ namespace Barangay.Pages.Account
 
             [Required(ErrorMessage = "Email address is required")]
             [EmailAddress(ErrorMessage = "Invalid email address format")]
+            [StringLength(254, ErrorMessage = "Email address cannot exceed 254 characters.")]
             [Display(Name = "Email")]
             public string Email { get; set; }
 
             [Required(ErrorMessage = "First name is required")]
             [Display(Name = "First Name")]
-            [StringLength(50, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 50 characters.")]
-            [RegularExpression(@"^[a-zA-Z'\s-]+$", ErrorMessage = "Name can only contain letters, spaces, apostrophes, and hyphens.")]
+            [StringLength(50, MinimumLength = 1, ErrorMessage = "First name must be between 1 and 50 characters.")]
+            [RegularExpression(@"^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$", ErrorMessage = "First name can only contain letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9.")]
             [NotGibberishName]
             public string? FirstName { get; set; }
 
             [Display(Name = "Middle Name")]
             [StringLength(50, ErrorMessage = "Middle name cannot exceed 50 characters.")]
-            [RegularExpression(@"^[a-zA-Z'\s-]*$", ErrorMessage = "Name can only contain letters, spaces, apostrophes, and hyphens.")]
+            [RegularExpression(@"^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{0,50}$", ErrorMessage = "Middle name can only contain letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9.")]
             [NotGibberishName]
             public string? MiddleName { get; set; }
 
             [Required(ErrorMessage = "Last name is required")]
             [Display(Name = "Last Name")]
-            [StringLength(50, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 50 characters.")]
-            [RegularExpression(@"^[a-zA-Z'\s-]+$", ErrorMessage = "Name can only contain letters, spaces, apostrophes, and hyphens.")]
+            [StringLength(50, MinimumLength = 1, ErrorMessage = "Last name must be between 1 and 50 characters.")]
+            [RegularExpression(@"^(?!(?:.*([1-9]).*\1))[A-Za-z'.\-\s1-9]{1,50}$", ErrorMessage = "Last name can only contain letters, spaces, apostrophes, hyphens, periods, and at most one of each digit 1-9.")]
             [NotGibberishName]
             public string? LastName { get; set; }
 
             [Display(Name = "Suffix")]
-            [RegularExpression(@"^(|Jr\.|Sr\.|I{2,3}|IV|V)$", ErrorMessage = "Suffix should be Jr., Sr., III, etc., or leave blank.")]
+            [StringLength(10, ErrorMessage = "Suffix cannot exceed 10 characters.")]
+            [RegularExpression(@"^(?:|(?:Jr|Sr)\.?|[IVXLCDMivxlcdm]{1,4})$", ErrorMessage = "Suffix should be Jr, Sr, or a Roman numeral (II, III, IV, etc.).")]
             public string? Suffix { get; set; }
 
             [Required(ErrorMessage = "Contact number is required")]
             [Display(Name = "Contact Number")]
-            [RegularExpression(@"^(09|\+639)\d{9}$", ErrorMessage = "Contact number must be in the format 09XXXXXXXXX or +639XXXXXXXXX")]
+            [RegularExpression(@"^(?:09\d{9}|\+63\d{9,12})$", ErrorMessage = "Contact number must be 11 digits starting with 09 or 12-15 digits starting with +63.")]
             [NotADummyNumber(ErrorMessage = "Contact number appears to be a dummy number.")]
             public string ContactNumber { get; set; }
 
@@ -268,9 +270,8 @@ namespace Barangay.Pages.Account
             [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
             public string ConfirmPassword { get; set; }
 
-            [Required(ErrorMessage = "Residency proof document is required")]
             [Display(Name = "Residency Proof")]
-            public Microsoft.AspNetCore.Http.IFormFile ResidencyProof { get; set; }
+            public Microsoft.AspNetCore.Http.IFormFile? ResidencyProof { get; set; }
 
             [Required(ErrorMessage = "You must agree to the data privacy terms")]
             [Display(Name = "Agree to Terms")]
@@ -805,7 +806,48 @@ namespace Barangay.Pages.Account
                 }
             }
 
-            // Validate residency proof file
+            // Check if auto-approval is eligible via OCR-detected barangay (before requiring file)
+            bool isAutoApprovalEligible = false;
+            var validBarangays = new[] { "158", "159", "160", "161" };
+            
+            _logger.LogInformation("=== CHECKING AUTO-APPROVAL ELIGIBILITY ===");
+            _logger.LogInformation("OcrDetectedBarangay: {OcrBarangay}", Input.OcrDetectedBarangay ?? "(null)");
+            _logger.LogInformation("User Selected Barangay: {UserBarangay}", Input.Barangay ?? "(null)");
+            
+            if (!string.IsNullOrWhiteSpace(Input.OcrDetectedBarangay))
+            {
+                var detectedBarangay = Input.OcrDetectedBarangay.Trim();
+                _logger.LogInformation("Checking OCR-detected barangay: {Barangay}", detectedBarangay);
+                if (validBarangays.Contains(detectedBarangay))
+                {
+                    isAutoApprovalEligible = true;
+                    _logger.LogInformation("✅ Auto-approval eligible: OCR-detected Barangay {Barangay}", detectedBarangay);
+                }
+                else
+                {
+                    _logger.LogInformation("❌ OCR-detected barangay {Barangay} is not in eligible list", detectedBarangay);
+                }
+            }
+            
+            // Also check user's selected barangay field as fallback
+            if (!isAutoApprovalEligible && !string.IsNullOrWhiteSpace(Input.Barangay))
+            {
+                var userBarangay = Input.Barangay.Trim();
+                _logger.LogInformation("Checking user selected barangay: {Barangay}", userBarangay);
+                if (validBarangays.Contains(userBarangay))
+                {
+                    isAutoApprovalEligible = true;
+                    _logger.LogInformation("✅ Auto-approval eligible: User selected Barangay {Barangay}", userBarangay);
+                }
+                else
+                {
+                    _logger.LogInformation("❌ User selected barangay {Barangay} is not in eligible list", userBarangay);
+                }
+            }
+            
+            _logger.LogInformation("Final auto-approval eligibility: {IsEligible}", isAutoApprovalEligible);
+            
+            // Validate residency proof file (only required if NOT auto-approval eligible)
             if (Input.ResidencyProof != null)
             {
                 fileExtension = Path.GetExtension(Input.ResidencyProof.FileName).ToLowerInvariant();
@@ -815,10 +857,16 @@ namespace Barangay.Pages.Account
                     return Page();
                 }
             }
-            else
+            else if (!isAutoApprovalEligible)
             {
+                // Only require file if not auto-approved via OCR/barangay detection
+                _logger.LogWarning("❌ Residency proof document is required - user is not auto-approval eligible");
                 ModelState.AddModelError(string.Empty, "Residency proof document is required.");
                 return Page();
+            }
+            else
+            {
+                _logger.LogInformation("✅ Residency proof file not required - user is auto-approval eligible");
             }
 
             try
@@ -959,7 +1007,70 @@ namespace Barangay.Pages.Account
                         // Don't fail registration if role assignment fails
                     }
 
-                    // Save residency proof document for all users
+                    // PRIORITY 1: Check OCR-detected barangay from ID scan FIRST (highest priority)
+                    string detectedBarangay = null;
+                    string approvalSource = null;
+                    bool autoApproved = false;
+                    var validBarangaysCheck = new[] { "158", "159", "160", "161" };
+                    
+                    _logger.LogInformation("=== CHECKING OCR-DETECTED BARANGAY (PRIORITY 1) ===");
+                    if (!string.IsNullOrWhiteSpace(Input.OcrDetectedBarangay))
+                    {
+                        detectedBarangay = Input.OcrDetectedBarangay.Trim();
+                        _logger.LogInformation("OCR-detected Barangay from frontend: {Barangay}", detectedBarangay);
+                        
+                        // CRITICAL VALIDATION: Validate that OCR-detected barangay is EXACTLY in eligible list
+                        if (validBarangaysCheck.Contains(detectedBarangay))
+                        {
+                            autoApproved = true;
+                            approvalSource = "System (Barangay Match via OCR)";
+                            _logger.LogInformation("=== AUTO-APPROVAL FROM OCR BARANGAY DETECTION ===");
+                            _logger.LogInformation("Barangay {Barangay} detected - auto-approving user ID {UserId}", detectedBarangay, user.Id);
+                        }
+                        else
+                        {
+                            _logger.LogError("❌ REJECTED: OCR-detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
+                            _logger.LogError("OCR extracted text: {OcrText}", Input.OcrExtractedText ?? "(null)");
+                            _logger.LogError("OCR extracted address: {OcrAddress}", Input.OcrExtractedAddress ?? "(null)");
+                            detectedBarangay = null; // Reset if not eligible
+                            autoApproved = false; // Ensure not approved
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No OCR-detected barangay provided in form submission");
+                    }
+                    
+                    // PRIORITY 2: Fall back to user's Barangay field from profile if OCR didn't detect
+                    if (!autoApproved)
+                    {
+                        string userBarangay = Input.Barangay?.Trim();
+                        _logger.LogInformation("=== CHECKING USER BARANGAY FIELD (PRIORITY 2) ===");
+                        _logger.LogInformation("User selected Barangay: {Barangay}", userBarangay);
+                        
+                        // Check if user is from eligible barangay (158, 159, 160, 161)
+                        if (!string.IsNullOrEmpty(userBarangay))
+                        {
+                            if (userBarangay == "158" || userBarangay.Contains("158"))
+                                detectedBarangay = "158";
+                            else if (userBarangay == "159" || userBarangay.Contains("159"))
+                                detectedBarangay = "159";
+                            else if (userBarangay == "160" || userBarangay.Contains("160"))
+                                detectedBarangay = "160";
+                            else if (userBarangay == "161" || userBarangay.Contains("161"))
+                                detectedBarangay = "161";
+                            
+                            if (detectedBarangay != null)
+                            {
+                                autoApproved = true;
+                                approvalSource = "System (Profile Auto-Verified)";
+                                _logger.LogInformation("=== AUTO-APPROVAL FROM PROFILE BARANGAY ===");
+                            }
+                        }
+                    }
+                    
+                    // Save residency proof document if provided (optional for auto-approved users)
+                    UserDocument userDocument = null;
                     if (Input.ResidencyProof != null)
                     {
                         try
@@ -984,7 +1095,7 @@ namespace Barangay.Pages.Account
                             try
                             {
                                 // Create record in UserDocuments table
-                                var userDocument = new UserDocument
+                                userDocument = new UserDocument
                                 {
                                     UserId = user.Id,
                                     FileName = Input.ResidencyProof.FileName,
@@ -992,7 +1103,7 @@ namespace Barangay.Pages.Account
                                     FileSize = Input.ResidencyProof.Length,
                                     ContentType = Input.ResidencyProof.ContentType,
                                     FileType = Path.GetExtension(Input.ResidencyProof.FileName).TrimStart('.').ToLower(),
-                                    Status = "Pending",
+                                    Status = autoApproved ? "Verified" : "Pending",
                                     UploadDate = DateTime.UtcNow
                                 };
 
@@ -1000,303 +1111,241 @@ namespace Barangay.Pages.Account
                                 await _context.SaveChangesAsync();
                                 
                                 _logger.LogInformation($"Saved residency proof document for user {user.Id}: {uniqueFileName}");
-                                
-                                // PRIORITY 1: Check OCR-detected barangay from ID scan FIRST (highest priority)
-                                string detectedBarangay = null;
-                                string approvalSource = null;
-                                bool autoApproved = false;
-                                var validBarangays = new[] { "158", "159", "160", "161" };
-                                
-                                _logger.LogInformation("=== CHECKING OCR-DETECTED BARANGAY (PRIORITY 1) ===");
-                                if (!string.IsNullOrWhiteSpace(Input.OcrDetectedBarangay))
-                                {
-                                    detectedBarangay = Input.OcrDetectedBarangay.Trim();
-                                    _logger.LogInformation("OCR-detected Barangay from frontend: {Barangay}", detectedBarangay);
-                                    
-                                    // CRITICAL VALIDATION: Validate that OCR-detected barangay is EXACTLY in eligible list
-                                    if (validBarangays.Contains(detectedBarangay))
-                                    {
-                                        autoApproved = true;
-                                        approvalSource = "System (Barangay Match via OCR)";
-                                        _logger.LogInformation("=== AUTO-APPROVAL FROM OCR BARANGAY DETECTION ===");
-                                        _logger.LogInformation("Barangay {Barangay} detected - auto-approving user ID {UserId}", detectedBarangay, user.Id);
-                                    }
-                                    else
-                                    {
-                                        _logger.LogError("❌ REJECTED: OCR-detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
-                                        _logger.LogError("OCR extracted text: {OcrText}", Input.OcrExtractedText ?? "(null)");
-                                        _logger.LogError("OCR extracted address: {OcrAddress}", Input.OcrExtractedAddress ?? "(null)");
-                                        detectedBarangay = null; // Reset if not eligible
-                                        autoApproved = false; // Ensure not approved
-                                    }
-                                }
-                                else
-                                {
-                                    _logger.LogInformation("No OCR-detected barangay provided in form submission");
-                                }
-                                
-                                // PRIORITY 2: Fall back to user's Barangay field from profile if OCR didn't detect
-                                if (!autoApproved)
-                                {
-                                    string userBarangay = Input.Barangay?.Trim();
-                                    _logger.LogInformation("=== CHECKING USER BARANGAY FIELD (PRIORITY 2) ===");
-                                    _logger.LogInformation("User selected Barangay: {Barangay}", userBarangay);
-                                    
-                                    // Check if user is from eligible barangay (158, 159, 160, 161)
-                                    if (!string.IsNullOrEmpty(userBarangay))
-                                    {
-                                        if (userBarangay == "158" || userBarangay.Contains("158"))
-                                            detectedBarangay = "158";
-                                        else if (userBarangay == "159" || userBarangay.Contains("159"))
-                                            detectedBarangay = "159";
-                                        else if (userBarangay == "160" || userBarangay.Contains("160"))
-                                            detectedBarangay = "160";
-                                        else if (userBarangay == "161" || userBarangay.Contains("161"))
-                                            detectedBarangay = "161";
-                                        
-                                        if (detectedBarangay != null)
-                                        {
-                                            autoApproved = true;
-                                            approvalSource = "System (Profile Auto-Verified)";
-                                            _logger.LogInformation("=== AUTO-APPROVAL FROM PROFILE BARANGAY ===");
-                                        }
-                                    }
-                                }
-                                
-                                // AUTO-APPROVE if eligible barangay detected (from OCR or profile)
-                                if (autoApproved && detectedBarangay != null)
-                                {
-                                    _logger.LogInformation("Detected Barangay: {Barangay}, Source: {Source}", detectedBarangay, approvalSource);
-                                    
-                                    user.VerificationStatus = "Auto Verified";
-                                    user.IsApproved = true;
-                                    user.ApprovedBy = approvalSource;
-                                    user.ApprovedDate = DateTime.UtcNow;
-                                    user.VerifiedBarangay = detectedBarangay;
-                                    
-                                    // Store OCR-extracted data if available
-                                    if (!string.IsNullOrWhiteSpace(Input.OcrExtractedText))
-                                    {
-                                        user.OcrExtractedText = Input.OcrExtractedText;
-                                        _logger.LogInformation("Stored OCR-extracted text for audit trail");
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(Input.OcrExtractedAddress))
-                                    {
-                                        user.OcrExtractedText = $"Auto-verified from {approvalSource}: Address contains Barangay {detectedBarangay}. Extracted address: {Input.OcrExtractedAddress}";
-                                    }
-                                    else
-                                    {
-                                        user.OcrExtractedText = $"Auto-verified from {approvalSource}: Barangay {detectedBarangay}";
-                                    }
-                                    
-                                    user.DocumentVerifiedAt = DateTime.UtcNow;
-                                    user.Status = "Verified";
-                                    user.EncryptedStatus = "Verified"; // IMPORTANT: Update both Status and EncryptedStatus for login check
-                                    user.IsActive = true;
-                                    
-                                    userDocument.Status = "Verified";
-                                    userDocument.ApprovedBy = null; // NULL for system auto-approval (no specific admin user)
-                                    userDocument.ApprovedAt = DateTime.UtcNow;
-                                    
-                                    _logger.LogInformation("=== SAVING AUTO-APPROVAL TO DATABASE ===");
-                                    _logger.LogInformation("Before save - User ID: {UserId}, IsApproved: {IsApproved}, Status: {Status}, VerificationStatus: {VerificationStatus}", 
-                                        user.Id, user.IsApproved, user.Status, user.VerificationStatus);
-                                    
-                                    var updateResult = await _userManager.UpdateAsync(user);
-                                    if (!updateResult.Succeeded)
-                                    {
-                                        _logger.LogError("Failed to update user: {Errors}", string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-                                    }
-                                    
-                                    await _context.SaveChangesAsync();
-                                    
-                                    // Verify the save by reloading from database
-                                    var savedUser = await _userManager.FindByIdAsync(user.Id);
-                                    _logger.LogInformation("=== USER AUTO-APPROVED ===");
-                                    _logger.LogInformation("After save - User ID: {UserId}, IsApproved: {IsApproved}, Status: {Status}, VerificationStatus: {VerificationStatus}", 
-                                        savedUser.Id, savedUser.IsApproved, savedUser.Status, savedUser.VerificationStatus);
-                                    _logger.LogInformation("Detected Barangay: {Barangay}, Source: {Source}", detectedBarangay, approvalSource);
-                                            
-                                    // Send approval email to user
-                                    try
-                                    {
-                                        var userEmail = _encryptionService.Decrypt(user.Email);
-                                        var firstName = _encryptionService.Decrypt(user.FirstName);
-                                        
-                                        var emailBody = $@"
-                                            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                                                <h2 style='color: #4CAF50;'>✅ BHCare Account Approved</h2>
-                                                <p>Hi <strong>{firstName}</strong>,</p>
-                                                <p>Great news! Your residency in <strong>Barangay {detectedBarangay}</strong> has been automatically verified.</p>
-                                                <p>Your BHCare account is now <strong>active</strong>. You can log in anytime at:</p>
-                                                <p><a href='{Request.Scheme}://{Request.Host}/Account/Login' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Login Now</a></p>
-                                                <p>Thank you for registering with BHCare!</p>
-                                                <p style='color: #666; font-size: 12px; margin-top: 30px;'>
-                                                    BHCare Health Center<br/>
-                                                    Baesa, Quezon City
-                                                </p>
-                                            </div>";
-                                        
-                                        await _emailService.SendEmailAsync(
-                                            userEmail, 
-                                            "BHCare Account Approved - Auto Verified", 
-                                            emailBody);
-                                        
-                                        _logger.LogInformation("Approval email sent to {Email}", userEmail);
-                                    }
-                                    catch (Exception emailEx)
-                                    {
-                                        _logger.LogError(emailEx, "Failed to send approval email to user");
-                                    }
-                                            
-                                    // Send notification to admin
-                                    try
-                                    {
-                                        var adminEmail = _configuration["AdminUser:Email"];
-                                        var fullName = $"{_encryptionService.Decrypt(user.FirstName)} {_encryptionService.Decrypt(user.LastName)}";
-                                        var userEmail = _encryptionService.Decrypt(user.Email);
-                                        
-                                        var adminEmailBody = $@"
-                                            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                                                <h2 style='color: #2196F3;'>🤖 New Auto-Verified Account</h2>
-                                                <p>A new user has been automatically verified and approved:</p>
-                                                <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
-                                                    <tr style='background-color: #f5f5f5;'>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><strong>Name:</strong></td>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'>{fullName}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><strong>Email:</strong></td>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'>{userEmail}</td>
-                                                    </tr>
-                                                    <tr style='background-color: #f5f5f5;'>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><strong>Barangay:</strong></td>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'>{detectedBarangay}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><strong>Verification:</strong></td>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'>{approvalSource}</td>
-                                                    </tr>
-                                                    <tr style='background-color: #f5f5f5;'>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><strong>Status:</strong></td>
-                                                        <td style='padding: 10px; border: 1px solid #ddd;'><span style='color: #4CAF50;'>✅ Active</span></td>
-                                                    </tr>
-                                                </table>
-                                                <p style='color: #666; font-size: 12px;'>This account was automatically approved based on {(approvalSource.Contains("OCR") ? "OCR-detected barangay from ID scan" : "profile barangay")}.</p>
-                                            </div>";
-                                        
-                                        await _emailService.SendEmailAsync(
-                                            adminEmail, 
-                                            "New Auto-Verified User Registration", 
-                                            adminEmailBody);
-                                        
-                                        _logger.LogInformation("Admin notification email sent");
-                                    }
-                                    catch (Exception emailEx)
-                                    {
-                                        _logger.LogError(emailEx, "Failed to send notification email to admin");
-                                    }
-                                }
-                                else
-                                {
-                                    // NOT ELIGIBLE - Set to pending
-                                    string userBarangayValue = Input.Barangay?.Trim() ?? "Unknown";
-                                    string ocrBarangayValue = Input.OcrDetectedBarangay?.Trim() ?? "None";
-                                    _logger.LogWarning("=== BARANGAY NOT ELIGIBLE FOR AUTO-APPROVAL ===");
-                                    _logger.LogWarning("OCR-detected barangay: {OcrBarangay}, User selected barangay: {UserBarangay} - not in eligible list (158-161)", 
-                                        ocrBarangayValue, userBarangayValue);
-                                    
-                                    // Ensure user is set to pending status
-                                    user.VerificationStatus = "Pending Review";
-                                    user.IsApproved = false;
-                                    user.Status = "Pending";
-                                    user.EncryptedStatus = "Pending"; // IMPORTANT: Update both Status fields
-                                    user.IsActive = false;
-                                    user.VerifiedBarangay = null; // Clear any invalid barangay
-                                    
-                                    // Store OCR text for admin review if available
-                                    if (!string.IsNullOrWhiteSpace(Input.OcrExtractedText))
-                                    {
-                                        user.OcrExtractedText = Input.OcrExtractedText.Length > 500 
-                                            ? Input.OcrExtractedText.Substring(0, 500) 
-                                            : Input.OcrExtractedText;
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(Input.OcrExtractedAddress))
-                                    {
-                                        user.OcrExtractedText = $"Address extracted: {Input.OcrExtractedAddress}";
-                                    }
-                                    
-                                    // Don't set ApprovedBy or ApprovedDate for pending users
-                                    user.ApprovedBy = null;
-                                    user.ApprovedDate = null;
-                                    
-                                    var updateResult = await _userManager.UpdateAsync(user);
-                                    if (!updateResult.Succeeded)
-                                    {
-                                        _logger.LogError("Failed to update user to pending status: {Errors}", 
-                                            string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-                                    }
-                                    
-                                    await _context.SaveChangesAsync();
-                                    _logger.LogInformation("User set to Pending Review status");
-                                    
-                                    // Send "Pending Review" email notification
-                                    try
-                                    {
-                                        var userEmail = _encryptionService.Decrypt(user.Email);
-                                        var firstName = _encryptionService.Decrypt(user.FirstName);
-                                        
-                                        var emailBody = $@"
-                                            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                                                <h2 style='color: #FF9800;'>⏳ BHCare Account - Pending Review</h2>
-                                                <p>Hi <strong>{firstName}</strong>,</p>
-                                                <p>Thank you for registering with BHCare! Your account has been created successfully.</p>
-                                                <div style='background-color: #FFF3CD; border-left: 4px solid #FF9800; padding: 15px; margin: 20px 0;'>
-                                                    <strong>⏳ Your account is under review</strong>
-                                                    <p style='margin: 10px 0 0 0;'>Our admin team will verify your submitted documents and residency information. You will receive an email notification once your account is approved.</p>
-                                                </div>
-                                                <p><strong>What happens next?</strong></p>
-                                                <ul>
-                                                    <li>Our admin team will review your ID and residency documents</li>
-                                                    <li>You will receive an email notification once your account is approved</li>
-                                                    <li>Once approved, you can log in and access all BHCare services</li>
-                                                </ul>
-                                                <p>We appreciate your patience during the review process.</p>
-                                                <p style='color: #666; font-size: 12px; margin-top: 30px;'>
-                                                    BHCare Health Center<br/>
-                                                    Baesa, Quezon City
-                                                </p>
-                                            </div>";
-                                        
-                                        await _emailService.SendEmailAsync(
-                                            userEmail, 
-                                            "BHCare Account - Pending Review", 
-                                            emailBody);
-                                        
-                                        _logger.LogInformation("Pending review email sent to {Email}", userEmail);
-                                    }
-                                    catch (Exception emailEx)
-                                    {
-                                        _logger.LogError(emailEx, "Failed to send pending review email to user");
-                                    }
-                                }
                             }
-                            catch (Exception dbEx)
+                            catch (Exception docEx)
                             {
-                                _logger.LogError(dbEx, "Error saving to UserDocuments table");
-                                
-                                // Store the file path in user's ProfilePicture field as fallback
-                                user.ProfilePicture = relativePath;
-                                await _userManager.UpdateAsync(user);
-                                _logger.LogInformation($"Saved file path to user's ProfilePicture as fallback: {relativePath}");
+                                _logger.LogError(docEx, "Error saving user document to database");
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception fileEx)
                         {
-                            _logger.LogError(ex, $"Error saving residency proof document for user {user.Id}");
-                            // Continue registration process even if document saving fails
+                            _logger.LogError(fileEx, "Error saving residency proof file");
                         }
                     }
+                    
+                    // AUTO-APPROVE if eligible barangay detected (from OCR or profile)
+                    if (autoApproved && detectedBarangay != null)
+                    {
+                        _logger.LogInformation("Detected Barangay: {Barangay}, Source: {Source}", detectedBarangay, approvalSource);
+                        
+                        user.VerificationStatus = "Auto Verified";
+                        user.IsApproved = true;
+                        user.ApprovedBy = approvalSource;
+                        user.ApprovedDate = DateTime.UtcNow;
+                        user.VerifiedBarangay = detectedBarangay;
+                        
+                        // Store OCR-extracted data if available
+                        if (!string.IsNullOrWhiteSpace(Input.OcrExtractedText))
+                        {
+                            user.OcrExtractedText = Input.OcrExtractedText;
+                            _logger.LogInformation("Stored OCR-extracted text for audit trail");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Input.OcrExtractedAddress))
+                        {
+                            user.OcrExtractedText = $"Auto-verified from {approvalSource}: Address contains Barangay {detectedBarangay}. Extracted address: {Input.OcrExtractedAddress}";
+                        }
+                        else
+                        {
+                            user.OcrExtractedText = $"Auto-verified from {approvalSource}: Barangay {detectedBarangay}";
+                        }
+                        
+                        user.DocumentVerifiedAt = DateTime.UtcNow;
+                        user.Status = "Verified";
+                        user.EncryptedStatus = "Verified"; // IMPORTANT: Update both Status and EncryptedStatus for login check
+                        user.IsActive = true;
+                        
+                        // Update document status if file was uploaded
+                        if (userDocument != null)
+                        {
+                            userDocument.Status = "Verified";
+                            userDocument.ApprovedBy = null; // NULL for system auto-approval (no specific admin user)
+                            userDocument.ApprovedAt = DateTime.UtcNow;
+                        }
+                        
+                        _logger.LogInformation("=== SAVING AUTO-APPROVAL TO DATABASE ===");
+                        _logger.LogInformation("Before save - User ID: {UserId}, IsApproved: {IsApproved}, Status: {Status}, VerificationStatus: {VerificationStatus}", 
+                            user.Id, user.IsApproved, user.Status, user.VerificationStatus);
+                        
+                        var updateResult = await _userManager.UpdateAsync(user);
+                        if (!updateResult.Succeeded)
+                        {
+                            _logger.LogError("Failed to update user: {Errors}", string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                        }
+                        
+                        await _context.SaveChangesAsync();
+                        
+                        // Verify the save by reloading from database
+                        var savedUser = await _userManager.FindByIdAsync(user.Id);
+                        _logger.LogInformation("=== USER AUTO-APPROVED ===");
+                        _logger.LogInformation("After save - User ID: {UserId}, IsApproved: {IsApproved}, Status: {Status}, VerificationStatus: {VerificationStatus}", 
+                            savedUser.Id, savedUser.IsApproved, savedUser.Status, savedUser.VerificationStatus);
+                        _logger.LogInformation("Detected Barangay: {Barangay}, Source: {Source}", detectedBarangay, approvalSource);
+                        
+                        // Send approval email to user
+                        try
+                        {
+                            var userEmail = _encryptionService.Decrypt(user.Email);
+                            var firstName = _encryptionService.Decrypt(user.FirstName);
+                            
+                            var emailBody = $@"
+                                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                                    <h2 style='color: #4CAF50;'>✅ BHCare Account Approved</h2>
+                                    <p>Hi <strong>{firstName}</strong>,</p>
+                                    <p>Great news! Your residency in <strong>Barangay {detectedBarangay}</strong> has been automatically verified.</p>
+                                    <p>Your BHCare account is now <strong>active</strong>. You can log in anytime at:</p>
+                                    <p><a href='{Request.Scheme}://{Request.Host}/Account/Login' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Login Now</a></p>
+                                    <p>Thank you for registering with BHCare!</p>
+                                    <p style='color: #666; font-size: 12px; margin-top: 30px;'>
+                                        BHCare Health Center<br/>
+                                        Baesa, Quezon City
+                                    </p>
+                                </div>";
+                            
+                            await _emailService.SendEmailAsync(
+                                userEmail, 
+                                "BHCare Account Approved - Auto Verified", 
+                                emailBody);
+                            
+                            _logger.LogInformation("Approval email sent to {Email}", userEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "Failed to send approval email to user");
+                        }
+                        
+                        // Send notification to admin
+                        try
+                        {
+                            var adminEmail = _configuration["AdminUser:Email"];
+                            var fullName = $"{_encryptionService.Decrypt(user.FirstName)} {_encryptionService.Decrypt(user.LastName)}";
+                            var userEmail = _encryptionService.Decrypt(user.Email);
+                            
+                            var adminEmailBody = $@"
+                                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                                    <h2 style='color: #2196F3;'>🤖 New Auto-Verified Account</h2>
+                                    <p>A new user has been automatically verified and approved:</p>
+                                    <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
+                                        <tr style='background-color: #f5f5f5;'>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><strong>Name:</strong></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'>{fullName}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><strong>Email:</strong></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'>{userEmail}</td>
+                                        </tr>
+                                        <tr style='background-color: #f5f5f5;'>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><strong>Barangay:</strong></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'>{detectedBarangay}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><strong>Verification:</strong></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'>{approvalSource}</td>
+                                        </tr>
+                                        <tr style='background-color: #f5f5f5;'>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><strong>Status:</strong></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><span style='color: #4CAF50;'>✅ Active</span></td>
+                                        </tr>
+                                    </table>
+                                    <p style='color: #666; font-size: 12px;'>This account was automatically approved based on {(approvalSource.Contains("OCR") ? "OCR-detected barangay from ID scan" : "profile barangay")}.</p>
+                                </div>";
+                            
+                            await _emailService.SendEmailAsync(
+                                adminEmail, 
+                                "New Auto-Verified User Registration", 
+                                adminEmailBody);
+                            
+                            _logger.LogInformation("Admin notification email sent");
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "Failed to send notification email to admin");
+                        }
+                    }
+                    else
+                    {
+                        // NOT ELIGIBLE - Set to pending
+                        string userBarangayValue = Input.Barangay?.Trim() ?? "Unknown";
+                        string ocrBarangayValue = Input.OcrDetectedBarangay?.Trim() ?? "None";
+                        _logger.LogWarning("=== BARANGAY NOT ELIGIBLE FOR AUTO-APPROVAL ===");
+                        _logger.LogWarning("OCR-detected barangay: {OcrBarangay}, User selected barangay: {UserBarangay} - not in eligible list (158-161)", 
+                            ocrBarangayValue, userBarangayValue);
+                        
+                        // Ensure user is set to pending status
+                        user.VerificationStatus = "Pending Review";
+                        user.IsApproved = false;
+                        user.Status = "Pending";
+                        user.EncryptedStatus = "Pending"; // IMPORTANT: Update both Status fields
+                        user.IsActive = false;
+                        user.VerifiedBarangay = null; // Clear any invalid barangay
+                        
+                        // Store OCR text for admin review if available
+                        if (!string.IsNullOrWhiteSpace(Input.OcrExtractedText))
+                        {
+                            user.OcrExtractedText = Input.OcrExtractedText.Length > 500 
+                                ? Input.OcrExtractedText.Substring(0, 500) 
+                                : Input.OcrExtractedText;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Input.OcrExtractedAddress))
+                        {
+                            user.OcrExtractedText = $"Address extracted: {Input.OcrExtractedAddress}";
+                        }
+                        
+                        // Don't set ApprovedBy or ApprovedDate for pending users
+                        user.ApprovedBy = null;
+                        user.ApprovedDate = null;
+                        
+                        var updateResult = await _userManager.UpdateAsync(user);
+                        if (!updateResult.Succeeded)
+                        {
+                            _logger.LogError("Failed to update user to pending status: {Errors}", 
+                                string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                        }
+                        
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("User set to Pending Review status");
+                        
+                        // Send "Pending Review" email notification
+                        try
+                        {
+                            var userEmail = _encryptionService.Decrypt(user.Email);
+                            var firstName = _encryptionService.Decrypt(user.FirstName);
+                            
+                            var emailBody = $@"
+                                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                                    <h2 style='color: #FF9800;'>⏳ BHCare Account - Pending Review</h2>
+                                    <p>Hi <strong>{firstName}</strong>,</p>
+                                    <p>Thank you for registering with BHCare! Your account has been created successfully.</p>
+                                    <div style='background-color: #FFF3CD; border-left: 4px solid #FF9800; padding: 15px; margin: 20px 0;'>
+                                        <strong>⏳ Your account is under review</strong>
+                                        <p style='margin: 10px 0 0 0;'>Our admin team will verify your submitted documents and residency information. You will receive an email notification once your account is approved.</p>
+                                    </div>
+                                    <p><strong>What happens next?</strong></p>
+                                    <ul>
+                                        <li>Our admin team will review your ID and residency documents</li>
+                                        <li>You will receive an email notification once your account is approved</li>
+                                        <li>Once approved, you can log in and access all BHCare services</li>
+                                    </ul>
+                                    <p>We appreciate your patience during the review process.</p>
+                                    <p style='color: #666; font-size: 12px; margin-top: 30px;'>
+                                        BHCare Health Center<br/>
+                                        Baesa, Quezon City
+                                    </p>
+                                </div>";
+                            
+                            await _emailService.SendEmailAsync(
+                                userEmail, 
+                                "BHCare Account - Pending Review", 
+                                emailBody);
+                            
+                            _logger.LogInformation("Pending review email sent to {Email}", userEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "Failed to send pending review email to user");
+                        }
+                    }
+                    
+                    // Continue with registration success flow
 
                     // Save guardian information and residency proof for users under 18
                     if (age < 18)
@@ -1340,12 +1389,12 @@ namespace Barangay.Pages.Account
                             {
                                 // If no specific guardian proof was provided, use the user's residency proof
                                 // Find the user's document that was just saved
-                                var userDocument = await _context.UserDocuments
+                                var foundUserDocument = await _context.UserDocuments
                                     .FirstOrDefaultAsync(d => d.UserId == user.Id);
                                     
-                                if (userDocument != null)
+                                if (foundUserDocument != null)
                                 {
-                                    guardianProofPath = userDocument.FilePath;
+                                    guardianProofPath = foundUserDocument.FilePath;
                                     useUserProofAsGuardianProof = true;
                                     _logger.LogInformation($"Using user's residency proof as guardian proof: {guardianProofPath}");
 

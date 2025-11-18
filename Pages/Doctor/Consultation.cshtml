@@ -655,112 +655,158 @@
 
 @section Scripts {
     <script>
-        // Form validation and submission handling
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize tooltips
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
+
             const consultationForm = document.getElementById('consultationForm');
             const completeConsultationBtn = document.getElementById('completeConsultationBtn');
+            const originalBtnLabel = completeConsultationBtn ? completeConsultationBtn.innerHTML : '';
             const followUpReasonField = document.getElementById('FollowUpReason');
             const followUpDateTimeSection = document.getElementById('followUpDateTimeSection');
-            
-            // Initially hide follow-up date/time fields
-            if (followUpDateTimeSection) {
-                followUpDateTimeSection.style.display = 'none';
+
+            const patterns = {
+                basic: /^[A-Za-z0-9 .,;:!?'"()\-/]+$/,
+                multiline: /^[A-Za-z0-9 \r\n\.,;:!?'"()\-/]+$/,
+                prescription: /^[A-Za-z0-9 \r\n\.,;:!?'"()\-/xX]+$/
+            };
+
+            const fieldRules = {
+                ChiefComplaint: { required: true, min: 20, max: 300, pattern: patterns.basic, allowLineBreaks: false },
+                Diagnosis: { required: true, min: 20, max: 500, pattern: patterns.basic, allowLineBreaks: false },
+                Treatment: { required: true, min: 20, max: 700, pattern: patterns.multiline, allowLineBreaks: true },
+                Notes: { required: false, min: 0, max: 700, pattern: patterns.multiline, allowLineBreaks: true, rejectBraces: true },
+                FollowUpReason: { required: false, min: 10, max: 300, pattern: patterns.basic, allowLineBreaks: false },
+                Prescribe: { required: false, min: 20, max: 1000, pattern: patterns.prescription, allowLineBreaks: true }
+            };
+
+            const emojiRegex = /[\uD800-\uDBFF][\uDC00-\uDFFF]/;
+            const htmlRegex = /<[^>]+>/;
+            const scriptRegex = /<\s*\/?\s*script|javascript:/i;
+
+            const validationSummary = document.querySelector('[asp-validation-summary]');
+
+            function sanitizeValue(value, allowLineBreaks) {
+                if (!value) return '';
+                let sanitized = value.trim();
+                if (allowLineBreaks) {
+                    sanitized = sanitized.replace(/[ \t]+/g, ' ').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n');
+                } else {
+                    sanitized = sanitized.replace(/\s+/g, ' ');
+                }
+                return sanitized;
             }
-            
-            // Show/hide follow-up date/time fields based on reason input
-            function toggleFollowUpFields() {
-                const reasonValue = followUpReasonField.value.trim();
-                if (followUpDateTimeSection) {
-                    if (reasonValue.length > 0) {
-                        followUpDateTimeSection.style.display = 'block';
-                    } else {
-                        followUpDateTimeSection.style.display = 'none';
-                    }
+
+            function hasDisallowedContent(value, rejectBraces = false) {
+                if (emojiRegex.test(value)) return true;
+                if (htmlRegex.test(value) || value.includes('<') || value.includes('>')) return true;
+                if (scriptRegex.test(value)) return true;
+                if (rejectBraces && (value.includes('{') || value.includes('}'))) return true;
+                return false;
+            }
+
+            function setFieldValidity(field, message) {
+                if (!field) return;
+                field.setCustomValidity(message || '');
+                if (message) {
+                    field.classList.add('is-invalid');
+                } else {
+                    field.classList.remove('is-invalid');
                 }
             }
-            
-            // Add event listener to follow-up reason field
-            if (followUpReasonField) {
-                followUpReasonField.addEventListener('input', toggleFollowUpFields);
-                // Check initial state
-                toggleFollowUpFields();
+
+            function validateField(field, rule) {
+                if (!field || !rule) return true;
+                const sanitizedValue = sanitizeValue(field.value, rule.allowLineBreaks);
+                field.value = sanitizedValue;
+
+                if (!sanitizedValue && !rule.required) {
+                    setFieldValidity(field, '');
+                    return true;
+                }
+
+                if (!sanitizedValue && rule.required) {
+                    setFieldValidity(field, `${field.labels?.[0]?.textContent || 'This field'} is required.`);
+                    return false;
+                }
+
+                if (sanitizedValue.length < rule.min || sanitizedValue.length > rule.max) {
+                    setFieldValidity(field, `${field.labels?.[0]?.textContent || 'This field'} must be between ${rule.min} and ${rule.max} characters.`);
+                    return false;
+                }
+
+                if (hasDisallowedContent(sanitizedValue, rule.rejectBraces)) {
+                    setFieldValidity(field, `${field.labels?.[0]?.textContent || 'This field'} contains disallowed characters.`);
+                    return false;
+                }
+
+                if (!rule.pattern.test(sanitizedValue)) {
+                    setFieldValidity(field, `${field.labels?.[0]?.textContent || 'This field'} contains invalid characters.`);
+                    return false;
+                }
+
+                setFieldValidity(field, '');
+                return true;
             }
-            
+
+            function runFullValidation() {
+                let formValid = true;
+                Object.keys(fieldRules).forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    const isFieldValid = validateField(field, fieldRules[fieldId]);
+                    if (!isFieldValid && formValid) {
+                        field?.focus();
+                    }
+                    formValid = formValid && isFieldValid;
+                });
+
+                if (!formValid && validationSummary) {
+                    validationSummary.innerHTML = '<div class="text-danger">Please review the highlighted fields before saving.</div>';
+                } else if (validationSummary) {
+                    validationSummary.innerHTML = '';
+                }
+
+                return formValid;
+            }
+
+            Object.keys(fieldRules).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+                field.addEventListener('blur', () => validateField(field, fieldRules[fieldId]));
+                field.addEventListener('input', () => {
+                    if (field.classList.contains('is-invalid')) {
+                        validateField(field, fieldRules[fieldId]);
+                    }
+                });
+            });
+
+            function toggleFollowUpFields() {
+                if (!followUpReasonField || !followUpDateTimeSection) return;
+                followUpDateTimeSection.style.display = followUpReasonField.value.trim().length > 0 ? 'block' : 'none';
+            }
+
+            followUpReasonField?.addEventListener('input', toggleFollowUpFields);
+            toggleFollowUpFields();
+
             if (consultationForm) {
                 consultationForm.addEventListener('submit', function(event) {
-                    // Prevent default form submission
-                    event.preventDefault();
-                    
-                    // Validate form
-                    if (!validateConsultationForm()) {
-                        return false;
+                    if (!runFullValidation()) {
+                        event.preventDefault();
+                        if (completeConsultationBtn) {
+                            completeConsultationBtn.disabled = false;
+                            completeConsultationBtn.innerHTML = originalBtnLabel || '<i class="fas fa-save me-1"></i> Save Consultation';
+                        }
+                        return;
                     }
-                    
-                    // Show loading state
+
                     if (completeConsultationBtn) {
                         completeConsultationBtn.disabled = true;
                         completeConsultationBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
                     }
-                    
-                    // Submit the form
-                    this.submit();
                 });
             }
-            
-            // Form validation function
-            function validateConsultationForm() {
-                let isValid = true;
-                const requiredFields = ['ChiefComplaint', 'Diagnosis', 'Treatment'];
-                
-                // Check required fields
-                requiredFields.forEach(fieldId => {
-                    const field = document.getElementById(fieldId);
-                    if (field && !field.value.trim()) {
-                        isValid = false;
-                        field.classList.add('is-invalid');
-                        
-                        // Add validation message if not exists
-                        let nextSibling = field.nextElementSibling;
-                        if (!nextSibling || !nextSibling.classList.contains('invalid-feedback')) {
-                            const feedback = document.createElement('div');
-                            feedback.className = 'invalid-feedback';
-                            feedback.textContent = 'This field is required';
-                            field.parentNode.insertBefore(feedback, field.nextSibling);
-                        }
-                    } else if (field) {
-                        field.classList.remove('is-invalid');
-                    }
-                });
-                
-                if (!isValid) {
-                    // Show error message at the top
-                    const validationSummary = document.querySelector('[asp-validation-summary]');
-                    if (validationSummary) {
-                        validationSummary.innerHTML = '<div class="text-danger">Please fill in all required fields</div>';
-                    }
-                    return false;
-                }
-                
-                return true;
-            }
-            
-            // Add input event listeners to clear validation errors
-            requiredFields = ['ChiefComplaint', 'Diagnosis', 'Treatment'];
-            requiredFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                if (field) {
-                    field.addEventListener('input', function() {
-                        if (this.value.trim()) {
-                            this.classList.remove('is-invalid');
-                        }
-                    });
-                }
-            });
         });
         
         // Print summary functionality
@@ -850,26 +896,6 @@
                 updatePrintMedications();
             }
         });
-
-        // Handle follow-up appointment fields visibility
-        function toggleFollowUpFields() {
-            const reasonField = document.getElementById('FollowUpReason');
-            const dateTimeSection = document.getElementById('followUpDateTimeSection');
-            
-            if (reasonField && dateTimeSection) {
-                if (reasonField.value.trim()) {
-                    dateTimeSection.style.display = 'block';
-                } else {
-                    dateTimeSection.style.display = 'none';
-                }
-            }
-        }
-
-        // Add event listener for follow-up reason field
-        document.getElementById('FollowUpReason')?.addEventListener('input', toggleFollowUpFields);
-        
-        // Initialize on page load
-        toggleFollowUpFields();
     </script>
     
     <style>

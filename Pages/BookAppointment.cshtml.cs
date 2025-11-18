@@ -19,6 +19,7 @@ using System.Linq;
 using Barangay.Extensions;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations;
 
 namespace Barangay.Pages
 {
@@ -482,9 +483,9 @@ namespace Barangay.Pages
                     bookingModel.ConsultationType = consultationType;
                 }
                 
-                if (Request.Form.TryGetValue("reasonForVisit", out var reasonForVisit))
+                if (Request.Form.TryGetValue("ReasonForVisit", out var reasonForVisit))
                 {
-                    bookingModel.ReasonForVisit = reasonForVisit;
+                    bookingModel.ReasonForVisit = reasonForVisit.ToString();
                 }
 
                 if (Request.Form.TryGetValue("DoctorId", out var doctorIdValue))
@@ -493,7 +494,7 @@ namespace Barangay.Pages
                 }
                 
                 // Extract family number from model
-                string familyNumber = BookingModel.FamilyNumber;
+                string familyNumber = BookingModel.FamilyNumber ?? string.Empty;
                 _logger.LogInformation("Received family number from model: {FamilyNumber}", familyNumber);
                 
                 // Also try from form as fallback for compatibility
@@ -514,9 +515,9 @@ namespace Barangay.Pages
                     return new JsonResult(new { success = false, error = "Age must be between 0 and 120." });
                 }
 
-                if (string.IsNullOrWhiteSpace(bookingModel.PhoneNumber) || !Regex.IsMatch(bookingModel.PhoneNumber, "^09[0-9]{9}$"))
+                if (string.IsNullOrWhiteSpace(bookingModel.PhoneNumber) || !Regex.IsMatch(bookingModel.PhoneNumber, @"^(?:09\d{9}|\+63\d{9,12})$"))
                 {
-                    return new JsonResult(new { success = false, error = "Phone number must be 11 digits and start with 09." });
+                    return new JsonResult(new { success = false, error = "Contact number must be 11 digits starting with 09 or 12-15 digits starting with +63." });
                 }
 
                 if (!string.IsNullOrWhiteSpace(bookingModel.ReasonForVisit))
@@ -528,9 +529,13 @@ namespace Barangay.Pages
                     {
                         return new JsonResult(new { success = false, error = "Please remove inappropriate language from the Reason for Visit." });
                     }
-                    if (bookingModel.ReasonForVisit.Length > 400)
+                    if (!Regex.IsMatch(bookingModel.ReasonForVisit, @"^[A-Za-z0-9\s]{1,300}$"))
                     {
-                        return new JsonResult(new { success = false, error = "Reason for Visit must be 400 characters or less." });
+                        return new JsonResult(new { success = false, error = "Reason for Visit can only contain letters, numbers, and spaces (max 300 characters)." });
+                    }
+                    if (bookingModel.ReasonForVisit.Length > 300)
+                    {
+                        return new JsonResult(new { success = false, error = "Reason for Visit must be 300 characters or less." });
                     }
                 }
 
@@ -704,12 +709,21 @@ namespace Barangay.Pages
                     }
                 }
 
-                DateTime appointmentDate = DateTime.Parse(bookingModel.AppointmentDate);
+                if (!DateTime.TryParse(bookingModel.AppointmentDate, out DateTime appointmentDate))
+                {
+                    _logger.LogError("Invalid appointment date supplied: {AppointmentDate}", bookingModel.AppointmentDate);
+                    return -1;
+                }
                 
                 // Convert from 12-hour format to TimeSpan
                 // Handle both single time ("8:00 AM") and time range ("8:00 AM - 8:06 AM")
                 TimeSpan selectedApptTime;
-                string timeSlotToParse = bookingModel.TimeSlot;
+                string timeSlotToParse = bookingModel.TimeSlot ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(timeSlotToParse))
+                {
+                    _logger.LogError("Time slot was not provided for appointment creation.");
+                    return -1;
+                }
                 
                 // If it's a time range (contains " - "), extract the start time
                 if (timeSlotToParse.Contains(" - "))
@@ -2090,6 +2104,8 @@ namespace Barangay.Pages
         public string? AppointmentDate { get; set; }
         public string? TimeSlot { get; set; }
         public string? ConsultationType { get; set; }
+        [StringLength(300, ErrorMessage = "Reason for Visit must be 300 characters or less.")]
+        [RegularExpression(@"^[A-Za-z0-9\s]*$", ErrorMessage = "Reason for Visit can only contain letters, numbers, and spaces.")]
         public string? ReasonForVisit { get; set; }
         public string? Symptoms { get; set; }
         public string? HealthFacilityId { get; set; }
