@@ -486,35 +486,35 @@
                             <!-- Chief Complaint -->
                             <div class="form-group mb-3">
                                 <label for="ChiefComplaint">Chief Complaint</label>
-                                <textarea asp-for="ChiefComplaint" class="form-control" id="ChiefComplaint" rows="3" required></textarea>
+                                <textarea asp-for="ChiefComplaint" class="form-control" id="ChiefComplaint" rows="3" required maxlength="300" minlength="20"></textarea>
                                 <span asp-validation-for="ChiefComplaint" class="text-danger"></span>
                             </div>
 
                             <!-- Diagnosis -->
                             <div class="form-group mb-3">
                                 <label for="Diagnosis">Diagnosis</label>
-                                <textarea asp-for="Diagnosis" class="form-control" id="Diagnosis" rows="3" required></textarea>
+                                <textarea asp-for="Diagnosis" class="form-control" id="Diagnosis" rows="3" required maxlength="500" minlength="20"></textarea>
                                 <span asp-validation-for="Diagnosis" class="text-danger"></span>
                             </div>
 
                             <!-- Treatment Plan -->
                             <div class="form-group mb-3">
                                 <label for="Treatment">Treatment Plan</label>
-                                <textarea asp-for="Treatment" class="form-control" id="Treatment" rows="3" required></textarea>
+                                <textarea asp-for="Treatment" class="form-control" id="Treatment" rows="3" required maxlength="700" minlength="20"></textarea>
                                 <span asp-validation-for="Treatment" class="text-danger"></span>
                             </div>
 
                             <!-- Additional Notes -->
                             <div class="form-group mb-3">
                                 <label for="Notes">Additional Notes</label>
-                                <textarea asp-for="Notes" class="form-control" id="Notes" rows="2"></textarea>
+                                <textarea asp-for="Notes" class="form-control" id="Notes" rows="2" maxlength="700"></textarea>
                                 <span asp-validation-for="Notes" class="text-danger"></span>
                             </div>
 
                             <!-- Follow-up Appointment Reason -->
                             <div class="form-group mb-3">
                                 <label for="FollowUpReason">Reason for Follow-up Appointment</label>
-                                <textarea asp-for="FollowUpReason" class="form-control" id="FollowUpReason" rows="2" placeholder="e.g., Follow-up check-up, medication review, progress monitoring, etc."></textarea>
+                                <textarea asp-for="FollowUpReason" class="form-control" id="FollowUpReason" rows="2" placeholder="e.g., Follow-up check-up, medication review, progress monitoring, etc." maxlength="300" minlength="10"></textarea>
                                 <span asp-validation-for="FollowUpReason" class="text-danger"></span>
                                 <small class="form-text text-muted">If a follow-up appointment is needed, please specify the reason. This will be included in the appointment reminder email.</small>
                             </div>
@@ -542,7 +542,7 @@
                             <!-- Prescribe Section -->
                             <div class="form-group mb-3">
                                 <label for="Prescribe">Prescribe</label>
-                                <textarea asp-for="Prescribe" class="form-control" id="Prescribe" rows="4" placeholder="Enter prescription details, medications, dosage instructions, etc."></textarea>
+                                <textarea asp-for="Prescribe" class="form-control" id="Prescribe" rows="4" placeholder="Enter prescription details, medications, dosage instructions, etc." maxlength="1000" minlength="20"></textarea>
                                 <span asp-validation-for="Prescribe" class="text-danger"></span>
                                 <small class="form-text text-muted">Optional: Prescription details will be included in the consultation summary email.</small>
                             </div>
@@ -773,11 +773,20 @@
 
             Object.keys(fieldRules).forEach(fieldId => {
                 const field = document.getElementById(fieldId);
-                if (!field) return;
-                field.addEventListener('blur', () => validateField(field, fieldRules[fieldId]));
+                const rule = fieldRules[fieldId];
+                if (!field || !rule) return;
+
+                // Enforce hard character limit directly in the input element
+                field.setAttribute('maxlength', rule.max);
+
+                field.addEventListener('blur', () => validateField(field, rule));
                 field.addEventListener('input', () => {
+                    // Hard-stop at max characters
+                    if (field.value.length > rule.max) {
+                        field.value = field.value.slice(0, rule.max);
+                    }
                     if (field.classList.contains('is-invalid')) {
-                        validateField(field, fieldRules[fieldId]);
+                        validateField(field, rule);
                     }
                 });
             });

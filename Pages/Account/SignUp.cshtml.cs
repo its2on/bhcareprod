@@ -8,6 +8,7 @@ using Barangay.Helpers;
 using static Barangay.Services.AzureVisionOcrService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
@@ -173,10 +174,24 @@ namespace Barangay.Pages.Account
             _ocrService = ocrService;
             _emailService = emailService;
             _azureVisionOcrService = azureVisionOcrService;
+            GovtIdTypes = GovtIdTypes;
         }
 
         [BindProperty]
         public InputModel Input { get; set; }
+
+        public List<SelectListItem> GovtIdTypes { get; set; } = new()
+        {
+            new SelectListItem("Philippine National ID", "PhilSys"),
+            new SelectListItem("Driver's License", "DriversLicense"),
+            new SelectListItem("UMID", "UMID"),
+            new SelectListItem("TIN ID", "TIN"),
+            new SelectListItem("Postal ID", "PostalID"),
+            new SelectListItem("PhilHealth ID", "PhilHealth"),
+            new SelectListItem("SSS ID", "SSS"),
+            new SelectListItem("Voter's / COMELEC ID", "Voter"),
+            new SelectListItem("Passport", "Passport")
+        };
 
         public string ReturnUrl { get; set; }
 
@@ -240,6 +255,8 @@ namespace Barangay.Pages.Account
             [Display(Name = "Gender")]
             [RegularExpression(@"^(Male|Female|Other)$", ErrorMessage = "Please select a valid gender.")]
             public string Gender { get; set; }
+            [Required(ErrorMessage = "Select Government ID Type")]
+            public string GovernmentIdType { get; set; }
 
             [Required(ErrorMessage = "Barangay is required")]
             [Display(Name = "Barangay")]
@@ -1557,10 +1574,18 @@ namespace Barangay.Pages.Account
                 {
                     _logger.LogWarning(ex, "Azure Vision OCR failed");
                 }
-                
-                // Combine results - prefer Local OCR for name extraction (it extracts more text)
-                // Use Azure Vision for structured data if available
-                var combinedText = localOcrResult?.ExtractedText ?? azureOcrResult?.ExtractedText ?? "";
+
+                // Combine results - merge text from all OCR sources for robust parsing
+                // Local OCR often extracts more raw text, Azure Vision may have cleaner lines
+                var textParts = new List<string>();
+                if (!string.IsNullOrWhiteSpace(localOcrResult?.ExtractedText))
+                    textParts.Add(localOcrResult.ExtractedText);
+                if (!string.IsNullOrWhiteSpace(azureOcrResult?.ExtractedText))
+                    textParts.Add(azureOcrResult.ExtractedText);
+
+                var combinedText = textParts.Count > 0
+                    ? string.Join("\n", textParts.Distinct())
+                    : string.Empty;
                 
                 // CRITICAL: If Azure Vision rejected the ID (Success = false), reject it completely
                 // This happens when barangay is not in the valid list (158-161)
@@ -1600,6 +1625,31 @@ namespace Barangay.Pages.Account
                     
                     // If Azure Vision found these fields and they're better (not address words), prefer them
                     // But only if our parsed data didn't find them or found wrong values
+                    // === Fallback extraction for BirthDate & Gender if missing ===
+                    if (string.IsNullOrWhiteSpace(combinedResult.BirthDate))
+                    {
+                        var dobRegex = new Regex(@"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b");
+                        var dobMatch = dobRegex.Match(combinedText);
+                        if (dobMatch.Success)
+                        {
+                            var month = dobMatch.Groups[1].Value.PadLeft(2,'0');
+                            var day = dobMatch.Groups[2].Value.PadLeft(2,'0');
+                            var year = dobMatch.Groups[3].Value;
+                            if (year.Length==2) year = (int.Parse(year)>30?"19":"20")+year; // crude Y2K
+                            combinedResult.BirthDate = $"{year}-{month}-{day}";
+                        }
+                    }
+                    if (string.IsNullOrWhiteSpace(combinedResult.Gender))
+                    {
+                        var genderRegex = new Regex(@"\b(?:SEX|GENDER)[:\s]*(M|F|MALE|FEMALE)\b", RegexOptions.IgnoreCase);
+                        var gMatch = genderRegex.Match(combinedText);
+                        if (gMatch.Success)
+                        {
+                            var g = gMatch.Groups[1].Value.ToUpper();
+                            combinedResult.Gender = (g.StartsWith("M")) ? "Male" : "Female";
+                        }
+                    }
+
                     if (string.IsNullOrEmpty(combinedResult.FirstName) && !string.IsNullOrEmpty(azureOcrResult?.FirstName))
                     {
                         // Only use Azure Vision if it's not an address word
@@ -1621,6 +1671,14 @@ namespace Barangay.Pages.Account
                     if (!string.IsNullOrEmpty(azureOcrResult?.ContactNumber)) combinedResult.ContactNumber = azureOcrResult.ContactNumber;
                     if (!string.IsNullOrEmpty(azureOcrResult?.Address)) combinedResult.Address = azureOcrResult.Address;
                     if (!string.IsNullOrEmpty(azureOcrResult?.BirthDate)) combinedResult.BirthDate = azureOcrResult.BirthDate;
+
+                    // If middle name, suffix, or gender are still missing but Azure has them, use Azure's values
+                    if (string.IsNullOrEmpty(combinedResult.MiddleName) && !string.IsNullOrEmpty(azureOcrResult?.MiddleName))
+                        combinedResult.MiddleName = azureOcrResult.MiddleName;
+                    if (string.IsNullOrEmpty(combinedResult.Suffix) && !string.IsNullOrEmpty(azureOcrResult?.Suffix))
+                        combinedResult.Suffix = azureOcrResult.Suffix;
+                    if (string.IsNullOrEmpty(combinedResult.Gender) && !string.IsNullOrEmpty(azureOcrResult?.Gender))
+                        combinedResult.Gender = azureOcrResult.Gender;
                 }
                 else
                 {
@@ -1654,6 +1712,56 @@ namespace Barangay.Pages.Account
 
                 // Format names properly (Title Case) before sending to frontend
                 // Helper method to convert names to proper Title Case
+                string NormalizeDate(string raw)
+                {
+                    if (string.IsNullOrWhiteSpace(raw)) return "";
+                    raw = raw.Trim();
+                    // Accept formats: YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY
+                    // Replace separators with '-'
+                    raw = raw.Replace("/", "-").Replace(".", "-");
+                    // If already YYYY-MM-DD return if valid
+                    if (System.Text.RegularExpressions.Regex.IsMatch(raw, "^\\d{4}-\\d{2}-\\d{2}$")) return raw;
+
+                    // If MM-DD-YYYY or DD-MM-YYYY convert
+                    var parts = raw.Split('-');
+                    if (parts.Length == 3)
+                    {
+                        if (parts[2].Length == 4)
+                        {
+                            // assume MM-DD-YYYY or DD-MM-YYYY
+                            var year = parts[2];
+                            var month = parts[0].PadLeft(2, '0');
+                            var day = parts[1].PadLeft(2, '0');
+                            return $"{year}-{month}-{day}";
+                        }
+                        if (parts[0].Length == 4)
+                        {
+                            // YYYY-DD-MM (unlikely) just reorder to YYYY-MM-DD
+                            var year = parts[0];
+                            var month = parts[2].PadLeft(2, '0');
+                            var day = parts[1].PadLeft(2, '0');
+                            return $"{year}-{month}-{day}";
+                        }
+                    }
+                    // Try spelled month e.g., OCTOBER 14 2003
+                    var monthNames = System.Globalization.DateTimeFormatInfo.InvariantInfo.MonthNames.Where(m=>!string.IsNullOrEmpty(m)).ToList();
+                    foreach (var m in monthNames)
+                    {
+                        if (raw.ToUpper().Contains(m.Substring(0,3).ToUpper()))
+                        {
+                            var regex = System.Text.RegularExpressions.Regex.Match(raw, $"{m}\\s+(\\d{{1,2}}),?\\s+(\\d{{4}})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            if (regex.Success)
+                            {
+                                var day = regex.Groups[1].Value.PadLeft(2,'0');
+                                var year = regex.Groups[2].Value;
+                                var monthNum = monthNames.IndexOf(m)+1;
+                                return $"{year}-{monthNum.ToString().PadLeft(2,'0')}-{day}";
+                            }
+                        }
+                    }
+                    return raw; // fallback
+                }
+
                 string FormatName(string name)
                 {
                     if (string.IsNullOrWhiteSpace(name))
@@ -1687,11 +1795,15 @@ namespace Barangay.Pages.Account
                     suffix = !string.IsNullOrWhiteSpace(ocrResult.Suffix) ? ocrResult.Suffix.ToUpper() : "",
                     contactNumber = ocrResult.ContactNumber ?? "",
                     address = ocrResult.Address ?? "",
-                    birthDate = ocrResult.BirthDate ?? "",
+                    birthDate = NormalizeDate(combinedResult.BirthDate),
                     gender = ocrResult.Gender ?? "",
                     barangay = ocrResult.BarangayNumber ?? "",
                     isBarangayValid = isBarangayValid,
-                    extractedText = ocrResult.ExtractedText ?? ""
+                    extractedText = ocrResult.ExtractedText ?? "",
+                    // Flags to indicate which critical fields were actually detected from the ID
+                    hasBirthDateFromId = !string.IsNullOrWhiteSpace(combinedResult.BirthDate),
+                    hasGenderFromId = !string.IsNullOrWhiteSpace(ocrResult.Gender),
+                    hasMiddleNameFromId = !string.IsNullOrWhiteSpace(ocrResult.MiddleName)
                 });
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException || ex.Message.Contains("Timeout"))

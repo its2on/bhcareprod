@@ -50,6 +50,14 @@
                     <div class="card-body">
                         <p class="text-muted mb-2">Upload your <strong>Philippine ID</strong> to automatically fill your information</p>
                         <p class="text-muted small mb-3">Accepted: Driver's License, National ID, PhilHealth ID, Postal ID, UMID, TIN ID</p>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="Input.GovernmentIdType" class="form-label small">Government ID Type <span class="text-danger">*</span></label>
+                                <select asp-for="Input.GovernmentIdType" asp-items="Model.GovtIdTypes" class="form-select">
+                                    <option value="">-- Select ID Type --</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="row align-items-center">
                             <div class="col-md-6">
                                 <input type="file" id="idScannerInput" accept="image/*" class="form-control" capture="environment" />
@@ -3042,7 +3050,7 @@
                     }
                     
                     // Step 2: Upload to Azure OCR
-                    scanStatusText.textContent = 'Uploading to Azure OCR...';
+                    scanStatusText.textContent = 'Processing image...';
                     progressBar.style.width = '30%';
                     
                     console.log('Processing ID with Azure OCR:', file.name, file.type, file.size);
@@ -3050,6 +3058,10 @@
                     // Create form data with the image
                     const formData = new FormData();
                     formData.append('idImage', file);
+                    const idTypeField = document.querySelector('select[name="Input.GovernmentIdType"]');
+                    if (idTypeField) {
+                        formData.append('selectedIdType', idTypeField.value || '');
+                    }
                     
                     // Add anti-forgery token for Razor Pages
                     const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -3060,7 +3072,7 @@
                         console.warn('Anti-forgery token not found on page');
                     }
                     
-                    scanStatusText.textContent = 'Uploading image to Azure Computer Vision...';
+                    scanStatusText.textContent = 'Processing image...';
                     progressBar.style.width = '30%';
                     
                     // Call the Azure OCR handler
@@ -3185,15 +3197,26 @@
                         }
                         
                         // Auto-fill Birth Date
+                        // Auto-fill Birth Date
                         if (result.birthDate) {
                             let birthDateInput = document.querySelector('input[name="Input.BirthDate"]') ||
                                                  document.querySelector('input[id="Input_BirthDate"]');
                             if (birthDateInput) {
-                                birthDateInput.value = result.birthDate;
+                                let dateVal = result.birthDate.trim();
+                                // convert common formats to ISO yyyy-mm-dd
+                                const slashParts = dateVal.split(/[\/]/);
+                                if (slashParts.length === 3) {
+                                    if (slashParts[0].length === 4) { // yyyy/mm/dd
+                                        dateVal = `${slashParts[0]}-${slashParts[1].padStart(2,'0')}-${slashParts[2].padStart(2,'0')}`;
+                                    } else if (slashParts[2].length === 4) { // mm/dd/yyyy or dd/mm/yyyy
+                                        dateVal = `${slashParts[2]}-${slashParts[0].padStart(2,'0')}-${slashParts[1].padStart(2,'0')}`;
+                                    }
+                                }
+                                birthDateInput.value = dateVal;
                                 birthDateInput.dispatchEvent(new Event('input', { bubbles: true }));
                                 birthDateInput.dispatchEvent(new Event('change', { bubbles: true }));
                                 filledFields.push('Birth Date');
-                                console.log('Filled Birth Date:', result.birthDate);
+                                console.log('Filled Birth Date:', dateVal);
                             }
                         }
                         
@@ -3284,7 +3307,6 @@
                             if (nonEligibleBarangayInput) {
                                 nonEligibleBarangayInput.remove();
                             }
-                            
                             if (window.signUpValidator) {
                                 window.signUpValidator.updateRegisterButtonState();
                             }
@@ -3316,7 +3338,31 @@
                                 extractedHtml += `<div class="mt-2"><small><strong>Auto-filled fields:</strong> ${filledFields.join(', ')}</small></div>`;
                             }
                             extractedHtml += notificationMessage;
-                            extractedHtml += '<div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Please verify the auto-filled information before submitting.</small></div>';
+
+                            // If critical fields were not detected from the ID, show a clear hint
+                            const missingFromId = [];
+                            if (result && result.hasBirthDateFromId === false) {
+                                missingFromId.push('Birth Date');
+                            }
+                            if (result && result.hasGenderFromId === false) {
+                                missingFromId.push('Gender');
+                            }
+                            if (result && result.hasMiddleNameFromId === false) {
+                                missingFromId.push('Middle Name');
+                            }
+
+                            extractedHtml += '<div class="mt-1"><small class="text-muted">'
+                                + '<i class="fas fa-info-circle me-1"></i>'
+                                + 'Please verify the auto-filled information before submitting.'
+                                + '</small></div>';
+
+                            if (missingFromId.length > 0) {
+                                extractedHtml += `<div class="mt-1"><small class="text-warning">`
+                                    + `<i class="fas fa-exclamation-triangle me-1"></i>`
+                                    + `The following fields were <strong>not detected from the ID image</strong> and must be entered manually: ${missingFromId.join(', ')}.`
+                                    + `</small></div>`;
+                            }
+
                             extractedHtml += '</div>';
                             scannerResult.innerHTML = extractedHtml;
                             scannerResult.classList.remove('d-none');

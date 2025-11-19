@@ -153,9 +153,9 @@ Return the information in JSON format with these exact keys:
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 // Try different model names and API versions
-                // Common Gemini models: gemini-1.5-flash, gemini-1.5-pro, gemini-pro, gemini-pro-vision
-                var modelNames = new[] { "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro" };
-                var apiVersions = new[] { "v1beta", "v1" };
+                // Updated Gemini models: use *-latest variants on stable v1 endpoint
+                var modelNames = new[] { "gemini-1.5-flash-latest", "gemini-1.5-pro-latest", "gemini-pro-vision" };
+                var apiVersions = new[] { "v1" };
                 HttpResponseMessage response = null;
                 string errorContent = null;
                 string successfulModel = null;
