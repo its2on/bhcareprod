@@ -518,9 +518,17 @@ namespace Barangay.Services
                 .Replace("LTS BLK", "LT5 BLK1") // Common pattern for Driver's License
                 .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR, not NOR
                 .Replace("BARANGAYGITY", "BARANGAY")
+                .Replace("ALPHA HOMESMES", "ALPHA HOMES")  // OCR error: HOMESMES->HOMES
+                .Replace("ALPHA HOMEMPS", "ALPHA HOMES")  // OCR error: HOMEMPS->HOMES
                 .Replace("ALPHA HO!", "ALPHA HOMES").Replace("ALPHA HOI", "ALPHA HOMES")
+                .Replace("TTHIRD", "THIRD")  // OCR error: double T
                 .Replace("SOLE BARANICAY IGO", "BARANGAY 160").Replace("BARANICAY IGO", "BARANGAY 160")
                 .Replace("IGO CITY", "CITY OF CALOOCAN").Replace("CALOORA", "CALOOCAN");
+            
+            // Remove label artifacts like "Addres PHL" or "/Address P41:"
+            text = Regex.Replace(text, @"Addres\s+PHL\s+", "", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"^/?Address\s+P\d+:\s*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            text = Regex.Replace(text, @"Tirahan[^:]*:\s*", "", RegexOptions.IgnoreCase);
             
             var upperText = text.ToUpperInvariant();
             var lines = text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
