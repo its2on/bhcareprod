@@ -1379,17 +1379,20 @@ namespace Barangay.Services
                 {
                     result.Address = string.Join(", ", addressLines).Trim();
                     
-                    // Remove any label artifacts that got included (e.g., "/Address P41:", "Address:", etc.)
+                    // Remove any label artifacts that got included (e.g., "/Address P41:", "Addres PHL", etc.)
                     result.Address = Regex.Replace(result.Address, @"^/?\s*Address[^:]*:\s*", "", RegexOptions.IgnoreCase);
                     result.Address = Regex.Replace(result.Address, @"^/?\s*Tirahan[^:]*:\s*", "", RegexOptions.IgnoreCase);
                     result.Address = Regex.Replace(result.Address, @"^[/\\]+", "");  // Remove leading slashes
+                    result.Address = Regex.Replace(result.Address, @"^Addres\s+PHL\s+", "", RegexOptions.IgnoreCase);  // Remove "Addres PHL" prefix
                     
                     // Clean up common OCR errors in PhilSys addresses
                     result.Address = result.Address
                         // Fix specific OCR errors from the actual ID
+                        .Replace("ALPHA HOMESMES", "ALPHA HOMES")  // OCR error: HOMESMES->HOMES
                         .Replace("ALPHA HOMEMPS", "ALPHA HOMES")  // OCR error: HOMEMPS->HOMES
                         .Replace("ALPHA HO!", "ALPHA HOMES")
                         .Replace("ALPHA HO", "ALPHA HOMES")
+                        .Replace("TTHIRD", "THIRD")  // OCR error: double T
                         .Replace("OF CALOORA", "CITY OF CALOOCAN")
                         .Replace("CALOORA", "CALOOCAN")
                         .Replace("SOLE BARANICAY IGO", "RUBYVILLE SUBD")

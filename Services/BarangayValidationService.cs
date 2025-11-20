@@ -171,6 +171,10 @@ namespace BHCARE.Services
                 // Reverse order
                 @"(158|159|160|161)\s*(?:BARANGAY|BRGY|BARANG|BARAN)",
                 
+                // AGGRESSIVE: If "BARANG" or "BARANA" or similar appears, look for 158-161 within 50 chars
+                @"(?:BARANG|BARANA|BARAN|BRGY|BAR)[A-Z]*\b.{0,50}?\b(158|159|160|161)\b", // BARANGA... 161 (OCR misread)
+                @"\b(158|159|160|161)\b.{0,50}?(?:BARANG|BARANA|BARAN|BRGY|BAR)[A-Z]*\b", // 161... BARANGA (reverse)
+                
                 // Context-based (near address keywords) - VERY flexible with multiline
                 // This pattern looks for address keywords followed by barangay number
                 // Handles cases where BARANGAY might be on a different line
