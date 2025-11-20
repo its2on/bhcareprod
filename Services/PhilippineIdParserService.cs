@@ -1929,6 +1929,17 @@ namespace Barangay.Services
             if (string.IsNullOrWhiteSpace(text))
                 return "";
             
+            // PRIORITY CHECK: Driver's License format - "PHL M YYYY/MM/DD"  
+            var driverLicensePattern = @"(PHL|Nationality)\s+([MF])\s+\d{4}[/-]\d{2}[/-]\d{2}";
+            var dlMatch = Regex.Match(text, driverLicensePattern, RegexOptions.IgnoreCase);
+            if (dlMatch.Success)
+            {
+                if (dlMatch.Groups[2].Value.ToUpper() == "M")
+                    return "Male";
+                else if (dlMatch.Groups[2].Value.ToUpper() == "F")
+                    return "Female";
+            }
+            
             var genderPatterns = new[]
             {
                 // Pattern 1: "SEX: M" or "GENDER: MALE"

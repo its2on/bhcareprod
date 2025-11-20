@@ -417,6 +417,13 @@ builder.Services.AddRazorPages(options =>
 
     // Route alias: allow doctors to access Nurse HEEADSSS edit page via a Doctor URL
     options.Conventions.AddPageRoute("/Nurse/EditHEEADSSSAssessment", "/Doctor/EditHEEADSSSAssessment");
+})
+.AddJsonOptions(options =>
+{
+    // ✅ Fix: Configure JSON serialization to use camelCase for property names
+    // This ensures API responses convert PascalCase (FirstName, MiddleName) to camelCase (firstName, middleName)
+    // Required for OCR field prefilling where JavaScript expects camelCase properties
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
 // ✅ Email Sender

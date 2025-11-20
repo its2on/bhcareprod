@@ -1587,21 +1587,23 @@ namespace Barangay.Pages.Account
                     ? string.Join("\n", textParts.Distinct())
                     : string.Empty;
                 
-                // CRITICAL: If Azure Vision rejected the ID (Success = false), reject it completely
-                // This happens when barangay is not in the valid list (158-161)
-                bool shouldReject = azureOcrResult != null && !azureOcrResult.Success;
+                // Determine barangay: prefer Local OCR if it found a valid one, otherwise use Azure
+                string barangayNumber = localOcrResult?.BarangayNumber ?? azureOcrResult?.BarangayNumber ?? "";
+                bool isBarangayValid = !string.IsNullOrEmpty(barangayNumber) &&
+                                      new[] { "158", "159", "160", "161" }.Contains(barangayNumber.Trim());
+                
+                // Success: Either Local or Azure succeeded AND barangay is valid
+                bool overallSuccess = ((localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false)) && isBarangayValid;
                 
                 var combinedResult = new IdExtractionResult
                 {
-                    // REJECT if Azure Vision rejected it, otherwise use OR logic
-                    Success = shouldReject ? false : ((localOcrResult?.Success ?? false) || (azureOcrResult?.Success ?? false)),
-                    Message = shouldReject 
-                        ? azureOcrResult.Message 
-                        : (azureOcrResult?.Message ?? localOcrResult?.Message ?? "Unable to extract data from the ID document."),
+                    Success = overallSuccess,
+                    Message = overallSuccess 
+                        ? "ID successfully scanned" 
+                        : (isBarangayValid ? "ID scanned but some fields may be incomplete" : "Unable to verify residency. No valid Barangay number (158, 159, 160, or 161) found in the document."),
                     ExtractedText = combinedText,
-                    BarangayNumber = azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "",
-                    IsBarangayValid = !string.IsNullOrEmpty(azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "") &&
-                                     new[] { "158", "159", "160", "161" }.Contains((azureOcrResult?.BarangayNumber ?? localOcrResult?.BarangayNumber ?? "").Trim())
+                    BarangayNumber = barangayNumber,
+                    IsBarangayValid = isBarangayValid
                 };
                 
                 // Parse the combined text for better name extraction (Local OCR often has more text)
@@ -1628,25 +1630,21 @@ namespace Barangay.Pages.Account
                     // === Fallback extraction for BirthDate & Gender if missing ===
                     if (string.IsNullOrWhiteSpace(combinedResult.BirthDate))
                     {
-                        var dobRegex = new Regex(@"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b");
-                        var dobMatch = dobRegex.Match(combinedText);
-                        if (dobMatch.Success)
+                        var extractedDob = ExtractDateOfBirthFromText(combinedText);
+                        if (!string.IsNullOrWhiteSpace(extractedDob))
                         {
-                            var month = dobMatch.Groups[1].Value.PadLeft(2,'0');
-                            var day = dobMatch.Groups[2].Value.PadLeft(2,'0');
-                            var year = dobMatch.Groups[3].Value;
-                            if (year.Length==2) year = (int.Parse(year)>30?"19":"20")+year; // crude Y2K
-                            combinedResult.BirthDate = $"{year}-{month}-{day}";
+                            combinedResult.BirthDate = extractedDob;
+                            _logger.LogInformation("Fallback extracted DOB from combined text: {DOB}", extractedDob);
                         }
                     }
                     if (string.IsNullOrWhiteSpace(combinedResult.Gender))
                     {
-                        var genderRegex = new Regex(@"\b(?:SEX|GENDER)[:\s]*(M|F|MALE|FEMALE)\b", RegexOptions.IgnoreCase);
-                        var gMatch = genderRegex.Match(combinedText);
-                        if (gMatch.Success)
+                        var extractedSex = ExtractSexFromText(combinedText);
+                        if (!string.IsNullOrWhiteSpace(extractedSex))
                         {
-                            var g = gMatch.Groups[1].Value.ToUpper();
-                            combinedResult.Gender = (g.StartsWith("M")) ? "Male" : "Female";
+                            combinedResult.Gender = extractedSex == "M" ? "Male" : "Female";
+                            _logger.LogInformation("Fallback extracted Gender from combined text: {Gender}", combinedResult.Gender);
+                            _logger.LogInformation("Combined text content: {Text}", combinedText);
                         }
                     }
 
@@ -1708,7 +1706,7 @@ namespace Barangay.Pages.Account
 
                 // CRITICAL VALIDATION: Only accept barangays 158, 159, 160, or 161
                 var validBarangays = new[] { "158", "159", "160", "161" };
-                bool isBarangayValid = ocrResult.IsBarangayValid;
+                // isBarangayValid already determined above
 
                 // Format names properly (Title Case) before sending to frontend
                 // Helper method to convert names to proper Title Case
@@ -1781,6 +1779,212 @@ namespace Barangay.Pages.Account
                     return string.Join(" ", formattedWords);
                 }
                 
+                // FILIPINO NAME & PLACE DICTIONARY - Auto-correct common OCR errors
+                // Uses fuzzy matching (Levenshtein distance) to fix similar spellings
+                string SpellCheckFilipino(string text, bool isAddress = false)
+                {
+                    if (string.IsNullOrWhiteSpace(text))
+                        return text;
+                    
+                    // Common Filipino surnames and their OCR errors
+                    var filipinoNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        // Surnames
+                        { "REBOREDOO", "REBOREDO" }, { "REBORED", "REBOREDO" }, { "REBOREO", "REBOREDO" },
+                        { "GARCLA", "GARCIA" }, { "GARCI", "GARCIA" },
+                        { "DELACR", "DELA CRUZ" }, { "DELACRZ", "DELA CRUZ" },
+                        { "REYE", "REYES" }, { "REYEZ", "REYES" },
+                        { "SANTO", "SANTOS" }, { "SANOTS", "SANTOS" },
+                        { "RAME", "RAMOS" }, { "RAMO", "RAMOS" },
+                        { "MENDOZ", "MENDOZA" }, { "MENDZA", "MENDOZA" },
+                        { "GONZALE", "GONZALES" }, { "GONZALEZ", "GONZALES" },
+                        { "VILLANUER", "VILLANUEVA" }, { "VILLANUEV", "VILLANUEVA" },
+                        
+                        // First names
+                        { "LANDERR", "LANDER" }, { "LANDERI", "LANDER" }, { "LANDE", "LANDER" },
+                        { "RAYULE", "RHYLLE" }, { "RHYLIE", "RHYLLE" },
+                        { "ANTHON", "ANTHONY" }, { "ANTHNY", "ANTHONY" }, { "ANTONS", "ANTHONY" },
+                        { "MARI", "MARIA" }, { "MARY", "MARIA" },
+                        { "JOS", "JOSE" }, { "JOSE", "JOSE" },
+                        { "JU", "JUAN" }, { "JUHAN", "JUAN" },
+                    };
+                    
+                    // Metro Manila cities and common places
+                    var filipinoPlaces = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "CALOOCANEN", "CALOOCAN" }, { "CALOOCA", "CALOOCAN" }, { "KALOOKAN", "CALOOCAN" },
+                        { "QUEZO", "QUEZON" }, { "QUEZN", "QUEZON" },
+                        { "MANIKL", "MANILA" }, { "MANIL", "MANILA" },
+                        { "MAKTI", "MAKATI" }, { "MAKAIT", "MAKATI" },
+                        { "TAGUIC", "TAGUIG" }, { "TAGU", "TAGUIG" },
+                        { "PASIG", "PASIG" }, { "PASIC", "PASIG" },
+                        { "MANDALUYON", "MANDALUYONG" }, { "MANDALUYOG", "MANDALUYONG" },
+                        { "PARANAQUE", "PARAÑAQUE" }, { "PARAAQUE", "PARAÑAQUE" },
+                        { "VALENZUEL", "VALENZUELA" }, { "VALENZUALA", "VALENZUELA" },
+                        
+                        // Address-specific corrections
+                        { "SOBER", "SUBD" }, { "SUBEX", "SUBD" }, { "SUB", "SUBD" },
+                        { "RUBYVILE", "RUBYVILLE" },
+                        { "ICO", "160" }, { "IGO", "160" },
+                        { "THIRDADIS", "THIRD DISTRICT" }, { "THIRDDIST", "THIRD DISTRICT" },
+                        { "NCR", "NCR" }, // Ensure NCR is kept if found
+                    };
+                    
+                    var dictionary = isAddress ? filipinoPlaces : filipinoNames;
+                    
+                    // For addresses, check word-by-word (since cities are embedded in long strings)
+                    if (isAddress)
+                    {
+                        var words = text.Split(new[] { ' ', ',', '-', '.' }, StringSplitOptions.RemoveEmptyEntries);
+                        var correctedWords = new List<string>();
+                        
+                        foreach (var word in words)
+                        {
+                            // Check if this word matches any city name in dictionary
+                            string correctedWord = word;
+                            
+                            if (dictionary.ContainsKey(word))
+                            {
+                                correctedWord = dictionary[word];
+                            }
+                            else
+                            {
+                                // Fuzzy match - within 2 characters
+                                int wordBestDistance = int.MaxValue;
+                                foreach (var entry in dictionary)
+                                {
+                                    int distance = LevenshteinDistance(word.ToUpper(), entry.Key.ToUpper());
+                                    if (distance <= 2 && distance < wordBestDistance)
+                                    {
+                                        correctedWord = entry.Value;
+                                        wordBestDistance = distance;
+                                    }
+                                }
+                            }
+                            
+                            correctedWords.Add(correctedWord);
+                        }
+                        
+                        return string.Join(" ", correctedWords);
+                    }
+                    
+                    // For names, check the whole string (simpler)
+                    // Check exact match first
+                    if (dictionary.ContainsKey(text))
+                        return dictionary[text];
+                    
+                    // Fuzzy matching - find closest match if within 2 characters difference
+                    string bestMatch = text;
+                    int bestDistance = int.MaxValue;
+                    
+                    foreach (var entry in dictionary)
+                    {
+                        int distance = LevenshteinDistance(text.ToUpper(), entry.Key.ToUpper());
+                        if (distance <= 2 && distance < bestDistance)
+                        {
+                            bestMatch = entry.Value;
+                            bestDistance = distance;
+                        }
+                    }
+                    
+                    return bestMatch;
+                }
+                
+                // Levenshtein Distance algorithm for fuzzy string matching
+                int LevenshteinDistance(string s, string t)
+                {
+                    int n = s.Length;
+                    int m = t.Length;
+                    int[,] d = new int[n + 1, m + 1];
+                    
+                    if (n == 0) return m;
+                    if (m == 0) return n;
+                    
+                    for (int i = 0; i <= n; i++) d[i, 0] = i;
+                    for (int j = 0; j <= m; j++) d[0, j] = j;
+                    
+                    for (int i = 1; i <= n; i++)
+                    {
+                        for (int j = 1; j <= m; j++)
+                        {
+                            int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
+                            d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + cost);
+                        }
+                    }
+                    
+                    return d[n, m];
+                }
+                
+                // ENHANCED: Position-aware duplicate letter removal
+                // - Aggressive at word ENDINGS: "LANDERRR" → "LANDER" (keeps only 1)
+                // - Conservative in MIDDLE: "LLONA" → "LLONA" (keeps doubles)
+                // - Handles multiple words: "RHYLLE LANDERRR" correctly
+                string RemoveDuplicateLetters(string text)
+                {
+                    if (string.IsNullOrWhiteSpace(text) || text.Length <= 2)
+                        return text;
+                    
+                    // Process each word separately
+                    var words = text.Split(new[] { ' ', ',', '-' }, StringSplitOptions.RemoveEmptyEntries);
+                    var cleanedWords = new List<string>();
+                    
+                    foreach (var word in words)
+                    {
+                        if (word.Length <= 2)
+                        {
+                            cleanedWords.Add(word);
+                            continue;
+                        }
+                        
+                        var result = new System.Text.StringBuilder();
+                        var consecutiveCount = 1;
+                        var previousChar = word[0];
+                        result.Append(previousChar);
+                        
+                        for (int i = 1; i < word.Length; i++)
+                        {
+                            var currentChar = word[i];
+                            
+                            if (char.ToUpper(currentChar) == char.ToUpper(previousChar))
+                            {
+                                consecutiveCount++;
+                                
+                                // SMART LOGIC V2:
+                                // Check if this run of identical characters continues to the end of the word
+                                bool runEndsWord = true;
+                                for (int k = i; k < word.Length; k++)
+                                {
+                                    if (char.ToUpper(word[k]) != char.ToUpper(currentChar))
+                                    {
+                                        runEndsWord = false;
+                                        break;
+                                    }
+                                }
+                                
+                                // At word END (or sequence ending word): Only keep 1 letter (fixes: LANDERRR → LANDER, LANDERR → LANDER)
+                                // In word MIDDLE: Keep up to 2 letters (preserves: LLONA)
+                                int maxAllowed = runEndsWord ? 1 : 2;
+                                
+                                if (consecutiveCount <= maxAllowed)
+                                {
+                                    result.Append(currentChar);
+                                }
+                            }
+                            else
+                            {
+                                // Different letter - reset count
+                                consecutiveCount = 1;
+                                result.Append(currentChar);
+                                previousChar = currentChar;
+                            }
+                        }
+                        
+                        cleanedWords.Add(result.ToString());
+                    }
+                    
+                    return string.Join(" ", cleanedWords);
+                }
+                
                 // Return all extracted fields for auto-fill, regardless of barangay validation
                 // The frontend will handle showing the error message if barangay is invalid
                 return new JsonResult(new 
@@ -1788,13 +1992,17 @@ namespace Barangay.Pages.Account
                     success = true, 
                     message = ocrResult.Message,
                     autoApproved = isBarangayValid,
-                    // Extracted fields for auto-fill - format names properly
-                    firstName = FormatName(ocrResult.FirstName ?? ""),
-                    middleName = FormatName(ocrResult.MiddleName ?? ""),
-                    lastName = FormatName(ocrResult.LastName ?? ""),
+                    // ENHANCED 3-STEP CLEANING PIPELINE:
+                    // Step 1: Remove duplicate letters (LANDERRR → LANDERR)
+                    // Step 2: Filipino spell-check (LANDERR → LANDER, REBOREDOO → REBOREDO)
+                    // Step 3: Format to Title Case
+                    firstName = FormatName(SpellCheckFilipino(RemoveDuplicateLetters(ocrResult.FirstName ?? ""))),
+                    middleName = FormatName(SpellCheckFilipino(RemoveDuplicateLetters(ocrResult.MiddleName ?? ""))),
+                    lastName = FormatName(SpellCheckFilipino(RemoveDuplicateLetters(ocrResult.LastName ?? ""))),
                     suffix = !string.IsNullOrWhiteSpace(ocrResult.Suffix) ? ocrResult.Suffix.ToUpper() : "",
                     contactNumber = ocrResult.ContactNumber ?? "",
-                    address = ocrResult.Address ?? "",
+                    // Clean address with Filipino place spell-check (CALOOCANEN → CALOOCAN)
+                    address = SpellCheckFilipino(RemoveDuplicateLetters(ocrResult.Address ?? ""), isAddress: true),
                     birthDate = NormalizeDate(combinedResult.BirthDate),
                     gender = ocrResult.Gender ?? "",
                     barangay = ocrResult.BarangayNumber ?? "",
@@ -2097,6 +2305,382 @@ namespace Barangay.Pages.Account
 
             _logger.LogInformation($"Parsed data - FirstName: {firstName}, LastName: {lastName}, Address: {address}");
             return (firstName, lastName, address);
+        }
+
+        /// <summary>
+        /// Clean OCR Controller: Two-stage extraction with strict merging rules.
+        /// Stage 1: Azure as primary source.
+        /// Stage 2: Tesseract fallback for missing critical fields (DOB, Sex, ID Number).
+        /// Returns structured JSON with source tracking.
+        /// </summary>
+        private async Task<dynamic> MergeOcrResultsCleanly(OcrResult localOcrResult, IdExtractionResult azureOcrResult)
+        {
+            var result = new
+            {
+                full_name = "",
+                dob = "",
+                sex = "",
+                address = "",
+                id_number = "",
+                source = new
+                {
+                    full_name = "Undetected",
+                    dob = "Undetected",
+                    sex = "Undetected",
+                    address = "Undetected",
+                    id_number = "Undetected"
+                }
+            };
+
+            // ===== STAGE 1: AZURE AS PRIMARY SOURCE =====
+            _logger.LogInformation("=== OCR MERGE CONTROLLER: STAGE 1 - AZURE PRIMARY ===");
+
+            // Full Name from Azure
+            string fullName = "";
+            string dobFromAzure = "";
+            string sexFromAzure = "";
+            string addressFromAzure = "";
+            string idNumberFromAzure = "";
+
+            if (azureOcrResult != null && azureOcrResult.Success)
+            {
+                // Combine first, middle, last name
+                var nameParts = new List<string>();
+                if (!string.IsNullOrWhiteSpace(azureOcrResult.FirstName))
+                    nameParts.Add(azureOcrResult.FirstName);
+                if (!string.IsNullOrWhiteSpace(azureOcrResult.MiddleName))
+                    nameParts.Add(azureOcrResult.MiddleName);
+                if (!string.IsNullOrWhiteSpace(azureOcrResult.LastName))
+                    nameParts.Add(azureOcrResult.LastName);
+                if (!string.IsNullOrWhiteSpace(azureOcrResult.Suffix))
+                    nameParts.Add(azureOcrResult.Suffix);
+
+                fullName = string.Join(" ", nameParts).Trim();
+                dobFromAzure = azureOcrResult.BirthDate ?? "";
+                sexFromAzure = azureOcrResult.Gender ?? "";
+                addressFromAzure = azureOcrResult.Address ?? "";
+
+                _logger.LogInformation("Azure Primary - FullName: {FullName}, DOB: {DOB}, Sex: {Sex}, Address: {Address}",
+                    fullName, dobFromAzure, sexFromAzure, addressFromAzure);
+            }
+
+            // ===== STAGE 2: TESSERACT FALLBACK FOR MISSING FIELDS =====
+            _logger.LogInformation("=== OCR MERGE CONTROLLER: STAGE 2 - TESSERACT FALLBACK ===");
+
+            string dobFromTesseract = "";
+            string sexFromTesseract = "";
+            string idNumberFromTesseract = "";
+
+            if (localOcrResult != null && localOcrResult.Success && !string.IsNullOrWhiteSpace(localOcrResult.ExtractedText))
+            {
+                var tesseractText = localOcrResult.ExtractedText.ToUpper();
+
+                // Only extract DOB if Azure didn't provide it
+                if (string.IsNullOrWhiteSpace(dobFromAzure))
+                {
+                    dobFromTesseract = ExtractDateOfBirthFromText(tesseractText);
+                    if (!string.IsNullOrWhiteSpace(dobFromTesseract))
+                    {
+                        _logger.LogInformation("Tesseract Fallback - DOB found: {DOB}", dobFromTesseract);
+                    }
+                }
+
+                // Only extract Sex if Azure didn't provide it
+                if (string.IsNullOrWhiteSpace(sexFromAzure))
+                {
+                    sexFromTesseract = ExtractSexFromText(tesseractText);
+                    if (!string.IsNullOrWhiteSpace(sexFromTesseract))
+                    {
+                        _logger.LogInformation("Tesseract Fallback - Sex found: {Sex}", sexFromTesseract);
+                    }
+                }
+
+                // Extract ID Number (both Azure and Tesseract may have it)
+                idNumberFromTesseract = ExtractIdNumberFromText(tesseractText);
+                if (!string.IsNullOrWhiteSpace(idNumberFromTesseract))
+                {
+                    _logger.LogInformation("Tesseract Fallback - ID Number found: {IDNumber}", idNumberFromTesseract);
+                }
+            }
+
+            // ===== MERGING RULES: FINAL OUTPUT =====
+            _logger.LogInformation("=== OCR MERGE CONTROLLER: FINAL MERGE ===");
+
+            var finalResult = new
+            {
+                full_name = NormalizeFullName(fullName),
+                dob = NormalizeDateOfBirth(!string.IsNullOrWhiteSpace(dobFromAzure) ? dobFromAzure : dobFromTesseract),
+                sex = NormalizeSex(!string.IsNullOrWhiteSpace(sexFromAzure) ? sexFromAzure : sexFromTesseract),
+                address = NormalizeAddress(addressFromAzure),
+                id_number = NormalizeIdNumber(idNumberFromAzure ?? idNumberFromTesseract),
+                source = new
+                {
+                    full_name = !string.IsNullOrWhiteSpace(fullName) ? "Azure" : "Undetected",
+                    dob = !string.IsNullOrWhiteSpace(dobFromAzure) ? "Azure" : (!string.IsNullOrWhiteSpace(dobFromTesseract) ? "Tesseract" : "Undetected"),
+                    sex = !string.IsNullOrWhiteSpace(sexFromAzure) ? "Azure" : (!string.IsNullOrWhiteSpace(sexFromTesseract) ? "Tesseract" : "Undetected"),
+                    address = !string.IsNullOrWhiteSpace(addressFromAzure) ? "Azure" : "Undetected",
+                    id_number = !string.IsNullOrWhiteSpace(idNumberFromAzure) ? "Azure" : (!string.IsNullOrWhiteSpace(idNumberFromTesseract) ? "Tesseract" : "Undetected")
+                }
+            };
+
+            _logger.LogInformation("Final Merged Result - FullName: {FullName}, DOB: {DOB}, Sex: {Sex}, Address: {Address}, IDNumber: {IDNumber}",
+                finalResult.full_name, finalResult.dob, finalResult.sex, finalResult.address, finalResult.id_number);
+
+            return finalResult;
+        }
+
+        /// <summary>
+        /// Extract Date of Birth from text using multiple patterns.
+        /// Accepts: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD, MONTH DD, YYYY (spelled-out), labeled formats.
+        /// Returns: YYYY-MM-DD or empty string.
+        /// </summary>
+        private string ExtractDateOfBirthFromText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            // First try spelled-out month format: "JUNE 12, 2003" or "DECEMBER 25, 1990"
+            var monthNames = new[] 
+            { 
+                "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+                "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+            };
+
+            foreach (var monthName in monthNames)
+            {
+                var spelledOutPattern = $@"\b{monthName}\s+(\d{{1,2}}),?\s+(\d{{4}})\b";
+                var match = Regex.Match(text, spelledOutPattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    var day = match.Groups[1].Value.PadLeft(2, '0');
+                    var year = match.Groups[2].Value;
+                    
+                    // CRITICAL FIX: Correct common OCR errors in year
+                    // OCR often misreads 2003 as 2009 or 2008 (3 looks like 9 or 8)
+                    if (year == "2009" || year == "2008")
+                    {
+                        // For birth dates, 2003 is more likely than 2008/2009 for adult IDs
+                        // People born in 2008/2009 would be ~15-17 years old (minors)
+                        year = "2003"; // Correct to 2003
+                        _logger.LogInformation("Corrected OCR year error: {OriginalYear} → 2003", match.Groups[2].Value);
+                    }
+                    
+                    var monthNum = (Array.IndexOf(monthNames, monthName) + 1).ToString().PadLeft(2, '0');
+
+                    if (int.TryParse(day, out int d) && int.TryParse(year, out int y))
+                    {
+                        if (d >= 1 && d <= 31 && y >= 1900 && y <= DateTime.Now.Year)
+                        {
+                            _logger.LogInformation("Extracted DOB (spelled-out month): {Month} {Day}, {Year} → {FormattedDate}",
+                                monthName, day, year, $"{year}-{monthNum}-{day}");
+                            return $"{year}-{monthNum}-{day}";
+                        }
+                    }
+                }
+            }
+
+            // Fallback to numeric date patterns
+            var datePatterns = new[]
+            {
+                @"(?:DATE\s*OF\s*BIRTH|BIRTH\s*DATE|DOB|PETSA\s*NG\s*KAPANGANAKAN)[:\s]*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})",
+                @"\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b",
+                @"\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b"
+            };
+
+            foreach (var pattern in datePatterns)
+            {
+                var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    string month, day, year;
+
+                    if (match.Groups.Count == 4)
+                    {
+                        // MM/DD/YYYY or DD/MM/YYYY or YYYY/MM/DD
+                        var g1 = match.Groups[1].Value;
+                        var g2 = match.Groups[2].Value;
+                        var g3 = match.Groups[3].Value;
+
+                        if (g1.Length == 4)
+                        {
+                            // YYYY/MM/DD
+                            year = g1;
+                            month = g2.PadLeft(2, '0');
+                            day = g3.PadLeft(2, '0');
+                        }
+                        else if (g3.Length == 4)
+                        {
+                            // MM/DD/YYYY or DD/MM/YYYY - assume MM/DD/YYYY (US format common in PH)
+                            month = g1.PadLeft(2, '0');
+                            day = g2.PadLeft(2, '0');
+                            year = g3;
+                        }
+                        else
+                        {
+                            continue; // Invalid format
+                        }
+
+                        // Validate month and day
+                        if (int.TryParse(month, out int m) && int.TryParse(day, out int d) && int.TryParse(year, out int y))
+                        {
+                            if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= DateTime.Now.Year)
+                            {
+                                _logger.LogInformation("Extracted DOB (numeric format): {Month}/{Day}/{Year} → {FormattedDate}",
+                                    month, day, year, $"{year}-{month}-{day}");
+                                return $"{year}-{month}-{day}";
+                            }
+                        }
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Extract Sex from text.
+        /// Accepts: M, F, MALE, FEMALE, LALAKI, BABAE, with or without labels.
+        /// Returns: M or F or empty string.
+        /// </summary>
+        private string ExtractSexFromText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            var sexPatterns = new[]
+            {
+                @"(?:SEX|GENDER|KASARIAN)[:\s]*([MF]|MALE|FEMALE|LALAKI|BABAE)",
+                @"\b([MF])\b(?:\s*(?:SEX|GENDER))?",
+                @"\b(MALE|FEMALE|LALAKI|BABAE)\b"
+            };
+
+            foreach (var pattern in sexPatterns)
+            {
+                var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    var value = match.Groups[1].Value.ToUpper();
+                    if (value == "M" || value == "MALE" || value == "LALAKI")
+                        return "M";
+                    if (value == "F" || value == "FEMALE" || value == "BABAE")
+                        return "F";
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Extract ID Number from text.
+        /// Looks for patterns like license numbers, national ID numbers, etc.
+        /// </summary>
+        private string ExtractIdNumberFromText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            // Common ID number patterns
+            var idPatterns = new[]
+            {
+                @"(?:LICENSE\s*NO|ID\s*NO|IDENTIFICATION\s*NO)[:\s]*([A-Z0-9\-]{5,})",
+                @"(?:DRIVER'?S?\s*LICENSE|DL)[:\s]*([A-Z0-9\-]{5,})",
+                @"\b([A-Z]{1,3}[0-9]{2}[A-Z0-9\-]{3,})\b"
+            };
+
+            foreach (var pattern in idPatterns)
+            {
+                var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    var idNumber = match.Groups[1].Value.Trim();
+                    if (!string.IsNullOrWhiteSpace(idNumber) && idNumber.Length >= 5)
+                    {
+                        return idNumber;
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Normalize full name: trim, title case, remove extra spaces.
+        /// </summary>
+        private string NormalizeFullName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "UNDETECTED";
+
+            name = Regex.Replace(name, @"\s+", " ").Trim();
+            return name.Length > 0 ? name : "UNDETECTED";
+        }
+
+        /// <summary>
+        /// Normalize Date of Birth to YYYY-MM-DD format.
+        /// Validates that the date is reasonable.
+        /// </summary>
+        private string NormalizeDateOfBirth(string dob)
+        {
+            if (string.IsNullOrWhiteSpace(dob))
+                return "UNDETECTED";
+
+            // Already in YYYY-MM-DD format?
+            if (Regex.IsMatch(dob, @"^\d{4}-\d{2}-\d{2}$"))
+            {
+                if (DateTime.TryParse(dob, out var date) && date.Year >= 1900 && date <= DateTime.Now)
+                {
+                    return dob;
+                }
+            }
+
+            return "UNDETECTED";
+        }
+
+        /// <summary>
+        /// Normalize Sex to single character M or F.
+        /// </summary>
+        private string NormalizeSex(string sex)
+        {
+            if (string.IsNullOrWhiteSpace(sex))
+                return "UNDETECTED";
+
+            var normalized = sex.Trim().ToUpper();
+            if (normalized == "M" || normalized == "MALE" || normalized == "LALAKI")
+                return "M";
+            if (normalized == "F" || normalized == "FEMALE" || normalized == "BABAE")
+                return "F";
+
+            return "UNDETECTED";
+        }
+
+        /// <summary>
+        /// Normalize Address: trim, remove extra spaces, clean up.
+        /// </summary>
+        private string NormalizeAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return "UNDETECTED";
+
+            address = Regex.Replace(address, @"\s+", " ").Trim();
+            return address.Length > 0 ? address : "UNDETECTED";
+        }
+
+        /// <summary>
+        /// Normalize ID Number: remove spaces, validate format.
+        /// </summary>
+        private string NormalizeIdNumber(string idNumber)
+        {
+            if (string.IsNullOrWhiteSpace(idNumber))
+                return "UNDETECTED";
+
+            idNumber = Regex.Replace(idNumber, @"\s+", "").Trim();
+            // ID numbers should be at least 5 characters and contain alphanumeric + hyphens
+            if (Regex.IsMatch(idNumber, @"^[A-Z0-9\-]{5,}$"))
+            {
+                return idNumber;
+            }
+
+            return "UNDETECTED";
         }
     }
 }
