@@ -948,6 +948,11 @@ namespace Barangay.Services
                 @"BARANG\.?\s*,\s*(158|159|160|161)(?:[,\s\.]|$|\b)",       // BARANG., 158 (from address line)
                 @"BARANG\s*,\s*(158|159|160|161)(?:[,\s\.]|$|\b)",          // BARANG, 158 (from address line - OCR error)
                 @"BA\s+(158|159|160|161)(?:[,\s\.]|$|\b)",                  // BA 158 (very garbled - BARANGAY cut off)
+                
+                // AGGRESSIVE: If "BARANG" or "BARANA" or similar appears, look for 158-161 within 50 chars
+                @"(?:BARANG|BARANA|BARAN|BRGY|BAR)[A-Z]*\b.{0,50}?\b(158|159|160|161)\b", // BARANGA... 161 (OCR misread)
+                @"\b(158|159|160|161)\b.{0,50}?(?:BARANG|BARANA|BARAN|BRGY|BAR)[A-Z]*\b", // 161... BARANGA (reverse)
+                
                 @"(?:^|\s|,|\.)(158|159|160|161)(?:\s|$|,|\.)", // Just the numbers with context boundaries
                 // Look for numbers near address keywords - updated to handle punctuation
                 @"(?:LT|BLK|ADDRESS|BARANG|BRGY|CITY).*?BARANGAY\s+(158|159|160|161)(?:[,\s\.]|$|\b)", // Number near address keywords
