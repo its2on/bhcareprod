@@ -1366,29 +1366,35 @@ namespace Barangay.Services
                 
                 // Extract address lines (stop before next major field like "Date of Birth")
                 var addressLines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Take(5)
+                    .Take(6) // Increased to ensure we capture all lines
                     .Select(l => l.Trim())
                     .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
                     .Where(l => !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase))
                     .Where(l => !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase))
                     .Where(l => !l.StartsWith("Petsa", StringComparison.OrdinalIgnoreCase))
                     .Where(l => !Regex.IsMatch(l, @"^\d{4}[/-]\d"))
+                    // Filter out "PHL" and label repetitions which are common OCR artifacts
+                    .Where(l => !l.Equals("PHL", StringComparison.OrdinalIgnoreCase))
+                    .Where(l => !Regex.IsMatch(l, @"^(?:Address|Tirahan)\s*[:\.]?$", RegexOptions.IgnoreCase))
                     .ToList();
                 
                 if (addressLines.Any())
                 {
                     result.Address = string.Join(", ", addressLines).Trim();
                     
-                    // Remove any label artifacts that got included (e.g., "/Address P41:", "Addres PHL", etc.)
-                    result.Address = Regex.Replace(result.Address, @"^/?\s*Address[^:]*:\s*", "", RegexOptions.IgnoreCase);
-                    result.Address = Regex.Replace(result.Address, @"^/?\s*Tirahan[^:]*:\s*", "", RegexOptions.IgnoreCase);
-                    result.Address = Regex.Replace(result.Address, @"^[/\\]+", "");  // Remove leading slashes
-                    result.Address = Regex.Replace(result.Address, @"^Addres\s+PHL\s+", "", RegexOptions.IgnoreCase);  // Remove "Addres PHL" prefix
+                    // 1. Normalize spaces FIRST to ensure subsequent replacements work correctly
+                    result.Address = Regex.Replace(result.Address, @"\s+", " ");
                     
-                    // Clean up common OCR errors in PhilSys addresses
+                    // 2. Remove any label artifacts that got included
+                    result.Address = Regex.Replace(result.Address, @"^/?\s*(?:Address|Tirahan)[^:]*[:\s]*", "", RegexOptions.IgnoreCase);
+                    result.Address = Regex.Replace(result.Address, @"^[/\\]+", "");  // Remove leading slashes
+                    result.Address = Regex.Replace(result.Address, @"\bPHL\b", "", RegexOptions.IgnoreCase); // Remove PHL if it remains
+                    
+                    // 3. Clean up common OCR errors in PhilSys addresses
                     result.Address = result.Address
                         // Fix specific OCR errors from the actual ID
                         .Replace("ALPHA HOMESMES", "ALPHA HOMES")  // OCR error: HOMESMES->HOMES
+                        .Replace("HOMESMES", "HOMES")              // Fallback if ALPHA is separated
                         .Replace("ALPHA HOMEMPS", "ALPHA HOMES")  // OCR error: HOMEMPS->HOMES
                         .Replace("ALPHA HO!", "ALPHA HOMES")
                         .Replace("ALPHA HO", "ALPHA HOMES")
@@ -1412,8 +1418,8 @@ namespace Barangay.Services
                         .Replace("RUBYVILE", "RUBYVILLE")
                         .Replace("SUBDV", "SUBD")
                         .Replace("SUBDIVISION", "SUBD")
-                        // Clean up spacing and punctuation
-                        .Replace("  ", " ").Replace(" ,", ",").Replace(", ,", ",")
+                        // Clean up punctuation
+                        .Replace(" ,", ",").Replace(", ,", ",")
                         .Trim(',', ' ', '-');
                     
                     // Ensure proper address format: Add missing "391" if address starts with "ALPHA"
