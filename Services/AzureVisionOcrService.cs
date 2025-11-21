@@ -1617,12 +1617,20 @@ namespace Barangay.Services
                 
                 // Clean up common OCR errors
                 result.Address = result.Address
+                    .Replace("ALPHA HOMESMES", "ALPHA HOMES")  // OCR error: HOMESMES->HOMES
+                    .Replace("ALPHA HOMEMPS", "ALPHA HOMES")  // OCR error: HOMEMPS->HOMES
+                    .Replace("ALPHA HO!", "ALPHA HOMES")
+                    .Replace("ALPHA HOI", "ALPHA HOMES")
+                    .Replace("TTHIRD", "THIRD")  // OCR error: double T
                     .Replace("16I", "161")
                     .Replace("16l", "161")
                     .Replace("16|", "161")
                     .Replace("16O", "160")
                     .Replace("  ", " ") // Remove double spaces
                     .Trim(',', ' ', '-'); // Clean up leading/trailing punctuation
+                
+                // Remove "Addres PHL" prefix (common OCR error)
+                result.Address = Regex.Replace(result.Address, @"^Addres\s+PHL\s+", "", RegexOptions.IgnoreCase);
                 
                 // Remove "/Address, PHL, " prefix if present
                 if (result.Address.StartsWith("/Address, PHL, ", StringComparison.OrdinalIgnoreCase) ||

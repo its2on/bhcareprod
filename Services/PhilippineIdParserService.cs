@@ -1853,13 +1853,15 @@ namespace Barangay.Services
             if (addressStartIndex >= 0)
             {
                 var addressText = text.Substring(addressStartIndex);
-                addressText = Regex.Replace(addressText, @"^(ADDRESS|TIRAHAN|Addresse)[:\s]*", "", RegexOptions.IgnoreCase);
                 
-                var keywordIndex = addressText.IndexOf(foundKeyword, StringComparison.OrdinalIgnoreCase);
-                if (keywordIndex >= 0)
-                {
-                    addressText = addressText.Substring(keywordIndex + foundKeyword.Length).TrimStart(':', ' ', '-');
-                }
+                // First remove any address label at the beginning
+                addressText = Regex.Replace(addressText, @"^(ADDRESS|TIRAHAN|Addresse)[:\s-]*", "", RegexOptions.IgnoreCase);
+                
+                // Then remove any remaining address label in the text
+                addressText = Regex.Replace(addressText, @"\b(ADDRESS|TIRAHAN)[:\s-]*", "", RegexOptions.IgnoreCase);
+                
+                // Remove any leading/trailing punctuation and whitespace
+                addressText = addressText.Trim(':', ' ', '-', ',', '.');
                 
                 var addressLines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                     .Take(4)
@@ -1894,15 +1896,18 @@ namespace Barangay.Services
                     .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR
                     .Replace("BARANGAYGITY", "BARANGAY").Replace("BARANGAYGITY", "BARANGAY")
                     .Replace("ALPHA HO!", "ALPHA HOMES").Replace("ALPHA HOI", "ALPHA HOMES").Replace("ALPHA HO ", "ALPHA HOMES ")
+                    .Replace("HOMESMES", "HOMES") // Fix OCR error in "HOMES"
+                    .Replace("TTHIRD", "THIRD") // Fix double T in "THIRD"
                     .Replace("SOLE BARANICAY IGO", "BARANGAY 160").Replace("BARANICAY IGO", "BARANGAY 160")
                     .Replace("IGO CITY", "CITY OF CALOOCAN").Replace("CALOORA", "CALOOCAN")
                     .Replace("16I", "161").Replace("16l", "161").Replace("16|", "161").Replace("16O", "160")
                     .Replace("181", "161") // Common OCR error: 8 misread as 6
                     .Replace("BARANGAY 18", "BARANGAY 16") // Fix partial matches
                     .Replace("tion Date;", "").Replace("tion Date", "") // Remove expiration date artifacts
-                    .Replace("  ", " ").Replace(" ,", ",").Replace(", ", ",")
-                    .Replace("..", ".").Replace(".,", ",")
-                    .Trim(',', ' ', '-', '.');
+                    .Replace("  ", " ").Replace(" ,", ",").Replace(", ", ",") // Fix spacing
+                    .Replace("..", ".").Replace(".,", ",") // Fix punctuation
+                    .Replace("Address,", "") // Remove any remaining "Address," text
+                    .Trim(',', ' ', '-', '.'); // Trim any remaining unwanted characters
                 
                 if (result.Address.Length > 200)
                 {
