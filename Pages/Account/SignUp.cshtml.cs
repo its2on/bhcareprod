@@ -180,18 +180,6 @@ namespace Barangay.Pages.Account
         [BindProperty]
         public InputModel Input { get; set; }
 
-        public List<SelectListItem> GovtIdTypes { get; set; } = new()
-        {
-            new SelectListItem("Philippine National ID", "PhilSys"),
-            new SelectListItem("Driver's License", "DriversLicense"),
-            new SelectListItem("UMID", "UMID"),
-            new SelectListItem("TIN ID", "TIN"),
-            new SelectListItem("Postal ID", "PostalID"),
-            new SelectListItem("PhilHealth ID", "PhilHealth"),
-            new SelectListItem("SSS ID", "SSS"),
-            new SelectListItem("Voter's / COMELEC ID", "Voter"),
-            new SelectListItem("Passport", "Passport")
-        };
 
         public string ReturnUrl { get; set; }
 

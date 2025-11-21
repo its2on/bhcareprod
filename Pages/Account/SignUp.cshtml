@@ -50,14 +50,6 @@
                     <div class="card-body">
                         <p class="text-muted mb-2">Upload your <strong>Philippine ID</strong> to automatically fill your information</p>
                         <p class="text-muted small mb-3">Accepted: Driver's License, National ID, PhilHealth ID, Postal ID, UMID, TIN ID</p>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label asp-for="Input.GovernmentIdType" class="form-label small">Government ID Type <span class="text-danger">*</span></label>
-                                <select asp-for="Input.GovernmentIdType" asp-items="Model.GovtIdTypes" class="form-select">
-                                    <option value="">-- Select ID Type --</option>
-                                </select>
-                            </div>
-                        </div>
                         <div class="row align-items-center">
                             <div class="col-md-6">
                                 <input type="file" id="idScannerInput" accept="image/*" class="form-control" capture="environment" />
