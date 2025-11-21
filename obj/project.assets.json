@@ -14036,31 +14036,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\WIN 10\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\Ben\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\Barangay.csproj",
+      "projectUniqueName": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCARE-main-IDPROBLEM\\BHCARE-main\\Barangay.csproj",
       "projectName": "Barangay",
-      "projectPath": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\Barangay.csproj",
-      "packagesPath": "C:\\Users\\WIN 10\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\WIN 10\\Desktop\\BHCARE-main\\obj\\",
+      "projectPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCARE-main-IDPROBLEM\\BHCARE-main\\Barangay.csproj",
+      "packagesPath": "C:\\Users\\Ben\\.nuget\\packages\\",
+      "outputPath": "D:\\Imbakan\\Last\\Last\\Last\\Last\\Last\\BHCARE-main-IDPROBLEM\\BHCARE-main\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\WIN 10\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Users\\Ben\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -14078,8 +14071,7 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      },
-      "SdkAnalysisLevel": "9.0.300"
+      }
     },
     "frameworks": {
       "net8.0": {
@@ -14213,7 +14205,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.414/PortableRuntimeIdentifierGraph.json"
       }
     }
   },
