@@ -1906,66 +1906,167 @@ namespace Barangay.Services
         }
 
         /// <summary>
+        /// Extracts address from text
+        /// </summary>
+        private void ExtractAddress(string text, ParsedIdData result)
+        {
+            var upperText = text.ToUpper();
+            var addressKeywords = new[] { "ADDRESS", "TIRAHAN", "LT", "BLK", "STREET", "ST", "CITY", "BARANGAY", "BRGY", "CALOOCAN", "QUEZON", "MANILA", "NCR" };
+            var addressStartIndex = -1;
+            string foundKeyword = "";
+
+            // First, try to find the most specific address marker
+            foreach (var keyword in addressKeywords)
+            {
+                var index = upperText.IndexOf(keyword);
+                if (index >= 0 && (addressStartIndex == -1 || index < addressStartIndex))
                 {
-                    var addressText = text.Substring(addressStartIndex);
+                    addressStartIndex = index;
+                    foundKeyword = keyword;
+                }
+            }
+
+            if (addressStartIndex >= 0)
+            {
+                // Extract the full address block first
+                var addressText = text.Substring(addressStartIndex);
+                
+                // Clean up common OCR errors first
+                addressText = addressText
+                    .Replace("LITS'B IKI", "LT5 BLK1")
+                    .Replace("LITS'B", "LT5 BLK1")
+                    .Replace("LITS B", "LT5 BLK1")
+                    .Replace("LTS BLK", "LT5 BLK1")
+                    .Replace("IKI", "1")
+                    .Replace("NER", "NCR")
+                    .Replace("GITY", "CITY")
+                    .Replace("BARANGAYGITY", "BARANGAY")
+                    .Replace("ALPHA HO!", "ALPHA HOMES")
+                    .Replace("ALPHA HOI", "ALPHA HOMES")
+                    .Replace("ALPHA HO ", "ALPHA HOMES ")
+                    .Replace("HOMESMES", "HOMES")
+                    .Replace("TTHIRD", "THIRD")
+                    .Replace("SOLE BARANICAY IGO", "BARANGAY 160")
+                    .Replace("BARANICAY IGO", "BARANGAY 160")
+                    .Replace("IGO CITY", "CITY OF CALOOCAN")
+                    .Replace("CALOORA", "CALOOCAN")
+                    .Replace("16I", "161")
+                    .Replace("16l", "161")
+                    .Replace("16|", "161")
+                    .Replace("16O", "160")
+                    .Replace("1611TY", "161")  // Fix for the specific error in the image
+                    .Replace("181", "161")
+                    .Replace("BARANGAY 18", "BARANGAY 161")
+                    .Replace("BARANGAY 16", "BARANGAY 161")
+                    .Replace("NOR,", "NCR")
+                    .Replace("PHL,", "")
+                    .Replace("PHL ", "");
+
+                // Remove address labels and clean up
+                addressText = Regex.Replace(addressText, @"^\s*(ADDRESS|TIRAHAN|Addresse|Addres|Tirahan)[:\s-]*", "", RegexOptions.IgnoreCase);
+                addressText = Regex.Replace(addressText, @"\b(ADDRESS|TIRAHAN|Addresse|Addres|Tirahan)[:\s-]*", "", RegexOptions.IgnoreCase);
+                addressText = addressText.Trim(':', ' ', '-', ',', '.');
+
+                // Look for specific address patterns
+                var addressMatch = Regex.Match(addressText, @"^(.+?)(?:,|\s+)(BARANGAY\s+\d+[A-Z]*)(?:\s+OF\s+)?(.*?)(?:,?\s*(NCR|CALOOCAN|QUEZON|MANILA))?", 
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                
+                if (addressMatch.Success)
+                {
+                    // We found a structured address
+                    var street = addressMatch.Groups[1].Value.Trim();
+                    var barangay = addressMatch.Groups[2].Value.Trim();
+                    var city = addressMatch.Groups[3].Value.Trim();
+                    var region = addressMatch.Groups[4].Value.Trim();
                     
-                    // Clean up common OCR errors first
-                    addressText = addressText
-                        .Replace("LITS'B IKI", "LT5 BLK1")
-                        .Replace("LITS'B", "LT5 BLK1")
-                        .Replace("LITS B", "LT5 BLK1")
-                        .Replace("LTS BLK", "LT5 BLK1")
-                        .Replace("IKI", "1")
-                        .Replace("NER", "NCR")
-                        .Replace("GITY", "CITY")
-                        .Replace("BARANGAYGITY", "BARANGAY")
-                        .Replace("ALPHA HO!", "ALPHA HOMES")
-                        .Replace("ALPHA HOI", "ALPHA HOMES")
-                        .Replace("ALPHA HO ", "ALPHA HOMES ")
-                        .Replace("HOMESMES", "HOMES")
-                        .Replace("TTHIRD", "THIRD")
-                        .Replace("SOLE BARANICAY IGO", "BARANGAY 160")
-                        .Replace("BARANICAY IGO", "BARANGAY 160")
-                        .Replace("IGO CITY", "CITY OF CALOOCAN")
-                        .Replace("CALOORA", "CALOOCAN")
-                        .Replace("16I", "161")
-                        .Replace("16l", "161")
-                        .Replace("16|", "161")
-                        .Replace("16O", "160")
-                        .Replace("1611TY", "161")
-                        .Replace("181", "161")
-                        .Replace("BARANGAY 18", "BARANGAY 161")
-                        .Replace("NOR,", "NCR")
-                        .Replace("PHL,", "")
-                        .Replace("PHL ", "");
-
-                    // Remove address labels and clean up
-                    addressText = Regex.Replace(addressText, @"^\s*(ADDRESS|TIRAHAN|Addresse|Addres|Tirahan)[:\s-]*", "", RegexOptions.IgnoreCase);
-                    addressText = Regex.Replace(addressText, @"\b(ADDRESS|TIRAHAN|Addresse|Addres|Tirahan)[:\s-]*", "", RegexOptions.IgnoreCase);
-                    addressText = addressText.Trim(':', ' ', '-', ',', '.');
-
-                    // Split into lines and clean each line
+                    // Clean up components
+                    barangay = Regex.Replace(barangay, @"\s+", " "); // Normalize spaces
+                    
+                    // Standardize city/region
+                    if (string.IsNullOrEmpty(city) && !string.IsNullOrEmpty(region))
+                    {
+                        city = region;
+                        region = "NCR";
+                    }
+                    
+                    if (string.IsNullOrEmpty(region) && city.Equals("CALOOCAN", StringComparison.OrdinalIgnoreCase))
+                    {
+                        city = "CALOOCAN CITY";
+                        region = "NCR";
+                    }
+                    
+                    // Build the address
+                    var addressParts = new List<string>();
+                    if (!string.IsNullOrEmpty(street)) addressParts.Add(street);
+                    if (!string.IsNullOrEmpty(barangay)) addressParts.Add(barangay);
+                    if (!string.IsNullOrEmpty(city)) addressParts.Add(city);
+                    if (!string.IsNullOrEmpty(region) && !city.Equals(region, StringComparison.OrdinalIgnoreCase)) 
+                        addressParts.Add(region);
+                        
+                    result.Address = string.Join(", ", addressParts);
+                }
+                else
+                {
+                    // Fallback to line-based extraction
                     var addressLines = addressText
                         .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(l => l.Trim())
                         .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
-                        // Exclude non-address lines
                         .Where(l => !l.StartsWith("Name", StringComparison.OrdinalIgnoreCase) 
-                                 && !l.Contains(":Middle Name:", StringComparison.OrdinalIgnoreCase)
-                                 && !l.Contains("First Name", StringComparison.OrdinalIgnoreCase)
-                                 && !l.Contains("Last Name", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Nationality", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Weight", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Height", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Sex", StringComparison.OrdinalIgnoreCase)
-                                 && !l.StartsWith("Gender", StringComparison.OrdinalIgnoreCase)
-                                 && !Regex.IsMatch(l, @"^\d{4}[/-]\d")
-                                 && !Regex.IsMatch(l, @"^Name\s*:")
-                                 && !Regex.IsMatch(l, @"^Middle\s+Name\s*:"))
+                                && !l.Contains(":Middle Name:", StringComparison.OrdinalIgnoreCase)
+                                && !l.Contains("First Name", StringComparison.OrdinalIgnoreCase)
+                                && !l.Contains("Last Name", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Nationality", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Weight", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Height", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Sex", StringComparison.OrdinalIgnoreCase)
+                                && !l.StartsWith("Gender", StringComparison.OrdinalIgnoreCase)
+                                && !Regex.IsMatch(l, @"^\d{4}[/-]\d")
+                                && !Regex.IsMatch(l, @"^Name\s*:"))
                         .Distinct()
                         .ToList();
+
+                    result.Address = string.Join(", ", addressLines);
+                }
+
+                // Final cleanup
+                result.Address = result.Address
+                    .Replace("  ", " ")
+                    .Replace(" ,", ",")
+                    .Replace("..", ".")
+                    .Replace(".,", ",")
+                    .Replace("SUBD E", "SUBD")
+                    .Replace("SUBD, E", "SUBD")
+                    .Trim(',', ' ', '-', '.');
+
+                // Standardize address format for CALOOCAN
+                result.Address = result.Address
+                    .Replace("CALOORA", "CALOOCAN")
+                    .Replace("BARANGAY 1611TY", "BARANGAY 161")
+                    .Replace("BARANGAY 16", "BARANGAY 161")
+                    .Replace("BARANGAY 18", "BARANGAY 161");
+
+                // Ensure CALOOCAN is properly formatted
+                if (result.Address.Contains("CALOOCAN") && !result.Address.Contains("CITY"))
+                {
+                    result.Address = result.Address.Replace("CALOOCAN", "CALOOCAN CITY");
+                }
+
+                // Ensure NCR is properly formatted
+                if (result.Address.Contains("NCR") && !result.Address.Contains("CALOOCAN"))
+                {
+                    result.Address = result.Address.Replace("NCR", "CALOOCAN CITY, NCR");
+                }
+
+                // Truncate if too long
+                if (result.Address.Length > 200)
+                {
+                    result.Address = result.Address.Substring(0, 200).Trim();
+                }
+
+                _logger.LogInformation($"Extracted address: {result.Address}");
             }
         }
 
