@@ -174,7 +174,6 @@ namespace Barangay.Pages.Account
             _ocrService = ocrService;
             _emailService = emailService;
             _azureVisionOcrService = azureVisionOcrService;
-            GovtIdTypes = GovtIdTypes;
         }
 
         [BindProperty]
