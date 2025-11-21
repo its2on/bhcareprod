@@ -1854,11 +1854,11 @@ namespace Barangay.Services
             {
                 var addressText = text.Substring(addressStartIndex);
                 
-                // First remove any address label at the beginning
-                addressText = Regex.Replace(addressText, @"^(ADDRESS|TIRAHAN|Addresse)[:\s-]*", "", RegexOptions.IgnoreCase);
+                // First remove any address label at the beginning (including common OCR errors like 'Addres')
+                addressText = Regex.Replace(addressText, @"^\s*(ADDRESS|TIRAHAN|Addresse|Addres)[:\s-]*", "", RegexOptions.IgnoreCase);
                 
                 // Then remove any remaining address label in the text
-                addressText = Regex.Replace(addressText, @"\b(ADDRESS|TIRAHAN)[:\s-]*", "", RegexOptions.IgnoreCase);
+                addressText = Regex.Replace(addressText, @"\b(ADDRESS|TIRAHAN|Addresse|Addres)[:\s-]*", "", RegexOptions.IgnoreCase);
                 
                 // Remove any leading/trailing punctuation and whitespace
                 addressText = addressText.Trim(':', ' ', '-', ',', '.');
@@ -1891,6 +1891,10 @@ namespace Barangay.Services
                 
                 // Clean up common OCR errors in address
                 result.Address = result.Address
+                    // Remove any remaining address label at the start
+                    .Replace("Address, ", "").Replace("Address,", "")
+                    .Replace("Addres, ", "").Replace("Addres,", "")
+                    // Fix OCR errors in address components
                     .Replace("LITS'B IKI", "LT5 BLK1").Replace("LITS'B", "LT5 BLK1").Replace("LITS B", "LT5 BLK1")
                     .Replace("LTS BLK", "LT5 BLK1") // Common pattern
                     .Replace("IKI", "1").Replace("NER", "NCR").Replace("GITY", "CITY") // NER should be NCR
@@ -1906,7 +1910,9 @@ namespace Barangay.Services
                     .Replace("tion Date;", "").Replace("tion Date", "") // Remove expiration date artifacts
                     .Replace("  ", " ").Replace(" ,", ",").Replace(", ", ",") // Fix spacing
                     .Replace("..", ".").Replace(".,", ",") // Fix punctuation
-                    .Replace("Address,", "") // Remove any remaining "Address," text
+                    .Replace("NOR,", "NCR") // Fix NCR typo
+                    .Replace("SUBD E", "SUBD").Replace("SUBD, E", "SUBD") // Fix SUBD E typo
+                    .Replace("PHL,", "").Replace("PHL ", "") // Remove PHL as it's not needed
                     .Trim(',', ' ', '-', '.'); // Trim any remaining unwanted characters
                 
                 if (result.Address.Length > 200)
