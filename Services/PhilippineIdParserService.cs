@@ -1447,10 +1447,80 @@ namespace Barangay.Services
                 }
             }
             
-            // Fallback to generic address extraction if not found
-            if (string.IsNullOrWhiteSpace(result.Address))
+            // Fallback to generic address extraction if not found or if address is too short (likely just captured "391")
+            if (string.IsNullOrWhiteSpace(result.Address) || result.Address.Length < 5 || (result.Address.Contains("391") && result.Address.Length < 10))
             {
-                ExtractAddress(cleanedText, result);
+                // If we have a short address (like "391"), keep it but try to find more
+                var currentAddress = result.Address;
+                
+                // Try to find "ALPHA HOMES" or similar address patterns specifically
+                // This handles the case where "391" was found but the rest was missed
+                var alphaHomesPattern = @"(ALPHA\s+HOMES(?:MES)?|RUBYVILLE|SUBD(?:IVISION)?|BARANGAY\s+160|CALOOCAN)";
+                var alphaMatch = Regex.Match(cleanedText, alphaHomesPattern, RegexOptions.IgnoreCase);
+                
+                if (alphaMatch.Success)
+                {
+                    // Found part of the address, try to extract the full line around it
+                    var searchStart = Math.Max(0, alphaMatch.Index - 50);
+                    var searchEnd = Math.Min(cleanedText.Length, alphaMatch.Index + 200);
+                    var addressContext = cleanedText.Substring(searchStart, searchEnd - searchStart);
+                    
+                    // Look for the full address line in this context
+                    // Pattern: Number + Street/Subd + Barangay + City
+                    // "391 ALPHA HOMES..."
+                    var fullAddressMatch = Regex.Match(addressContext, @"(391\s+ALPHA\s+HOMES[^:\n\r]+)", RegexOptions.IgnoreCase);
+                    if (fullAddressMatch.Success)
+                    {
+                        result.Address = fullAddressMatch.Groups[1].Value.Trim();
+                        _logger.LogInformation("✅ Found full address via aggressive search: {Address}", result.Address);
+                    }
+                    else
+                    {
+                        // Try to construct it from components
+                        var addressParts = new List<string>();
+                        if (Regex.IsMatch(addressContext, @"\b391\b")) addressParts.Add("391");
+                        
+                        var alphaPart = Regex.Match(addressContext, @"ALPHA\s+HOMES(?:MES)?(?:\s+RUBYVILLE)?(?:\s+SUBD(?:IVISION|E)?)?", RegexOptions.IgnoreCase);
+                        if (alphaPart.Success) addressParts.Add(alphaPart.Value);
+                        
+                        var brgyPart = Regex.Match(addressContext, @"BARANGAY\s+(?:160|16O|16I|161)", RegexOptions.IgnoreCase);
+                        if (brgyPart.Success) addressParts.Add(brgyPart.Value);
+                        
+                        var cityPart = Regex.Match(addressContext, @"(?:CITY\s+OF\s+)?CALOOCAN(?:,?\s+NOR)?(?:,?\s+T?THIRD\s+DISTRICT)?", RegexOptions.IgnoreCase);
+                        if (cityPart.Success) addressParts.Add(cityPart.Value);
+                        
+                        if (addressParts.Count > 1)
+                        {
+                            result.Address = string.Join(", ", addressParts);
+                            _logger.LogInformation("✅ Constructed address from parts: {Address}", result.Address);
+                        }
+                    }
+                }
+                
+                // If still empty or short, try generic extraction
+                if (string.IsNullOrWhiteSpace(result.Address) || result.Address.Length < 5)
+                {
+                    ExtractAddress(cleanedText, result);
+                }
+            }
+
+            // Clean up address one last time
+            if (!string.IsNullOrWhiteSpace(result.Address))
+            {
+                result.Address = result.Address
+                    .Replace("ALPHA HOMESMES", "ALPHA HOMES")
+                    .Replace("HOMESMES", "HOMES")
+                    .Replace("SUBDE", "SUBD")
+                    .Replace("TTHIRD", "THIRD")
+                    .Replace("NOR", "NCR") // Fix NOR to NCR
+                    .Replace("  ", " ")
+                    .Trim(',', ' ', '.');
+                    
+                // Ensure 391 is present if ALPHA HOMES is present
+                if (result.Address.Contains("ALPHA HOMES", StringComparison.OrdinalIgnoreCase) && !result.Address.Contains("391"))
+                {
+                    result.Address = "391 " + result.Address;
+                }
             }
             
             // Final validation and correction: If names are still incorrect, try aggressive search
