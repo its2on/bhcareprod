@@ -22,7 +22,7 @@ namespace Barangay.Services
         private readonly ILogger<LocalOcrService> _logger;
         private readonly string _tesseractDataPath;
         private readonly HttpClient _httpClient;
-        private readonly List<(string path, string method)> _preprocessedImages;
+        private List<(string path, string method)> _preprocessedImages;
         private bool _disposed = false;
         private bool _isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
