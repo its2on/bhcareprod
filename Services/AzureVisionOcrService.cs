@@ -2088,6 +2088,7 @@ namespace Barangay.Services
         public string BirthDate { get; set; } = "";
         public string Gender { get; set; } = "";
         public string IdType { get; set; } = "";
+        public string Barangay { get; set; } = "";
     }
 }
 

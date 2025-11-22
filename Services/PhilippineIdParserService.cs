@@ -365,13 +365,13 @@ namespace Barangay.Services
                         var addressPart = phlMatch.Groups[2].Value.Trim();
                         
                         // Split into lines and clean each line
-                        var addressLines = addressPart.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                        var addressLineList = addressPart.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                             .Select(line => line.Trim())
                             .Where(line => !string.IsNullOrWhiteSpace(line) && line.Length > 2)
                             .ToList();
 
                         // Join lines with proper formatting
-                        result.Address = string.Join(" ", addressLines)
+                        result.Address = string.Join(" ", addressLineList)
                             .Replace("  ", " ")
                             .Replace(" , ", ", ")
                             .Replace(" ,", ", ")
