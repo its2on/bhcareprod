@@ -1,74 +1,92 @@
 #!/bin/bash
-# Startup script for Azure App Service to install Tesseract OCR and native libraries
+# Enhanced startup script for Azure App Service with Tesseract OCR and native libraries
+# This script ensures all required dependencies are installed and properly configured
 
-echo "Installing Tesseract OCR and native dependencies..."
+echo "=== Starting Tesseract OCR and Dependencies Setup ==="
 
-# Update package list
+# Set error handling
+set -e  # Exit immediately if a command exits with a non-zero status
+set -o pipefail  # Ensure pipeline errors are caught
+
+# Update package list and install dependencies
+echo "Updating package list and installing dependencies..."
 apt-get update
 
-# Install Tesseract OCR and English language data
-apt-get install -y tesseract-ocr tesseract-ocr-eng
+# Install all required packages in a single command for better dependency resolution
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-fil \
+    libleptonica-dev \
+    libtesseract-dev \
+    liblept5 \
+    libtesseract4 \
+    libopencv-dev \
+    libopencv-core-dev \
+    libopencv-highgui-dev \
+    libopencv-imgproc-dev \
+    libgdiplus \
+    libc6-dev
 
-# Install Leptonica library (required by Tesseract .NET wrapper)
-# Install both dev and runtime packages to ensure all libraries are available
-apt-get install -y libleptonica-dev libtesseract-dev libleptonica5 libtesseract4
+# Create necessary symlinks for Tesseract .NET
+echo "Creating required symlinks..."
 
-# Install OpenCV libraries (required by OpenCvSharp)
-apt-get install -y libopencv-dev libopencv4
+# Create symlinks for Leptonica
+find /usr/lib -name "liblept.so*" -exec ls -la {} \;
+find /usr/lib -name "libleptonica.so*" -exec ls -la {} \;
 
-# Install additional dependencies that might be needed
-apt-get install -y libgdiplus libc6-dev
+# Create symlinks for Leptonica (Tesseract.NET looks for specific filenames)
+ln -sf /usr/lib/x86_64-linux-gnu/liblept.so.5 /usr/lib/x86_64-linux-gnu/liblept.so
+ln -sf /usr/lib/x86_64-linux-gnu/liblept.so.5 /usr/lib/x86_64-linux-gnu/libleptonica-1.82.0.so
+ln -sf /usr/lib/x86_64-linux-gnu/liblept.so.5 /usr/lib/libleptonica-1.82.0.so
+
+# Create symlinks for Tesseract
+ln -sf /usr/lib/x86_64-linux-gnu/libtesseract.so.4 /usr/lib/x86_64-linux-gnu/libtesseract.so
+ln -sf /usr/lib/x86_64-linux-gnu/libtesseract.so.4 /usr/lib/libtesseract.so
+
+# Set TESSDATA_PREFIX
+export TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
+mkdir -p $TESSDATA_PREFIX
 
 # Verify installations
-echo "Verifying Tesseract installation..."
-tesseract --version
+echo -e "\n=== Verifying Installations ==="
 
-echo "Verifying Leptonica installation..."
-# Find the actual Leptonica library (look for .so files, not symlinks first)
-LEPTONICA_LIB=$(find /usr/lib -name "liblept.so.*" -o -name "libleptonica.so.*" 2>/dev/null | grep -v ".so$" | head -1)
-if [ -z "$LEPTONICA_LIB" ]; then
-    LEPTONICA_LIB=$(find /usr/lib -name "liblept.so" -o -name "libleptonica.so" 2>/dev/null | head -1)
-fi
-if [ -z "$LEPTONICA_LIB" ]; then
-    LEPTONICA_LIB=$(find /usr/lib -name "liblept*.so*" -o -name "libleptonica*.so*" 2>/dev/null | head -1)
-fi
+# Verify Tesseract installation
+echo -e "\nTesseract version:"
+tesseract --version || echo "Tesseract not found!"
 
-if [ -n "$LEPTONICA_LIB" ]; then
-    echo "✓ Leptonica library found: $LEPTONICA_LIB"
-    # Get the real path (resolve symlinks)
-    LEPTONICA_REAL=$(readlink -f "$LEPTONICA_LIB" 2>/dev/null || echo "$LEPTONICA_LIB")
-    LEPTONICA_DIR=$(dirname "$LEPTONICA_REAL")
-    LEPTONICA_FILE=$(basename "$LEPTONICA_REAL")
-    
-    # Common library directories
-    for LIB_DIR in /usr/lib/x86_64-linux-gnu /usr/lib /usr/local/lib; do
-        if [ -d "$LIB_DIR" ]; then
-            # Create symlink for libleptonica-1.82.0.so (Tesseract.NET looks for this)
-            if [ ! -f "$LIB_DIR/libleptonica-1.82.0.so" ] && [ -w "$LIB_DIR" ] 2>/dev/null; then
-                echo "Creating symlink: $LIB_DIR/libleptonica-1.82.0.so -> $LEPTONICA_REAL"
-                ln -sf "$LEPTONICA_REAL" "$LIB_DIR/libleptonica-1.82.0.so" 2>/dev/null || echo "  (symlink creation skipped - may need root)"
-            fi
-        fi
-    done
-else
-    echo "⚠ Warning: Leptonica library not found in expected locations"
-    find /usr -name "liblept*.so*" -o -name "libleptonica*.so*" 2>/dev/null | head -5
-fi
+# Verify Leptonica is linked correctly
+echo -e "\nLeptonica library check:"
+ldd $(which tesseract) | grep -i lept || echo "Leptonica not linked to Tesseract!"
 
-echo "Verifying OpenCV installation..."
-if [ -f /usr/lib/x86_64-linux-gnu/libopencv_core.so ] || [ -f /usr/lib/libopencv_core.so ]; then
-    echo "✓ OpenCV library found"
-else
-    echo "⚠ Warning: OpenCV library not found in expected locations"
-    find /usr -name "libopencv*.so" 2>/dev/null | head -5
-fi
+# Verify OpenCV
+echo -e "\nOpenCV check:"
+pkg-config --modversion opencv4 || echo "OpenCV not found or pkg-config not available"
 
-echo "Installation complete."
-
-# Set library paths to help .NET find native libraries
+# Set library paths
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/lib:$LD_LIBRARY_PATH"
-echo "LD_LIBRARY_PATH set to: $LD_LIBRARY_PATH"
+echo -e "\nLD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+# List installed libraries for debugging
+echo -e "\nInstalled libraries:"
+ls -la /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/libtesseract* || echo "No libraries found in /usr/lib/x86_64-linux-gnu/"
+
+# Check for required .so files
+echo -e "\nChecking for required .so files:"
+REQUIRED_LIBS=(
+    "/usr/lib/x86_64-linux-gnu/liblept.so.5"
+    "/usr/lib/x86_64-linux-gnu/libtesseract.so.4"
+    "/usr/lib/x86_64-linux-gnu/libopencv_core.so"
+)
+
+for lib in "${REQUIRED_LIBS[@]}"; do
+    if [ -f "$lib" ]; then
+        echo "✓ Found: $lib"
+    else
+        echo "✗ Missing: $lib"
+    fi
+done
 
 # Start the application
+echo -e "\n=== Starting Application ==="
 dotnet Barangay.dll
-
