@@ -1365,18 +1365,65 @@ namespace Barangay.Services
                 _logger.LogInformation("📝 Searching for address in: {AddressText}", addressText.Substring(0, Math.Min(150, addressText.Length)));
                 
                 // Extract address lines (stop before next major field like "Date of Birth")
-                var addressLines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Take(6) // Increased to ensure we capture all lines
+                var addressLines = new List<string>();
+                var lines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(l => l.Trim())
                     .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
-                    .Where(l => !l.StartsWith("Date", StringComparison.OrdinalIgnoreCase))
-                    .Where(l => !l.StartsWith("Birth", StringComparison.OrdinalIgnoreCase))
-                    .Where(l => !l.StartsWith("Petsa", StringComparison.OrdinalIgnoreCase))
-                    .Where(l => !Regex.IsMatch(l, @"^\d{4}[/-]\d"))
-                    // Filter out "PHL" and label repetitions which are common OCR artifacts
-                    .Where(l => !l.Equals("PHL", StringComparison.OrdinalIgnoreCase))
-                    .Where(l => !Regex.IsMatch(l, @"^(?:Address|Tirahan)\s*[:\.]?$", RegexOptions.IgnoreCase))
                     .ToList();
+                
+                // Try to find the main address line (should contain house number and street)
+                var mainAddressLine = lines.FirstOrDefault(l => 
+                    Regex.IsMatch(l, @"^\d+") && // Starts with a number (house number)
+                    l.Length > 10 && // Reasonable length for an address
+                    !l.Contains("BARANGAY") && // Not a barangay line
+                    !l.Contains("CITY") && // Not a city line
+                    !l.Contains("DISTRICT")); // Not a district line
+                
+                // Find barangay, city, and district lines
+                var barangayLine = lines.FirstOrDefault(l => 
+                    l.Contains("BARANGAY", StringComparison.OrdinalIgnoreCase) || 
+                    l.Contains("BRGY", StringComparison.OrdinalIgnoreCase));
+                    
+                var cityLine = lines.FirstOrDefault(l => 
+                    l.Contains("CITY OF", StringComparison.OrdinalIgnoreCase) || 
+                    l.Contains("CALOOCAN", StringComparison.OrdinalIgnoreCase));
+                    
+                var districtLine = lines.FirstOrDefault(l => 
+                    l.Contains("DISTRICT", StringComparison.OrdinalIgnoreCase) ||
+                    l.Contains("NCR", StringComparison.OrdinalIgnoreCase));
+                
+                // Build the address parts
+                if (!string.IsNullOrEmpty(mainAddressLine))
+                {
+                    addressLines.Add(mainAddressLine);
+                }
+                
+                if (!string.IsNullOrEmpty(barangayLine))
+                {
+                    // Clean up barangay line
+                    barangayLine = Regex.Replace(barangayLine, @"(BARANGAY|BRGY)[\s:]*", "", RegexOptions.IgnoreCase).Trim();
+                    addressLines.Add("BARANGAY " + barangayLine);
+                }
+                
+                if (!string.IsNullOrEmpty(cityLine))
+                {
+                    // Clean up city line
+                    cityLine = cityLine.Replace("CITY OF", "").Replace("CITY", "").Trim();
+                    if (!string.IsNullOrWhiteSpace(cityLine))
+                    {
+                        addressLines.Add("CITY OF " + cityLine);
+                    }
+                }
+                
+                if (!string.IsNullOrEmpty(districtLine) && !addressLines.Any(l => l.Contains(districtLine, StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Clean up district line
+                    districtLine = districtLine.Replace("DISTRICT", "").Replace("DIST", "").Trim();
+                    if (!string.IsNullOrWhiteSpace(districtLine))
+                    {
+                        addressLines.Add(districtLine.ToUpper() + " DISTRICT");
+                    }
+                }
                 
                 if (addressLines.Any())
                 {
@@ -1385,47 +1432,6 @@ namespace Barangay.Services
                     // 1. Normalize spaces FIRST to ensure subsequent replacements work correctly
                     result.Address = Regex.Replace(result.Address, @"\s+", " ");
                     
-                    // 2. Remove any label artifacts that got included
-                    result.Address = Regex.Replace(result.Address, @"^/?\s*(?:Address|Tirahan)[^:]*[:\s]*", "", RegexOptions.IgnoreCase);
-                    result.Address = Regex.Replace(result.Address, @"^[/\\]+", "");  // Remove leading slashes
-                    result.Address = Regex.Replace(result.Address, @"\bPHL\b", "", RegexOptions.IgnoreCase); // Remove PHL if it remains
-                    
-                    // 3. Clean up common OCR errors in PhilSys addresses
-                    result.Address = result.Address
-                        // Fix specific OCR errors from the actual ID
-                        .Replace("ALPHA HOMESMES", "ALPHA HOMES")  // OCR error: HOMESMES->HOMES
-                        .Replace("HOMESMES", "HOMES")              // Fallback if ALPHA is separated
-                        .Replace("ALPHA HOMEMPS", "ALPHA HOMES")  // OCR error: HOMEMPS->HOMES
-                        .Replace("ALPHA HO!", "ALPHA HOMES")
-                        .Replace("ALPHA HO", "ALPHA HOMES")
-                        .Replace("TTHIRD", "THIRD")  // OCR error: double T
-                        .Replace("OF CALOORA", "CITY OF CALOOCAN")
-                        .Replace("CALOORA", "CALOOCAN")
-                        .Replace("SOLE BARANICAY IGO", "RUBYVILLE SUBD")
-                        .Replace("BARANICAY", "BARANGAY")
-                        .Replace("BARANIGAY", "BARANGAY")
-                        .Replace("BARANGAY IGO", "BARANGAY")
-                        .Replace("IGO CITY", "CITY")
-                        .Replace("HIRD OK", "THIRD DISTRICT")
-                        .Replace("HIRD", "THIRD")
-                        .Replace("OK", "DISTRICT")
-                        // Fix number OCR errors
-                        .Replace("39I", "391")
-                        .Replace("39l", "391")
-                        .Replace("39|", "391")
-                        // Fix common word errors
-                        .Replace("RUBYVILIE", "RUBYVILLE")
-                        .Replace("RUBYVILE", "RUBYVILLE")
-                        .Replace("SUBDV", "SUBD")
-                        .Replace("SUBDIVISION", "SUBD")
-                        // Clean up punctuation
-                        .Replace(" ,", ",").Replace(", ,", ",")
-                        .Trim(',', ' ', '-');
-                    
-                    // Ensure proper address format: Add missing "391" if address starts with "ALPHA"
-                    if (result.Address.StartsWith("ALPHA", StringComparison.OrdinalIgnoreCase) && 
-                        !result.Address.StartsWith("391", StringComparison.OrdinalIgnoreCase))
-                    {
                         result.Address = "391 " + result.Address;
                     }
                     
