@@ -446,6 +446,26 @@ namespace Barangay.Services
             }
         }
 
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _httpClient?.Dispose();
+                }
+
+                _disposed = true;
+            }
+        }
+
         /// <summary>
         /// Analyzes a document and extracts barangay number (158, 159, 160, or 161)
         /// </summary>
