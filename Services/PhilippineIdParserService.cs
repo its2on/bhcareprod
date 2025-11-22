@@ -405,15 +405,18 @@ namespace Barangay.Services
                           .Replace("BARANICAY IGO", "BARANGAY 160")
                           .Replace("IGO CITY", "CITY OF CALOOCAN")
                           .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
-                          .Replace("NOR", "NCR")
-                          .Replace("/ADDRESS", "")
-                          .Replace("/Address", "")  // Handle case with capital A
+                          .Replace("NOR", "NCR");
+                
+                // Remove "/Address PHL" pattern at the beginning of the text
+                text = Regex.Replace(text, "^/Address\\s+PHL\\s*", "", RegexOptions.IgnoreCase);
+                
+                // Clean up any remaining address-related text
+                text = text.Replace("/ADDRESS", "")
+                          .Replace("/Address", "")
                           .Replace("ADDRESS:", "")
-                          .Replace("Address:", "")  // Handle case with capital A
+                          .Replace("Address:", "")
                           .Replace("PHL", "")
-                          .Trim()
-                          // Remove any remaining '/Address' at the beginning of the string
-                          .Replace("^/Address\\s*", "", RegexOptions.IgnoreCase);
+                          .Trim();
 
                 // Define address section patterns
                 var addressPatterns = new[]
