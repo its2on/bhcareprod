@@ -1771,7 +1771,7 @@ namespace Barangay.Services
         /// UMID parsing
         /// Format: "SURNAME, GIVEN NAME MIDDLE NAME"
         /// </summary>
-        private ParsedIdData ParseUMID(string text)
+        private ParsedIdData ParseUmId(string text)
         {
             var result = new ParsedIdData();
 
@@ -1815,7 +1815,7 @@ namespace Barangay.Services
         /// TIN ID parsing
         /// Format: "Full Name" (First Middle Last)
         /// </summary>
-        private ParsedIdData ParseTINId(string text)
+        private ParsedIdData ParseTinId(string text)
         {
             var result = new ParsedIdData();
 
@@ -1860,10 +1860,10 @@ namespace Barangay.Services
         /// <summary>
         /// SSS ID parsing (similar to UMID)
         /// </summary>
-        private ParsedIdData ParseSSSId(string text)
+        private ParsedIdData ParseSssId(string text)
         {
             // Similar to UMID
-            return ParseUMID(text);
+            return ParseUmId(text);
         }
 
         /// <summary>
@@ -1995,7 +1995,7 @@ namespace Barangay.Services
         /// <summary>
         /// Extracts address from text
         /// </summary>
-        private void ExtractAddress(string text, ParsedIdData result)
+        private string ExtractAddress(string text, ParsedIdData result = null)
         {
             var upperText = text.ToUpper();
             var addressKeywords = new[] { "ADDRESS", "TIRAHAN", "LT", "BLK", "STREET", "ST", "CITY", "BARANGAY", "BRGY", "CALOOCAN", "QUEZON", "MANILA", "NCR" };
@@ -2179,7 +2179,7 @@ namespace Barangay.Services
         /// <summary>
         /// Extracts gender from text
         /// </summary>
-        public string ExtractGender(string text)
+        private string ExtractGender(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return "";
@@ -2259,4 +2259,3 @@ namespace Barangay.Services
         }
     }
 }
-
