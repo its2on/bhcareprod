@@ -1432,6 +1432,9 @@ namespace Barangay.Services
                     // 1. Normalize spaces FIRST to ensure subsequent replacements work correctly
                     result.Address = Regex.Replace(result.Address, @"\s+", " ");
                     
+                    // Ensure 391 is present if ALPHA HOMES is present
+                    if (result.Address.Contains("ALPHA HOMES", StringComparison.OrdinalIgnoreCase) && !result.Address.Contains("391"))
+                    {
                         result.Address = "391 " + result.Address;
                     }
                     
