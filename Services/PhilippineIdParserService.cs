@@ -1673,6 +1673,7 @@ namespace Barangay.Services
 
             return result;
         }
+        }
 
         /// <summary>
         /// PhilHealth ID parsing
