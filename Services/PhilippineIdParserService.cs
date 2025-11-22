@@ -1379,7 +1379,7 @@ namespace Barangay.Services
                     !l.Contains("CITY") && // Not a city line
                     !l.Contains("DISTRICT")); // Not a district line
                 
-                // Find barangay, city, and district lines
+                // Find barangay, city, district, and region lines
                 var barangayLine = lines.FirstOrDefault(l => 
                     l.Contains("BARANGAY", StringComparison.OrdinalIgnoreCase) || 
                     l.Contains("BRGY", StringComparison.OrdinalIgnoreCase));
@@ -1390,6 +1390,11 @@ namespace Barangay.Services
                     
                 var districtLine = lines.FirstOrDefault(l => 
                     l.Contains("DISTRICT", StringComparison.OrdinalIgnoreCase) ||
+                    l.Contains("NCR", StringComparison.OrdinalIgnoreCase));
+                    
+                // Initialize regionLine to avoid null reference
+                var regionLine = lines.FirstOrDefault(l => 
+                    l.Contains("REGION", StringComparison.OrdinalIgnoreCase) ||
                     l.Contains("NCR", StringComparison.OrdinalIgnoreCase));
                 
                 // Build the address parts - use the most complete address found
