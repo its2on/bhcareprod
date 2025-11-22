@@ -459,7 +459,7 @@ namespace Barangay.Pages.Account
                     return new JsonResult(new 
                     { 
                         success = false, 
-                        message = "Screenshots are not accepted. Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, Postal ID, etc.). The document must be a clear photo or scan of the original ID card." 
+                        message = "Screenshots are not accepted. Please upload an actual Philippine ID document (National ID)." 
                     });
                 }
 
