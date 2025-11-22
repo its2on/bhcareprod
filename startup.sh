@@ -5,7 +5,7 @@
 # with comprehensive error handling and logging
 # ===================================================================
 
-echo "=== Tesseract OCR and Dependencies Setup (v2) ==="
+echo "=== Tesseract OCR and Dependencies Setup (v3) ==="
 
 # ==============================
 # 1. Environment Setup
@@ -36,7 +36,7 @@ command_exists() {
 install_package() {
     log "Installing package: $1"
     if ! apt-get install -y --no-install-recommends "$1"; then
-        log "ERROR: Failed to install $1"
+        log "WARNING: Failed to install $1, trying to continue..."
         return 1
     fi
 }
@@ -70,12 +70,18 @@ BASE_PKGS=(
     pkg-config
     wget
     unzip
+    build-essential
+    autoconf
+    automake
+    libtool
+    libjpeg-dev
+    libpng-dev
+    libtiff5-dev
+    zlib1g-dev
 )
 
 for pkg in "${BASE_PKGS[@]}"; do
-    if ! install_package "$pkg"; then
-        log "WARNING: Package $pkg installation failed, but continuing..."
-    fi
+    install_package "$pkg" || true
 done
 
 # ==============================
@@ -93,7 +99,7 @@ install_library() {
     local target_dir="/usr/local/lib"
     
     log "Downloading $lib_name..."
-    if wget -q "$lib_url" -O "/tmp/$lib_name"; then
+    if wget -q --no-check-certificate "$lib_url" -O "/tmp/$lib_name"; then
         log "Installing $lib_name..."
         cp "/tmp/$lib_name" "$target_dir/"
         chmod 755 "$target_dir/$lib_name"
@@ -106,14 +112,14 @@ install_library() {
 }
 
 # Install Leptonica from source if not found
-if [ ! -f "/usr/lib/x86_64-linux-gnu/liblept.so.5" ]; then
+if [ ! -f "/usr/lib/x86_64-linux-gnu/liblept.so.5" ] && [ ! -f "/usr/local/lib/liblept.so.5" ]; then
     log "Leptonica not found, installing from source..."
     cd /tmp
-    wget http://www.leptonica.org/source/leptonica-1.82.0.tar.gz
+    wget --no-check-certificate http://www.leptonica.org/source/leptonica-1.82.0.tar.gz
     tar -xzf leptonica-1.82.0.tar.gz
     cd leptonica-1.82.0
-    ./configure
-    make
+    ./configure --prefix=/usr/local
+    make -j$(nproc)
     make install
     ldconfig
 fi
@@ -126,8 +132,8 @@ log "[5/6] Creating symlinks..."
 # Create symlinks for Leptonica
 for lib in /usr/lib/x86_64-linux-gnu/liblept* /usr/local/lib/liblept*; do
     if [ -f "$lib" ]; then
-        ln -sf "$lib" /usr/lib/x86_64-linux-gnu/
-        ln -sf "$lib" /usr/lib/
+        ln -sf "$lib" /usr/lib/x86_64-linux-gnu/ || true
+        ln -sf "$lib" /usr/lib/ || true
     fi
 done
 
@@ -169,11 +175,15 @@ ls -la /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/libtesseract
 log "\nChecking for required libraries:"
 for lib in \
     "/usr/lib/x86_64-linux-gnu/liblept.so.5" \
+    "/usr/local/lib/liblept.so.5" \
     "/usr/lib/x86_64-linux-gnu/libtesseract.so.4" \
-    "/usr/lib/x86_64-linux-gnu/libopencv_core.so" \
-    "/usr/local/lib/liblept.so.5"; do
-    if [ -f "$lib" ]; then
+    "/usr/lib/x86_64-linux-gnu/libopencv_core.so"; do
+    if [ -f "$lib" ] || [ -L "$lib" ]; then
         log "✓ Found: $lib"
+        # If it's a symlink, show where it points to
+        if [ -L "$lib" ]; then
+            log "   -> $(readlink -f "$lib")"
+        fi
     else
         log "✗ Missing: $lib"
     fi
@@ -189,5 +199,33 @@ log "Current directory: $(pwd)"
 log "Environment variables:"
 printenv | sort
 
+# Create a test script to verify the library is found
+cat > /tmp/test_leptonica.c << 'EOL'
+#include <stdio.h>
+#include <leptonica/allheaders.h>
+
+int main() {
+    printf("Leptonica version: %s\n", getLeptonicaVersion());
+    printf("Leptonica build info: %s\n", getImagelibVersions());
+    return 0;
+}
+EOL
+
+# Try to compile and run the test
+log "\n=== Testing Leptonica Installation ==="
+if gcc -o /tmp/test_leptonica /tmp/test_leptonica.c $(pkg-config --cflags --libs lept) 2>/dev/null; then
+    log "Leptonica test compilation successful"
+    if /tmp/test_leptonica; then
+        log "Leptonica test run successful"
+    else
+        log "WARNING: Leptonica test run failed"
+    fi
+else
+    log "WARNING: Failed to compile Leptonica test program"
+    log "GCC output:"
+    gcc -o /tmp/test_leptonica /tmp/test_leptonica.c $(pkg-config --cflags --libs lept) || true
+fi
+
 # Start the application
+log "\n=== Starting Application ==="
 exec dotnet Barangay.dll
