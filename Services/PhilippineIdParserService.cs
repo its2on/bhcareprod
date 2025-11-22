@@ -407,9 +407,13 @@ namespace Barangay.Services
                           .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
                           .Replace("NOR", "NCR")
                           .Replace("/ADDRESS", "")
+                          .Replace("/Address", "")  // Handle case with capital A
                           .Replace("ADDRESS:", "")
+                          .Replace("Address:", "")  // Handle case with capital A
                           .Replace("PHL", "")
-                          .Trim();
+                          .Trim()
+                          // Remove any remaining '/Address' at the beginning of the string
+                          .Replace("^/Address\\s*", "", RegexOptions.IgnoreCase);
 
                 // Define address section patterns
                 var addressPatterns = new[]
@@ -456,6 +460,9 @@ namespace Barangay.Services
                                      .Replace("RUBYVILLESUBDE", "RUBYVILLE SUBD")
                                      .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
                                      .Replace("CITY OF CALOOCAN NCR", "CITY OF CALOOCAN, NCR")
+                                     // Remove any remaining '/Address' variations
+                                     .Replace("/ADDRESS", "", StringComparison.OrdinalIgnoreCase)
+                                     .Replace("ADDRESS:", "", StringComparison.OrdinalIgnoreCase)
                                      .Trim();
 
                     // Extract barangay number with better pattern matching
