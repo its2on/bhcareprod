@@ -169,45 +169,119 @@ namespace Barangay.Services
             }
         }
         
-        private void CheckLinuxDependencies()
+    private void CheckLinuxDependencies()
+{
+    try
+    {
+        _logger.LogInformation("=== LINUX DEPENDENCY CHECK ===");
+        
+        // 1. Set LD_LIBRARY_PATH to include common library directories
+        var currentLdPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH") ?? "";
+        var paths = new HashSet<string>(currentLdPath.Split(':', StringSplitOptions.RemoveEmptyEntries))
+        {
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/local/lib",
+            "/usr/lib"
+        };
+        var newLdPath = string.Join(":", paths);
+        Environment.SetEnvironmentVariable("LD_LIBRARY_PATH", newLdPath);
+        _logger.LogInformation($"Set LD_LIBRARY_PATH: {newLdPath}");
+
+        // 2. Try to load Leptonica library explicitly
+        var leptonicaPaths = new[]
+        {
+            "/usr/lib/x86_64-linux-gnu/liblept.so.5",
+            "/usr/local/lib/liblept.so.5",
+            "/usr/lib/liblept.so.5",
+            "liblept.so.5"  // Try without path (should be in LD_LIBRARY_PATH)
+        };
+
+        bool leptonicaLoaded = false;
+        foreach (var path in leptonicaPaths)
         {
             try
             {
-                _logger.LogInformation("Checking for required Linux dependencies...");
-                
-                // Check if Tesseract is installed
-                var tesseractVersion = RunCommand("tesseract", "--version");
-                _logger.LogInformation($"Tesseract version: {tesseractVersion.Output.Trim()}");
-                
-                // Check if Leptonica is available
-                var lddOutput = RunCommand("ldd", "$(which tesseract)");
-                if (lddOutput.ExitCode == 0 && lddOutput.Output.Contains("lept"))
+                if (NativeLibrary.TryLoad(path, out var handle))
                 {
-                    _logger.LogInformation("✓ Leptonica library is available");
-                }
-                else
-                {
-                    _logger.LogError("❌ Leptonica library not found. Please install with: apt-get install -y libleptonica-dev libtesseract-dev");
-                }
-                
-                // Check if OpenCV is available
-                try
-                {
-                    // This will throw if OpenCV is not available
-                    Cv2.GetVersionString();
-                    _logger.LogInformation($"✓ OpenCV version: {Cv2.GetVersionString()}");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "❌ OpenCV not available. Some image processing features may be limited.");
+                    _logger.LogInformation($"✓ Successfully loaded Leptonica from: {path}");
+                    NativeLibrary.Free(handle);  // We don't need to keep it loaded, just testing
+                    leptonicaLoaded = true;
+                    break;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking Linux dependencies");
-                throw;
+                _logger.LogDebug($"Could not load Leptonica from {path}: {ex.Message}");
             }
         }
+
+        if (!leptonicaLoaded)
+        {
+            _logger.LogWarning("⚠️ Could not load Leptonica library. OCR may not work correctly.");
+            
+            // Try to run ldd to see what's missing
+            try
+            {
+                var lddOutput = RunCommand("ldd", "$(which tesseract)");
+                _logger.LogInformation("ldd output for tesseract:\n" + lddOutput.Output);
+                
+                // Check for common issues
+                if (lddOutput.Output.Contains("not found"))
+                {
+                    _logger.LogError("❌ Missing dependencies detected. Try running: " +
+                        "apt-get update && apt-get install -y liblept5 libtesseract4 tesseract-ocr");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Could not run ldd: " + ex.Message);
+            }
+        }
+
+        // 3. Check Tesseract installation
+        try
+        {
+            var tesseractVersion = RunCommand("tesseract", "--version");
+            _logger.LogInformation($"✓ Tesseract version: {tesseractVersion.Output.Trim()}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("❌ Tesseract is not installed. Install with: apt-get install -y tesseract-ocr");
+        }
+
+        // 4. Check OpenCV
+        try
+        {
+            Cv2.GetVersionString();
+            _logger.LogInformation($"✓ OpenCV version: {Cv2.GetVersionString()}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("⚠️ OpenCV not available: " + ex.Message);
+        }
+
+        // 5. Run a simple Tesseract test
+        try
+        {
+            using (var engine = new TesseractEngine(_tesseractDataPath, "eng", EngineMode.Default))
+            {
+                _logger.LogInformation("✓ Tesseract engine initialized successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("❌ Failed to initialize Tesseract engine: " + ex.Message);
+            if (ex.InnerException != null)
+            {
+                _logger.LogError("Inner exception: " + ex.InnerException.Message);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError("Error in CheckLinuxDependencies: " + ex);
+    }
+}
         
         private (int ExitCode, string Output) RunCommand(string command, string arguments)
         {
@@ -370,7 +444,6 @@ namespace Barangay.Services
                 _logger.LogError(ex, $"Failed to download {fileName}");
                 throw;
             }
-        }
         }
 
         /// <summary>
