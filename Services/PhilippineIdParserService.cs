@@ -354,6 +354,54 @@ namespace Barangay.Services
                 var addressText = text.Substring(addressStartIndex + keywordFound.Length);
                 addressText = CleanOcrErrors(addressText);
                 
+                // Special handling for PhilSys ID format
+                if (text.Contains("PHILIPPINE IDENTIFICATION SYSTEM") || text.Contains("PHILSYS"))
+                {
+                    // For PhilSys, look for the address after the "PHL" line
+                    var phlMatch = Regex.Match(addressText, @"(PHL\s*[MF]\s*\d{4}/\d{2}/\d{2})\s*([\s\S]*?)(?=\n\s*\n|\Z)", RegexOptions.IgnoreCase);
+                    if (phlMatch.Success)
+                    {
+                        // Get the address part after the PHL line
+                        var addressPart = phlMatch.Groups[2].Value.Trim();
+                        
+                        // Split into lines and clean each line
+                        var addressLines = addressPart.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim())
+                            .Where(line => !string.IsNullOrWhiteSpace(line) && line.Length > 2)
+                            .ToList();
+
+                        // Join lines with proper formatting
+                        result.Address = string.Join(" ", addressLines)
+                            .Replace("  ", " ")
+                            .Replace(" , ", ", ")
+                            .Replace(" ,", ", ")
+                            .Trim();
+
+                        // Extract barangay number if present
+                        var brgyMatch = Regex.Match(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)[\s,]*0*(\d{1,3})", RegexOptions.IgnoreCase);
+                        if (!brgyMatch.Success)
+                        {
+                            // Try alternative patterns for barangay
+                            brgyMatch = Regex.Match(result.Address, @"\b(\d{3})\b");
+                        }
+                        
+                        if (brgyMatch.Success)
+                        {
+                            result.Barangay = brgyMatch.Groups[1].Value.Trim();
+                        }
+
+                        // Clean up the address
+                        result.Address = Regex.Replace(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)[\s,]*\d{1,3}", "", RegexOptions.IgnoreCase)
+                            .Replace(",,", ",")
+                            .Replace("  ", " ")
+                            .Trim(',', ' ', '-', '.');
+
+                        _logger.LogInformation("Extracted PhilSys address: {Address}", result.Address);
+                        return;
+                    }
+                }
+                
+                // For other ID types or if PhilSys parsing didn't work
                 // Remove any label prefixes and clean up
                 addressText = Regex.Replace(addressText, @"^[\s:\-\n]+|[""'']", " ", RegexOptions.Multiline);
                 
@@ -397,37 +445,24 @@ namespace Barangay.Services
                 }
 
                 // Join the lines with proper formatting
-                result.Address = string.Join(", ", addressLines)
+                result.Address = string.Join(" ", addressLines)
                     .Replace(", ,", ",")  // Remove empty segments
                     .Replace("  ", " ")    // Remove double spaces
                     .Trim(',', ' ', '-', '.');
                 
-                // Special handling for PhilSys address format
-                if (result.Address.StartsWith("PHL", StringComparison.OrdinalIgnoreCase) &&
-                    addressLines.Count > 1)
+                // Extract and clean up barangay number if present
+                var barangayMatch = Regex.Match(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)[\s,]*0*(\d{1,3})", RegexOptions.IgnoreCase);
+                if (!barangayMatch.Success)
                 {
-                    // Skip the "PHL" line and take the next line as the address
-                    result.Address = string.Join(", ", addressLines.Skip(1))
-                        .Replace(", ,", ",")
-                        .Replace("  ", " ")
-                        .Trim(',', ' ', '-', '.');
+                    // Try alternative patterns for barangay
+                    barangayMatch = Regex.Match(result.Address, @"\b(\d{3})\b");
                 }
                 
-                // Clean up common OCR errors
-                result.Address = result.Address
-                    .Replace("BARANGAYGITY", "BARANGAY")
-                    .Replace("BARANGAYCITY", "BARANGAY")
-                    .Replace("BARANGAYCITY ", "BARANGAY ")
-                    .Replace("BARANGAY CITY", "BARANGAY")
-                    .Replace("BARANGAY ", "");
-                
-                // Extract and clean up barangay number if present
-                var barangayMatch = Regex.Match(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)\s*(\d{1,3})", RegexOptions.IgnoreCase);
                 if (barangayMatch.Success)
                 {
                     result.Barangay = barangayMatch.Groups[1].Value.Trim();
                     // Remove the barangay part from the address to avoid duplication
-                    result.Address = Regex.Replace(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)\s*\d{1,3}", "", RegexOptions.IgnoreCase)
+                    result.Address = Regex.Replace(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)[\s,]*\d{1,3}", "", RegexOptions.IgnoreCase)
                         .Replace(", ,", ",")
                         .Trim(',', ' ');
                 }
@@ -436,6 +471,8 @@ namespace Barangay.Services
                 result.Address = Regex.Replace(result.Address, @"\s*,\s*", ", ") // Normalize spaces after commas
                     .Replace("  ", " ")
                     .Trim();
+                
+                _logger.LogInformation("Extracted address: {Address}", result.Address);
             }
         }
 
