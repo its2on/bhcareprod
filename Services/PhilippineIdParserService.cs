@@ -269,22 +269,83 @@ namespace Barangay.Services
 
         private void ExtractNameGeneric(string text, ParsedIdData result)
         {
-            var namePattern = @"(?:Name|Full\s+Name)[:\s]+([A-Z]{2,20}(?:\s+[A-Z]{1,20}){1,4})";
-            var nameMatch = Regex.Match(text, namePattern, RegexOptions.IgnoreCase);
-            
-            if (nameMatch.Success)
+            try
             {
-                var fullName = nameMatch.Groups[1].Value.Trim();
-                var nameParts = fullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                // First try to find the name in the format "APELYIDO, PANGALAN GITNANG PANGALAN"
+                var namePattern = @"APELYIDO\s*\/\s*Last Name\s*([A-Z]+(?:\s+[A-Z]+)*)\s*Pangalan\s*\/\s*Given Names\s*([A-Z]+(?:\s+[A-Z]+)*)(?:\s+Gitnang\s+Apelyido\s*\/\s*Middle Name\s*([A-Z]+(?:\s+[A-Z]+)*))?";
+                var nameMatch = Regex.Match(text, namePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
                 
-                if (nameParts.Length > 0)
-                    result.FirstName = nameParts[0];
+                if (nameMatch.Success)
+                {
+                    // Format: APELYIDO, PANGALAN GITNANG PANGALAN
+                    result.LastName = nameMatch.Groups[1].Value.Trim();
+                    
+                    var givenNames = nameMatch.Groups[2].Value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (givenNames.Length > 0)
+                    {
+                        result.FirstName = givenNames[0];
+                        
+                        if (givenNames.Length > 1)
+                        {
+                            result.MiddleName = string.Join(" ", givenNames.Skip(1));
+                        }
+                    }
+                    
+                    // If middle name is in a separate field
+                    if (nameMatch.Groups.Count > 3 && !string.IsNullOrWhiteSpace(nameMatch.Groups[3].Value))
+                    {
+                        result.MiddleName = nameMatch.Groups[3].Value.Trim();
+                    }
+                    
+                    _logger.LogInformation("Extracted name (APELYIDO format): {LastName}, {FirstName} {MiddleName}", 
+                        result.LastName, result.FirstName, result.MiddleName);
+                    return;
+                }
                 
-                if (nameParts.Length > 2)
-                    result.MiddleName = string.Join(" ", nameParts.Skip(1).Take(nameParts.Length - 2));
+                // Fallback to simpler pattern if the first one doesn't match
+                namePattern = @"(?:Name|Full\s+Name|Pangalan|Apelyido)[\s:]+([A-Z]{2,20}(?:\s+[A-Z]{1,20}){1,4})";
+                nameMatch = Regex.Match(text, namePattern, RegexOptions.IgnoreCase);
                 
-                if (nameParts.Length > 1)
-                    result.LastName = nameParts[nameParts.Length - 1];
+                if (nameMatch.Success)
+                {
+                    var fullName = nameMatch.Groups[1].Value.Trim();
+                    var nameParts = fullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    
+                    if (nameParts.Length > 0)
+                        result.LastName = nameParts[0];
+                    
+                    if (nameParts.Length > 1)
+                        result.FirstName = nameParts[1];
+                    
+                    if (nameParts.Length > 2)
+                        result.MiddleName = string.Join(" ", nameParts.Skip(2));
+                    
+                    _logger.LogInformation("Extracted name (fallback): {LastName}, {FirstName} {MiddleName}", 
+                        result.LastName, result.FirstName, result.MiddleName);
+                }
+                
+                // Try to find names in the format "REBOREDO" (last name) and "RHYLLE LANDER" (first name)
+                var lastNameMatch = Regex.Match(text, @"Apelyido\s*\/\s*Last Name\s*([A-Z]+(?:\s+[A-Z]+)*)", RegexOptions.IgnoreCase);
+                var firstNameMatch = Regex.Match(text, @"Pangalan\s*\/\s*Given Names\s*([A-Z]+(?:\s+[A-Z]+)*)", RegexOptions.IgnoreCase);
+                var middleNameMatch = Regex.Match(text, @"Gitnang\s+Apelyido\s*\/\s*Middle Name\s*([A-Z]+(?:\s+[A-Z]+)*)", RegexOptions.IgnoreCase);
+                
+                if (lastNameMatch.Success && firstNameMatch.Success)
+                {
+                    result.LastName = lastNameMatch.Groups[1].Value.Trim();
+                    result.FirstName = firstNameMatch.Groups[1].Value.Trim();
+                    
+                    if (middleNameMatch.Success)
+                    {
+                        result.MiddleName = middleNameMatch.Groups[1].Value.Trim();
+                    }
+                    
+                    _logger.LogInformation("Extracted name (separate fields): {LastName}, {FirstName} {MiddleName}", 
+                        result.LastName, result.FirstName, result.MiddleName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error extracting name from text");
             }
         }
 
@@ -333,176 +394,149 @@ namespace Barangay.Services
             if (result == null || string.IsNullOrWhiteSpace(text))
                 return;
 
-            // Clean common OCR errors first
-            text = text.Replace("  ", " ")
-                      .Replace(" ,", ",")
-                      .Replace(",,", ",")
-                      .Replace("CALOORA", "CALOOCAN")
-                      .Replace("SOLE BARANICAY IGO", "BARANGAY 160")
-                      .Replace("BARANICAY IGO", "BARANGAY 160")
-                      .Replace("IGO CITY", "CITY OF CALOOCAN")
-                      .Trim();
-
-            // Define address section patterns
-            var addressPatterns = new[]
+            try
             {
-                @"(?:ADDRESS|TIRAHAN|ADRESA|BARANGAY)[:\s]*(.*?)(?=\b(?:DATE|BIRTH|AGE|SEX|GENDER|CONTACT|PHONE|MOBILE|TEL|ID|PHILSYS|REPUBLIC|PHILIPPINE|PAMBANSA|$))",
-                @"(?:ADDRESS|TIRAHAN|ADRESA|BARANGAY)[:\s]*(.*)"
-            };
+                // Clean common OCR errors first
+                text = text.Replace("  ", " ")
+                          .Replace(" ,", ",")
+                          .Replace(",,", ",")
+                          .Replace("CALOORA", "CALOOCAN")
+                          .Replace("SOLE BARANICAY IGO", "BARANGAY 160")
+                          .Replace("BARANICAY IGO", "BARANGAY 160")
+                          .Replace("IGO CITY", "CITY OF CALOOCAN")
+                          .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
+                          .Replace("NOR", "NCR")
+                          .Replace("/ADDRESS", "")
+                          .Replace("ADDRESS:", "")
+                          .Replace("PHL", "")
+                          .Trim();
 
-            string addressText = string.Empty;
-
-            // Try to find address section using patterns
-            foreach (var pattern in addressPatterns)
-            {
-                var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                if (match.Success)
+                // Define address section patterns
+                var addressPatterns = new[]
                 {
-                    addressText = match.Groups[1].Value.Trim();
-                    break;
+                    @"(?:ADDRESS|TIRAHAN|ADRESA|BARANGAY|TIRAHAN:?)[\s:]*([^\n]*?)(?=\b(?:DATE|BIRTH|AGE|SEX|GENDER|CONTACT|PHONE|MOBILE|TEL|ID|PHILSYS|REPUBLIC|PHILIPPINE|PAMBANSA|$))",
+                    @"(?:ADDRESS|TIRAHAN|ADRESA|BARANGAY|TIRAHAN:?)[\s:]*(.*)"
+                };
+
+                string addressText = string.Empty;
+
+                // Try to find address section using patterns
+                foreach (var pattern in addressPatterns)
+                {
+                    var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    if (match.Success)
+                    {
+                        addressText = match.Groups[1].Value.Trim();
+                        break;
+                    }
+                }
+
+                // If no match found, try to find address-like text
+                if (string.IsNullOrEmpty(addressText))
+                {
+                    // Look for common address patterns
+                    var addressLike = Regex.Match(text, @"\b(?:\d+[A-Z]*(?:\s+[A-Z][a-z]*)+\s+(?:STREET|ST|AVENUE|AVE|ROAD|RD|HIGHWAY|HWY|BOULEVARD|BLVD|SUBDIVISION|SUBD|VILLAGE|VILL|BRGY|BARANGAY)\b.*", 
+                        RegexOptions.IgnoreCase);
+                    if (addressLike.Success)
+                    {
+                        addressText = addressLike.Value.Trim();
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(addressText))
+                {
+                    // Clean up the address text
+                    addressText = Regex.Replace(addressText, @"\s+", " ")
+                                     .Replace(" ,", ",")
+                                     .Replace(",,", ",")
+                                     .Replace(" , ", ", ")
+                                     .Replace("ALPHA HO!", "ALPHA HOMES")
+                                     .Replace("ALPHA HOI", "ALPHA HOMES")
+                                     .Replace("ALPHA HO ", "ALPHA HOMES ")
+                                     .Replace("RUBYVILLESUBDE", "RUBYVILLE SUBD")
+                                     .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
+                                     .Replace("CITY OF CALOOCAN NCR", "CITY OF CALOOCAN, NCR")
+                                     .Trim();
+
+                    // Extract barangay number with better pattern matching
+                    var brgyMatch = Regex.Match(addressText, 
+                        @"(?:BRGY|BRGY\.|BARANGAY|BRG\.?|BGY\.?)[\s,]*0*(\d{1,3})", 
+                        RegexOptions.IgnoreCase);
+                    
+                    if (!brgyMatch.Success)
+                    {
+                        // Try alternative patterns for barangay
+                        brgyMatch = Regex.Match(addressText, 
+                            @"\b(?:BRGY|BRG|BGY|BARANGAY)[\s,]*#?0*(\d{1,3})\b", 
+                            RegexOptions.IgnoreCase);
+                    }
+
+                    // Clean up address text before processing
+                    var cleanAddressText = addressText;
+                    
+                    if (brgyMatch.Success)
+                    {
+                        result.Barangay = brgyMatch.Groups[1].Value.Trim();
+                        // Remove the barangay part to avoid duplication
+                        cleanAddressText = Regex.Replace(cleanAddressText, 
+                            @"(?:BRGY|BRGY\.|BARANGAY|BRG\.?|BGY\.?)[\s,]*#?0*\d{1,3}", 
+                            "", 
+                            RegexOptions.IgnoreCase);
+                    }
+
+                    // Split into address parts
+                    var addressParts = cleanAddressText
+                        .Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(p => p.Trim())
+                        .Where(p => !string.IsNullOrWhiteSpace(p) && p.Length >= 3)
+                        .Where(p => !Regex.IsMatch(p, @"^\d{1,2}(?:ST|ND|RD|TH)?\s+(?:DISTRICT|DIST|DIST\.?)$", RegexOptions.IgnoreCase))
+                        .ToList();
+
+                    // Reconstruct the address with proper formatting
+                    var formattedAddress = string.Join(", ", addressParts)
+                        .Replace(",,", ",")
+                        .Replace(" , ", ", ")
+                        .Replace("  ", " ")
+                        .Trim();
+
+                    // Ensure proper comma separation for common patterns
+                    formattedAddress = Regex.Replace(formattedAddress, 
+                        @"(\d+[A-Z]*(?:\s+[A-Z][a-z]*)+)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)*)", 
+                        "$1, $2");
+
+                    // Add barangay after city if not already present
+                    if (!string.IsNullOrEmpty(result.Barangay) && !formattedAddress.Contains("BARANGAY", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var cityMatch = Regex.Match(formattedAddress, @"(CITY\s+OF\s+[A-Z\s]+)", RegexOptions.IgnoreCase);
+                        if (cityMatch.Success)
+                        {
+                            // Insert barangay after city
+                            formattedAddress = formattedAddress.Insert(
+                                cityMatch.Index + cityMatch.Length,
+                                $", BARANGAY {result.Barangay}"
+                            );
+                        }
+                        else
+                        {
+                            // If no city found, prepend barangay
+                            formattedAddress = $"BARANGAY {result.Barangay}, {formattedAddress}";
+                        }
+                    }
+
+                    // Final cleanup
+                    result.Address = Regex.Replace(formattedAddress, @"\s+", " ")
+                                        .Replace(" ,", ",")
+                                        .Replace(",,", ",")
+                                        .Replace(" , ", ", ")
+                                        .Replace("  ", " ")
+                                        .Trim(',', ' ', '-', '.');
+
+                    _logger.LogInformation("Extracted address: {Address}", result.Address);
                 }
             }
-
-            // If no match found, try to find address-like text
-            if (string.IsNullOrEmpty(addressText))
+            catch (Exception ex)
             {
-                // Look for common address patterns
-                var addressLike = Regex.Match(text, @"\b(?:\d+[A-Z]*(?:\s+[A-Z][a-z]*)+\s+(?:STREET|ST|AVENUE|AVE|ROAD|RD|HIGHWAY|HWY|BOULEVARD|BLVD|SUBDIVISION|SUBD|VILLAGE|VILL|BRGY|BARANGAY)\b.*", 
-                    RegexOptions.IgnoreCase);
-                if (addressLike.Success)
-                {
-                    addressText = addressLike.Value.Trim();
-                }
-            }
-
-            if (!string.IsNullOrEmpty(addressText))
-            {
-                // Clean up the address text
-                addressText = Regex.Replace(addressText, @"\s+", " ")
-                                 .Replace(" ,", ",")
-                                 .Replace(",,", ",")
-                                 .Replace(" , ", ", ")
-                                 .Trim();
-
-                // Extract barangay number with better pattern matching
-                var brgyMatch = Regex.Match(addressText, 
-                    @"(?:BRGY|BRGY\.|BARANGAY|BRG\.?|BGY\.?)[\s,]*0*(\d{1,3})", 
-                    RegexOptions.IgnoreCase);
-                
-                if (!brgyMatch.Success)
-                {
-                    // Try alternative patterns for barangay
-                    brgyMatch = Regex.Match(addressText, 
-                        @"\b(?:BRGY|BRG|BGY|BARANGAY)[\s,]*#?0*(\d{1,3})\b", 
-                        RegexOptions.IgnoreCase);
-                }
-
-                if (brgyMatch.Success)
-                {
-                    result.Barangay = brgyMatch.Groups[1].Value.Trim();
-                    // Remove the barangay part to avoid duplication
-                    addressText = Regex.Replace(addressText, 
-                        @"(?:BRGY|BRGY\.|BARANGAY|BRG\.?|BGY\.?)[\s,]*#?0*\d{1,3}", 
-                        "", 
-                        RegexOptions.IgnoreCase);
-                }
-
-                // Clean up common OCR errors in address components
-                var addressParts = new List<string>();
-                var lines = addressText.Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                                     .Select(p => p.Trim())
-                                     .Where(p => !string.IsNullOrWhiteSpace(p))
-                                     .ToList();
-
-                foreach (var part in lines)
-                {
-                    var cleanPart = part.Trim()
-                                      .Replace("  ", " ")
-                                      .Replace(" ,", ",")
-                                      .Replace(",,", ",")
-                                      .Trim();
-
-                    // Skip parts that are too short or don't look like address components
-                    if (cleanPart.Length < 3 || 
-                        cleanPart.Equals("PHL", StringComparison.OrdinalIgnoreCase) ||
-                        cleanPart.Equals("CITY", StringComparison.OrdinalIgnoreCase) ||
-                        cleanPart.Equals("PROVINCE", StringComparison.OrdinalIgnoreCase) ||
-                        cleanPart.Equals("REGION", StringComparison.OrdinalIgnoreCase) ||
-                        cleanPart.Equals("DISTRICT", StringComparison.OrdinalIgnoreCase) ||
-                        Regex.IsMatch(cleanPart, @"^\d{1,2}(?:ST|ND|RD|TH)?\s+(?:DISTRICT|DIST|DIST\.?)$", RegexOptions.IgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    // Fix common OCR errors in address parts
-                    cleanPart = cleanPart
-                        .Replace("ALPHA HO!", "ALPHA HOMES")
-                        .Replace("ALPHA HOI", "ALPHA HOMES")
-                        .Replace("ALPHA HO ", "ALPHA HOMES ")
-                        .Replace("RUBYVILLESUBDE", "RUBYVILLE SUBD")
-                        .Replace("RUBYVILLE SUBDE", "RUBYVILLE SUBD")
-                        .Replace("CALOORA", "CALOOCAN")
-                        .Replace("CITY OF CALOOCAN NCR", "CITY OF CALOOCAN, NCR")
-                        .Replace("NOR", "NCR")
-                        .Replace("  ", " ");
-
-                    addressParts.Add(cleanPart);
-                }
-
-                // Reconstruct the address with proper formatting
-                var formattedAddress = string.Join(", ", addressParts)
-                    .Replace(",,", ",")
-                    .Replace(" , ", ", ")
-                    .Replace("  ", " ")
-                    .Trim();
-
-                // Ensure proper comma separation for common patterns
-                formattedAddress = Regex.Replace(formattedAddress, 
-                    @"(\d+[A-Z]*(?:\s+[A-Z][a-z]*)+)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)*)", 
-                    "$1, $2"); // Add comma between number and street name
-
-                formattedAddress = Regex.Replace(formattedAddress, 
-                    @"(SUBDIVISION|SUBD|VILLAGE|VILL|HOMES|HOMESITE|RESIDENCE|RESORT|COMPOUND|ESTATE|PARK|HEIGHTS|VALLEY|HILLS|ROYALE|ROYAL|GARDENS?|MANOR|PLACE|TOWERS?|COURT|COURTS|PARKVIEW|PARK VIEW|GARDEN VILLE|GARDENVILLE|GREEN VALLEY|GREEN VALLEY|GREENWOOD|GREENWOODS|GREENMEADOWS|GREEN MEADOWS|GREENHILLS|GREEN HILLS|GREENFIELD|GREEN FIELD|GREEN PASTURES|GREENPASTURES|GREEN VALLEY|GREENVALLEY|GREENWOOD|GREEN WOODS|GREENWOODS|GREEN VALLEY|GREENVALLEY|GREENHILLS|GREEN HILLS|GREENWOOD|GREEN WOODS|GREENWOODS|GREEN VALLEY|GREENVALLEY|GREENHILLS|GREEN HILLS|GREENWOOD|GREEN WOODS|GREENWOODS|GREEN VALLEY|GREENVALLEY|GREENHILLS|GREEN HILLS|GREENWOOD|GREEN WOODS|GREENWOODS)\b", 
-                    "$1, ");
-
-                // Handle district formatting
-                formattedAddress = Regex.Replace(formattedAddress, 
-                    @"\b(\d+(?:ST|ND|RD|TH)?)\s+(DISTRICT|DIST|DIST\.?)\b", 
-                    "$1 $2, ", 
-                    RegexOptions.IgnoreCase);
-
-                // Clean up any double commas or spaces
-                formattedAddress = Regex.Replace(formattedAddress, @",\s*,", ",")
-                                      .Replace("  ", " ")
-                                      .Trim(',', ' ', '-', '.');
-
-                // If we have a barangay, ensure it's properly included
-                if (!string.IsNullOrEmpty(result.Barangay) && 
-                    !formattedAddress.Contains("BARANGAY", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Find the best place to insert the barangay
-                    var cityMatch = Regex.Match(formattedAddress, @"(CITY\s+OF\s+[A-Z\s]+)", RegexOptions.IgnoreCase);
-                    if (cityMatch.Success)
-                    {
-                        formattedAddress = formattedAddress.Insert(
-                            cityMatch.Index + cityMatch.Length,
-                            $", BARANGAY {result.Barangay}"
-                        );
-                    }
-                    else
-                    {
-                        formattedAddress = $"BARANGAY {result.Barangay}, {formattedAddress}";
-                    }
-                }
-
-                // Final cleanup
-                result.Address = Regex.Replace(formattedAddress, @"\s+", " ")
-                                    .Replace(" ,", ",")
-                                    .Replace(",,", ",")
-                                    .Replace(" , ", ", ")
-                                    .Trim(',', ' ', '-', '.');
-
-                _logger.LogInformation("Extracted address: {Address}", result.Address);
+                _logger.LogError(ex, "Error extracting address from text");
             }
         }
 
