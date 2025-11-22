@@ -15,105 +15,50 @@ using OpenCvSharp;
 
 namespace Barangay.Services
 {
-    public class LocalOcrService
+    public class LocalOcrService : IDisposable
     {
         private readonly ILogger<LocalOcrService> _logger;
         private readonly string _tesseractDataPath;
         private readonly HttpClient _httpClient;
-        private List<(string path, string method)> _preprocessedImages;
+        private readonly List<(string path, string method)> _preprocessedImages;
+        private bool _disposed = false;
+        private bool _isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
         public LocalOcrService(ILogger<LocalOcrService> logger, IHttpClientFactory httpClientFactory = null)
         {
             _logger = logger;
             _httpClient = httpClientFactory?.CreateClient() ?? new HttpClient();
+            _preprocessedImages = new List<(string, string)>();
             
-            // Use application directory for tessdata (we'll download files here if needed)
-            var appDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
-            
-            // Try to find Tesseract data directory
-            // Common locations: current directory, tessdata subfolder, or system installation
-            // Supports both Windows and Linux paths
-            var possiblePaths = new List<string>
-            {
-                appDataPath, // Prefer application directory (we can download files here)
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "tessdata"),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "tessdata")
-            };
-
-            // Windows paths
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                possiblePaths.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Tesseract-OCR", "tessdata"));
-                possiblePaths.Add(Path.Combine("C:", "Program Files", "Tesseract-OCR", "tessdata"));
-                possiblePaths.Add(Path.Combine("C:", "Program Files (x86)", "Tesseract-OCR", "tessdata"));
-            }
-            else
-            {
-                // Linux paths (for Azure App Service)
-                possiblePaths.Add("/usr/share/tesseract-ocr/5/tessdata");
-                possiblePaths.Add("/usr/share/tesseract-ocr/4.00/tessdata");
-                possiblePaths.Add("/usr/share/tesseract-ocr/tessdata");
-                possiblePaths.Add("/usr/local/share/tessdata");
-                possiblePaths.Add("/opt/tesseract/tessdata");
-            }
-
-            // Find existing tessdata directory or use application directory
-            var existingPath = possiblePaths.FirstOrDefault(Directory.Exists);
-            _tesseractDataPath = existingPath ?? appDataPath;
-            
-            // Use absolute path
-            _tesseractDataPath = Path.GetFullPath(_tesseractDataPath).TrimEnd(Path.DirectorySeparatorChar);
-            
-            // Create tessdata directory if it doesn't exist (for downloading files)
-            if (!Directory.Exists(_tesseractDataPath))
-            {
-                try
-                {
-                    Directory.CreateDirectory(_tesseractDataPath);
-                    _logger.LogInformation("Created tessdata directory at: {Path}", _tesseractDataPath);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not create tessdata directory at {Path}, will try to use existing paths", _tesseractDataPath);
-                }
-            }
-            
-            // Set TESSDATA_PREFIX environment variable
-            Environment.SetEnvironmentVariable("TESSDATA_PREFIX", _tesseractDataPath);
-            
-            _logger.LogInformation("Tesseract data path: {Path}", _tesseractDataPath);
-            
-            // Test if Tesseract native libraries are available (only on Linux)
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-            {
-                try
-                {
-                    // Try to create a TesseractEngine instance to test if native libraries are available
-                    using (var testEngine = new TesseractEngine(_tesseractDataPath, "eng", EngineMode.Default))
-                    {
-                        _logger.LogInformation("✓ Tesseract native libraries are available");
-                    }
-                }
-                catch (DllNotFoundException dllEx)
-                {
-                    _logger.LogError(dllEx, "❌ Tesseract native libraries (Leptonica) not found. Local OCR will not work. " +
-                        "Please ensure Leptonica is installed: apt-get install -y libleptonica-dev libtesseract-dev");
-                }
-                catch (Exception ex)
-                {
-                    // Other exceptions (like missing language files) are OK - we'll handle those later
-                    _logger.LogWarning(ex, "Could not initialize Tesseract engine during startup check (this may be OK if language files are missing)");
-                }
-            }
-            
-            // Ensure language files exist (download if needed) - wait for it to complete
             try
             {
-                EnsureLanguageFilesExist().Wait(TimeSpan.FromSeconds(30)); // Wait up to 30 seconds
+                // Set TESSDATA_PREFIX environment variable - this is crucial for Tesseract to find its data files
+                var tesseractDataPath = FindTesseractDataPath();
+                Environment.SetEnvironmentVariable("TESSDATA_PREFIX", tesseractDataPath);
+                _logger.LogInformation($"TESSDATA_PREFIX set to: {tesseractDataPath}");
+                
+                // On Linux, check for required native libraries
+                if (_isLinux)
+                {
+                    CheckLinuxDependencies();
+                }
+                
+                // Ensure language files exist (download if needed)
+                _ = EnsureLanguageFilesExist().ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                    {
+                        _logger.LogError(t.Exception, "Failed to ensure language files exist");
+                    }
+                });
+                
+                // Log environment information for debugging
+                LogEnvironmentInfo();
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Could not download language files during initialization, will try again when needed");
+                _logger.LogError(ex, "Error initializing LocalOcrService");
+                throw;
             }
         }
 
@@ -160,38 +105,272 @@ namespace Barangay.Services
             return processedStream.ToArray();
         }
 
+        private string FindTesseractDataPath()
+        {
+            var possiblePaths = new List<string>();
+            
+            // Check common Linux paths first
+            if (_isLinux)
+            {
+                possiblePaths.AddRange(new[]
+                {
+                    "/usr/share/tesseract-ocr/4.00/tessdata",
+                    "/usr/share/tesseract-ocr/5/tessdata",
+                    "/usr/share/tesseract-ocr/tessdata",
+                    "/usr/local/share/tessdata",
+                    "/opt/tesseract/tessdata"
+                });
+            }
+            
+            // Check application directory and common Windows paths
+            var appDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
+            possiblePaths.Add(appDataPath);
+            possiblePaths.Add(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "tessdata"));
+            possiblePaths.Add(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "tessdata"));
+            
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                possiblePaths.AddRange(new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Tesseract-OCR", "tessdata"),
+                    Path.Combine("C:", "Program Files", "Tesseract-OCR", "tessdata"),
+                    Path.Combine("C:", "Program Files (x86)", "Tesseract-OCR", "tessdata")
+                });
+            }
+            
+            // Try to find an existing directory
+            foreach (var path in possiblePaths)
+            {
+                try
+                {
+                    if (Directory.Exists(path))
+                    {
+                        _logger.LogInformation("Found Tesseract data path: {Path}", path);
+                        return path;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error checking path: {Path}", path);
+                }
+            }
+            
+            // If no existing directory found, use the application directory
+            try
+            {
+                Directory.CreateDirectory(appDataPath);
+                _logger.LogInformation("Created tessdata directory at: {Path}", appDataPath);
+                return appDataPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create tessdata directory at {Path}", appDataPath);
+                throw;
+            }
+        }
+        
+        private void CheckLinuxDependencies()
+        {
+            try
+            {
+                _logger.LogInformation("Checking for required Linux dependencies...");
+                
+                // Check if Tesseract is installed
+                var tesseractVersion = RunCommand("tesseract", "--version");
+                _logger.LogInformation($"Tesseract version: {tesseractVersion.Output.Trim()}");
+                
+                // Check if Leptonica is available
+                var lddOutput = RunCommand("ldd", "$(which tesseract)");
+                if (lddOutput.ExitCode == 0 && lddOutput.Output.Contains("lept"))
+                {
+                    _logger.LogInformation("✓ Leptonica library is available");
+                }
+                else
+                {
+                    _logger.LogError("❌ Leptonica library not found. Please install with: apt-get install -y libleptonica-dev libtesseract-dev");
+                }
+                
+                // Check if OpenCV is available
+                try
+                {
+                    // This will throw if OpenCV is not available
+                    Cv2.GetVersionString();
+                    _logger.LogInformation($"✓ OpenCV version: {Cv2.GetVersionString()}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ OpenCV not available. Some image processing features may be limited.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Linux dependencies");
+                throw;
+            }
+        }
+        
+        private (int ExitCode, string Output) RunCommand(string command, string arguments)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = command,
+                        Arguments = arguments,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+                
+                if (process.ExitCode != 0)
+                {
+                    _logger.LogError($"Command failed: {command} {arguments}\n{error}");
+                }
+                
+                return (process.ExitCode, output);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error running command: {command} {arguments}");
+                return (-1, $"Error: {ex.Message}");
+            }
+        }
+        
+        private void LogEnvironmentInfo()
+        {
+            try
+            {
+                _logger.LogInformation("=== Environment Information ===");
+                _logger.LogInformation($"OS: {RuntimeInformation.OSDescription}");
+                _logger.LogInformation($"Runtime: {RuntimeInformation.FrameworkDescription}");
+                _logger.LogInformation($"Process Architecture: {RuntimeInformation.ProcessArchitecture}");
+                _logger.LogInformation($"Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
+                _logger.LogInformation($"TESSDATA_PREFIX: {Environment.GetEnvironmentVariable("TESSDATA_PREFIX")}");
+                
+                // Log library search paths
+                if (_isLinux)
+                {
+                    _logger.LogInformation($"LD_LIBRARY_PATH: {Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")}");
+                    
+                    // Log contents of /usr/lib and /usr/local/lib
+                    LogDirectoryContents("/usr/lib", "*.so*", 5);
+                    LogDirectoryContents("/usr/local/lib", "*.so*", 5);
+                }
+                
+                _logger.LogInformation("================================");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error logging environment information");
+            }
+        }
+        
+        private void LogDirectoryContents(string path, string searchPattern, int maxItems = 10)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    var files = Directory.GetFiles(path, searchPattern)
+                        .Select(f => Path.GetFileName(f))
+                        .Take(maxItems)
+                        .ToList();
+                        
+                    if (files.Any())
+                    {
+                        _logger.LogInformation($"Found {files.Count} files in {path}:");
+                        foreach (var file in files)
+                        {
+                            _logger.LogInformation($"  - {file}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Could not list contents of {path}");
+            }
+        }
+        
         /// <summary>
         /// Ensures that the required Tesseract language data files exist, downloading them if necessary
         /// </summary>
         private async Task EnsureLanguageFilesExist()
         {
-            var engDataFile = Path.Combine(_tesseractDataPath, "eng.traineddata");
+            var tessDataPath = Environment.GetEnvironmentVariable("TESSDATA_PREFIX") ?? "/usr/share/tesseract-ocr/4.00/tessdata";
+            var engDataFile = Path.Combine(tessDataPath, "eng.traineddata");
+            var filDataFile = Path.Combine(tessDataPath, "fil.traineddata");
             
-            if (!File.Exists(engDataFile))
+            try
             {
-                _logger.LogWarning("English language data file not found at {Path}, attempting to download", engDataFile);
+                // Ensure directory exists
+                Directory.CreateDirectory(tessDataPath);
                 
-                try
+                // Download English language data if needed
+                if (!File.Exists(engDataFile))
                 {
-                    _logger.LogInformation("Downloading eng.traineddata from GitHub...");
-                    var url = "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata";
-                    var response = await _httpClient.GetAsync(url);
-                    response.EnsureSuccessStatusCode();
-                    
-                    var data = await response.Content.ReadAsByteArrayAsync();
-                    await File.WriteAllBytesAsync(engDataFile, data);
-                    
-                    _logger.LogInformation("Successfully downloaded eng.traineddata to {Path}", engDataFile);
+                    _logger.LogWarning("English language data file not found at {Path}, attempting to download", engDataFile);
+                    await DownloadLanguageFileAsync("eng.traineddata", engDataFile);
                 }
-                catch (Exception ex)
+                
+                // Download Filipino language data if needed
+                if (!File.Exists(filDataFile))
                 {
-                    _logger.LogError(ex, "Failed to download eng.traineddata. OCR may not work until this file is manually added.");
+                    _logger.LogInformation("Filipino language data file not found at {Path}, attempting to download", filDataFile);
+                    await DownloadLanguageFileAsync("fil.traineddata", filDataFile);
+                }
+                
+                // Verify the files are valid
+                if (File.Exists(engDataFile))
+                {
+                    var fileInfo = new FileInfo(engDataFile);
+                    _logger.LogInformation($"Found eng.traineddata at {engDataFile} (Size: {fileInfo.Length / 1024} KB)");
+                    
+                    if (fileInfo.Length < 1024 * 100) // Less than 100KB is probably invalid
+                    {
+                        _logger.LogWarning("eng.traineddata file appears to be too small. It may be corrupted.");
+                        File.Delete(engDataFile);
+                        await DownloadLanguageFileAsync("eng.traineddata", engDataFile);
+                    }
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogInformation("Found eng.traineddata at {Path}", engDataFile);
+                _logger.LogError(ex, "Error ensuring language files exist");
+                throw;
             }
+        }
+        
+        private async Task DownloadLanguageFileAsync(string fileName, string destinationPath)
+        {
+            try
+            {
+                var url = $"https://github.com/tesseract-ocr/tessdata/raw/main/{fileName}";
+                _logger.LogInformation($"Downloading {fileName} from GitHub...");
+                
+                using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                
+                using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await response.Content.CopyToAsync(fileStream);
+                
+                _logger.LogInformation($"Successfully downloaded {fileName} to {destinationPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to download {fileName}");
+                throw;
+            }
+        }
         }
 
         /// <summary>
