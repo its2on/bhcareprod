@@ -333,35 +333,109 @@ namespace Barangay.Services
             if (result == null || string.IsNullOrWhiteSpace(text))
                 return;
 
-            var addressKeywords = new[] { "ADDRESS", "TIRAHAN" };
+            var addressKeywords = new[] { "ADDRESS", "TIRAHAN", "BARANGAY" };
             var addressStartIndex = -1;
+            string keywordFound = string.Empty;
 
+            // Find the first occurrence of any address keyword
             foreach (var keyword in addressKeywords)
             {
                 var index = text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
                 if (index >= 0 && (addressStartIndex == -1 || index < addressStartIndex))
                 {
                     addressStartIndex = index;
+                    keywordFound = keyword;
                 }
             }
 
             if (addressStartIndex >= 0)
             {
-                var addressText = text.Substring(addressStartIndex);
+                // Take text from the keyword to the end of the document
+                var addressText = text.Substring(addressStartIndex + keywordFound.Length);
                 addressText = CleanOcrErrors(addressText);
-                addressText = Regex.Replace(addressText, @"^\s*(ADDRESS|TIRAHAN)[:\s-]*", "", RegexOptions.IgnoreCase);
                 
-                var addressLines = addressText
-                    .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(l => l.Trim())
-                    .Where(l => !string.IsNullOrWhiteSpace(l) && l.Length > 2)
-                    .Take(3)
-                    .ToList();
+                // Remove any label prefixes and clean up
+                addressText = Regex.Replace(addressText, @"^[\s:\-\n]+|[""'']", " ", RegexOptions.Multiline);
+                
+                // Split into lines and clean each line
+                var addressLines = new List<string>();
+                var lines = addressText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                
+                foreach (var line in lines)
+                {
+                    var cleanLine = line.Trim();
+                    
+                    // Skip very short lines or lines that look like other fields
+                    if (cleanLine.Length < 3 || 
+                        cleanLine.Contains("DATE OF BIRTH") || 
+                        cleanLine.Contains("BIRTH") ||
+                        cleanLine.StartsWith("PHL") ||
+                        cleanLine.StartsWith("MALE") ||
+                        cleanLine.StartsWith("FEMALE") ||
+                        cleanLine.StartsWith("SEX") ||
+                        cleanLine.StartsWith("GENDER") ||
+                        Regex.IsMatch(cleanLine, @"^\d{1,2}/\d{1,2}/\d{4}$") ||
+                        Regex.IsMatch(cleanLine, @"^\d{4}-\d{2}-\d{2}$"))
+                    {
+                        continue;
+                    }
+                    
+                    // Clean up the line
+                    cleanLine = cleanLine
+                        .Replace("  ", " ")
+                        .Replace(" ,", ",")
+                        .Trim(',', ' ', '-', '.');
+                        
+                    if (!string.IsNullOrWhiteSpace(cleanLine))
+                    {
+                        addressLines.Add(cleanLine);
+                    }
+                    
+                    // Take up to 3 address lines
+                    if (addressLines.Count >= 3)
+                        break;
+                }
 
+                // Join the lines with proper formatting
                 result.Address = string.Join(", ", addressLines)
-                    .Replace("  ", " ")
-                    .Replace(" ,", ",")
+                    .Replace(", ,", ",")  // Remove empty segments
+                    .Replace("  ", " ")    // Remove double spaces
                     .Trim(',', ' ', '-', '.');
+                
+                // Special handling for PhilSys address format
+                if (result.Address.StartsWith("PHL", StringComparison.OrdinalIgnoreCase) &&
+                    addressLines.Count > 1)
+                {
+                    // Skip the "PHL" line and take the next line as the address
+                    result.Address = string.Join(", ", addressLines.Skip(1))
+                        .Replace(", ,", ",")
+                        .Replace("  ", " ")
+                        .Trim(',', ' ', '-', '.');
+                }
+                
+                // Clean up common OCR errors
+                result.Address = result.Address
+                    .Replace("BARANGAYGITY", "BARANGAY")
+                    .Replace("BARANGAYCITY", "BARANGAY")
+                    .Replace("BARANGAYCITY ", "BARANGAY ")
+                    .Replace("BARANGAY CITY", "BARANGAY")
+                    .Replace("BARANGAY ", "");
+                
+                // Extract and clean up barangay number if present
+                var barangayMatch = Regex.Match(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)\s*(\d{1,3})", RegexOptions.IgnoreCase);
+                if (barangayMatch.Success)
+                {
+                    result.Barangay = barangayMatch.Groups[1].Value.Trim();
+                    // Remove the barangay part from the address to avoid duplication
+                    result.Address = Regex.Replace(result.Address, @"(?:BRGY|BRGY\.|BARANGAY)\s*\d{1,3}", "", RegexOptions.IgnoreCase)
+                        .Replace(", ,", ",")
+                        .Trim(',', ' ');
+                }
+                
+                // Final cleanup
+                result.Address = Regex.Replace(result.Address, @"\s*,\s*", ", ") // Normalize spaces after commas
+                    .Replace("  ", " ")
+                    .Trim();
             }
         }
 
