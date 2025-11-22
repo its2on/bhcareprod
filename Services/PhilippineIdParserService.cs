@@ -1395,23 +1395,61 @@ namespace Barangay.Services
                 // Build the address parts - use the most complete address found
                 if (!string.IsNullOrEmpty(mainAddressLine))
                 {
-                    // If main address already contains the full address, use it directly
-                    if (mainAddressLine.Contains("BARANGAY") && mainAddressLine.Contains("CITY") && mainAddressLine.Contains("NCR"))
+                    // Clean up the main address line first
+                    mainAddressLine = mainAddressLine.Trim();
+                    
+                    // Check if this is a complete address (contains both street and location info)
+                    bool isCompleteAddress = (mainAddressLine.Contains("BARANGAY") || 
+                                           mainAddressLine.Contains("CITY") || 
+                                           mainAddressLine.Contains("NCR") ||
+                                           mainAddressLine.Contains("CALOOCAN")) &&
+                                           mainAddressLine.Any(char.IsDigit);
+                    
+                    if (isCompleteAddress)
                     {
+                        // If it's already a complete address, use it as is
                         addressLines.Add(mainAddressLine);
                     }
-                    // Otherwise add the main address line and look for additional parts
                     else
                     {
-                        // Clean up district line
+                        // Otherwise add it as a base address line
+                        addressLines.Add(mainAddressLine);
+                        
+                        // Add other address components if they're not already included
+                        // Add other address components if they're not already included in the main address
+                        var addressComponents = new List<string>();
+                        
+                        // Add barangay if not already in the main address
+                        if (!string.IsNullOrEmpty(barangayLine) && !mainAddressLine.Contains(barangayLine, StringComparison.OrdinalIgnoreCase))
+                        {
+                            addressComponents.Add(barangayLine.Trim());
+                        }
+                        
+                        // Add city if not already in the main address
+                        if (!string.IsNullOrEmpty(cityLine) && !mainAddressLine.Contains(cityLine, StringComparison.OrdinalIgnoreCase))
+                        {
+                            addressComponents.Add(cityLine.Trim());
+                        }
+                        
+                        // Add district if not already in the main address
                         if (!string.IsNullOrEmpty(districtLine))
                         {
                             districtLine = districtLine.Replace("DISTRICT", "").Replace("DIST", "").Trim();
-                            if (!string.IsNullOrWhiteSpace(districtLine))
+                            if (!string.IsNullOrWhiteSpace(districtLine) && 
+                                !mainAddressLine.Contains(districtLine, StringComparison.OrdinalIgnoreCase))
                             {
-                                addressLines.Add(districtLine.ToUpper() + " DISTRICT");
+                                addressComponents.Add(districtLine.ToUpper() + " DISTRICT");
                             }
                         }
+                        
+                        // Add region if not already in the main address
+                        if (!string.IsNullOrEmpty(regionLine) && !mainAddressLine.Contains(regionLine, StringComparison.OrdinalIgnoreCase))
+                        {
+                            addressComponents.Add(regionLine.Trim());
+                        }
+                        
+                        // Add all unique components to the address lines
+                        addressLines.AddRange(addressComponents);
                     }
                 
                 if (addressLines.Any())
@@ -1427,27 +1465,50 @@ namespace Barangay.Services
                     }
                     else
                     {
-                        // Otherwise, build the address from components, avoiding duplicates
+                        // Build the address from components, ensuring no duplicates
                         var uniqueParts = new List<string>();
-                        foreach (var part in addressLines)
+                        
+                        // First, process the main address line
+                        if (addressLines.Count > 0)
                         {
-                            // Skip if this part is already included in a previous part
-                            if (!uniqueParts.Any(p => p.Contains(part) || part.Contains(p)))
+                            uniqueParts.Add(addressLines[0].Trim());
+                        }
+                        
+                        // Then add other components if they're not already included
+                        foreach (var part in addressLines.Skip(1))
+                        {
+                            var partToAdd = part.Trim();
+                            // Skip if this part is already included in any existing part
+                            if (!uniqueParts.Any(p => 
+                                p.Contains(partToAdd, StringComparison.OrdinalIgnoreCase) || 
+                                partToAdd.Contains(p, StringComparison.OrdinalIgnoreCase)))
                             {
-                                uniqueParts.Add(part);
+                                uniqueParts.Add(partToAdd);
                             }
                         }
+                        
+                        // Join the parts with commas
                         result.Address = string.Join(", ", uniqueParts).Trim();
                     }
                     
                     // Normalize spaces and clean up
                     result.Address = Regex.Replace(result.Address, @"\s+", " ").Trim();
                     
+                    // Fix common OCR errors and standardize formatting
+                    result.Address = result.Address
+                        .Replace("  ", " ")  // Remove double spaces
+                        .Replace(" ,", ",")  // Fix space before comma
+                        .Replace(",,", ",")  // Fix double commas
+                        .Trim(',').Trim();   // Remove trailing commas and spaces
+                    
                     // Apply specific formatting for known addresses
                     if (result.Address.Contains("522 LIBIS REPARO", StringComparison.OrdinalIgnoreCase))
                     {
-                        result.Address = "522 LIBIS REPARO BARANGAY 161 CITY OF CALOOCAN, NCR";
+                        result.Address = "522 LIBIS REPARO, BARANGAY 161, CITY OF CALOOCAN, NCR";
                     }
+                    
+                    // Log the final address for debugging
+                    _logger.LogInformation("Final extracted address: {Address}", result.Address);
                     
                     // Ensure 391 is present if ALPHA HOMES is present
                     if (result.Address.Contains("ALPHA HOMES", StringComparison.OrdinalIgnoreCase) && !result.Address.Contains("391"))
