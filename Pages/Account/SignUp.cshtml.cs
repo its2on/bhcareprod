@@ -242,7 +242,6 @@ namespace Barangay.Pages.Account
             [Display(Name = "Gender")]
             [RegularExpression(@"^(Male|Female|Other)$", ErrorMessage = "Please select a valid gender.")]
             public string Gender { get; set; }
-            [Required(ErrorMessage = "Select Government ID Type")]
             public string GovernmentIdType { get; set; }
 
             [Required(ErrorMessage = "Barangay is required")]
