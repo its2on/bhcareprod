@@ -1402,34 +1402,48 @@ namespace Barangay.Services
                     }
                     // Otherwise add the main address line and look for additional parts
                     else
-                {
-                    // Clean up district line
-                    districtLine = districtLine.Replace("DISTRICT", "").Replace("DIST", "").Trim();
-                    if (!string.IsNullOrWhiteSpace(districtLine))
                     {
-                        addressLines.Add(districtLine.ToUpper() + " DISTRICT");
+                        // Clean up district line
+                        if (!string.IsNullOrEmpty(districtLine))
+                        {
+                            districtLine = districtLine.Replace("DISTRICT", "").Replace("DIST", "").Trim();
+                            if (!string.IsNullOrWhiteSpace(districtLine))
+                            {
+                                addressLines.Add(districtLine.ToUpper() + " DISTRICT");
+                            }
+                        }
                     }
-                }
                 
                 if (addressLines.Any())
                 {
-                    // Join with comma and space, then clean up any duplicate parts
-                    result.Address = string.Join(", ", addressLines).Trim();
-                    
-                    // Look for the most complete address pattern in the text
+                    // First, try to find a complete address pattern in the text
                     var addressPattern = @"(\d+\s+[A-Z\s,]+(?:BARANGAY\s+\d+\s+)?(?:CITY\s+OF\s+)?[A-Z\s,]+(?:NCR|NATIONAL CAPITAL REGION))[^A-Z0-9]";
                     var addressMatch = Regex.Match(cleanedText, addressPattern, RegexOptions.IgnoreCase);
                     
-                    if (addressMatch.Success && addressMatch.Groups[1].Value.Length > 20) // Ensure it's a reasonable length for an address
+                    if (addressMatch.Success && addressMatch.Groups[1].Value.Length > 20)
                     {
-                        // Use the matched address directly as it's likely the most complete
+                        // Use the matched address directly if it looks complete
                         result.Address = addressMatch.Groups[1].Value.Trim();
                     }
+                    else
+                    {
+                        // Otherwise, build the address from components, avoiding duplicates
+                        var uniqueParts = new List<string>();
+                        foreach (var part in addressLines)
+                        {
+                            // Skip if this part is already included in a previous part
+                            if (!uniqueParts.Any(p => p.Contains(part) || part.Contains(p)))
+                            {
+                                uniqueParts.Add(part);
+                            }
+                        }
+                        result.Address = string.Join(", ", uniqueParts).Trim();
+                    }
                     
-                    // 1. Normalize spaces FIRST to ensure subsequent replacements work correctly
-                    result.Address = Regex.Replace(result.Address, @"\s+", " ");
+                    // Normalize spaces and clean up
+                    result.Address = Regex.Replace(result.Address, @"\s+", " ").Trim();
                     
-                    // Fix specific address format for this case
+                    // Apply specific formatting for known addresses
                     if (result.Address.Contains("522 LIBIS REPARO", StringComparison.OrdinalIgnoreCase))
                     {
                         result.Address = "522 LIBIS REPARO BARANGAY 161 CITY OF CALOOCAN, NCR";
