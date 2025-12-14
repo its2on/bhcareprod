@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Barangay.Models;
 using Microsoft.AspNetCore.Identity;
@@ -189,7 +189,7 @@ namespace Barangay.Pages
                     if (userRoles.Contains("Admin") || userRoles.Contains("Admin Staff"))
                     {
                         _logger.LogWarning($"Admin user {user.Email} attempted to use home page login - ACCESS DENIED");
-                        ErrorMessage = "❌ ACCESS DENIED: Admin users must use the Admin Login page. Please go to the Login page and use the 'Admin Login Only' button.";
+                        ErrorMessage = "ACCESS DENIED: Admin users must use the Admin Login page. Please go to the Login page and use the 'Admin Login Only' button.";
                         return Page();
                     }
 

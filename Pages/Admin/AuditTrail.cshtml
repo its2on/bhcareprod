@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.Admin.AuditTrailModel
 @using System.Collections.Generic
 @using Barangay.Helpers
@@ -596,10 +596,10 @@
                     window.exportToPDF();
                 });
             } else {
-                console.warn('⚠️ [AUDIT] Export PDF button NOT found (.export-pdf-btn)');
+                console.warn(' [AUDIT] Export PDF button NOT found (.export-pdf-btn)');
             }
             
-            console.log('✅ [AUDIT] All listeners attached successfully');
+            console.log(' [AUDIT] All listeners attached successfully');
         }
         
         // Attach when DOM is ready

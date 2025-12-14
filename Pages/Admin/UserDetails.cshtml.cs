@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -559,25 +559,25 @@ namespace Barangay.Pages.Admin
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>✅ Account Approved - Baesa Health Care</h2>
+                            <h2> Account Approved - Baesa Health Care</h2>
                         </div>
                         
                         <div class='content'>
                             <h3>Congratulations, {userName}!</h3>
                             
                             <div class='success-badge'>
-                                <strong>🎉 Your account has been approved and verified!</strong>
+                                <strong> Your account has been approved and verified!</strong>
                             </div>
                             
                             <p>We are pleased to inform you that your Baesa Health Care account has been successfully approved. You can now access all the features and services available in our system.</p>
                             
                             <p><strong>What you can do now:</strong></p>
                             <ul>
-                                <li>✅ Access your personal health dashboard</li>
-                                <li>✅ Schedule medical appointments</li>
-                                <li>✅ View your medical records</li>
-                                <li>✅ Request health services</li>
-                                <li>✅ Receive health notifications</li>
+                                <li> Access your personal health dashboard</li>
+                                <li> Schedule medical appointments</li>
+                                <li> View your medical records</li>
+                                <li> Request health services</li>
+                                <li> Receive health notifications</li>
                             </ul>
                             
                             <p>To get started, please log in to your account using your registered email: <strong>{userEmail}</strong></p>
@@ -625,14 +625,14 @@ namespace Barangay.Pages.Admin
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>❌ Account Application Status - Baesa Health Care</h2>
+                            <h2> Account Application Status - Baesa Health Care</h2>
                         </div>
                         
                         <div class='content'>
                             <h3>Dear {userName},</h3>
                             
                             <div class='warning-badge'>
-                                <strong>⚠️ Your account application requires attention</strong>
+                                <strong> Your account application requires attention</strong>
                             </div>
                             
                             <p>We regret to inform you that your Baesa Health Care account application has been reviewed and requires additional information or documentation.</p>
@@ -703,12 +703,12 @@ namespace Barangay.Pages.Admin
                             <div class='requirements'>
                                 <h5 style='color: #856404; margin-top: 0;'>📄 Document Requirements Checklist</h5>
                                 <ul style='margin: 10px 0;'>
-                                    <li>✅ Valid government-issued ID (not expired)</li>
-                                    <li>✅ Clear, readable photo of your ID</li>
-                                    <li>✅ Recent residency proof (within 3 months)</li>
-                                    <li>✅ Complete personal information</li>
-                                    <li>✅ Accurate contact details</li>
-                                    <li>✅ Emergency contact information</li>
+                                    <li> Valid government-issued ID (not expired)</li>
+                                    <li> Clear, readable photo of your ID</li>
+                                    <li> Recent residency proof (within 3 months)</li>
+                                    <li> Complete personal information</li>
+                                    <li> Accurate contact details</li>
+                                    <li> Emergency contact information</li>
                                 </ul>
                             </div>
                             
@@ -867,7 +867,7 @@ namespace Barangay.Pages.Admin
                         <p>Dear <strong>{userName}</strong>,</p>
                         
                         <div class='suspension-info'>
-                            <h3>⚠️ Account Suspension Notice</h3>
+                            <h3> Account Suspension Notice</h3>
                             <p>Your account has been <strong>suspended</strong> due to multiple application rejections.</p>
                             
                             <div style='text-align: center; margin: 20px 0;'>
@@ -942,12 +942,12 @@ namespace Barangay.Pages.Admin
                         <div class='requirements'>
                             <h5 style='color: #155724; margin-top: 0;'>📄 Required Documents Checklist</h5>
                             <ul style='margin: 10px 0;'>
-                                <li>✅ Valid government-issued ID (not expired)</li>
-                                <li>✅ Clear, readable photo of your ID</li>
-                                <li>✅ Recent residency proof (within 3 months)</li>
-                                <li>✅ Complete personal information</li>
-                                <li>✅ Accurate contact details</li>
-                                <li>✅ Emergency contact information</li>
+                                <li> Valid government-issued ID (not expired)</li>
+                                <li> Clear, readable photo of your ID</li>
+                                <li> Recent residency proof (within 3 months)</li>
+                                <li> Complete personal information</li>
+                                <li> Accurate contact details</li>
+                                <li> Emergency contact information</li>
                             </ul>
                         </div>
                         
@@ -992,7 +992,7 @@ namespace Barangay.Pages.Admin
             try
             {
                 _logger.LogInformation("=== AUTOMATIC BARANGAY VERIFICATION START (PROFILE-BASED) ===");
-                _logger.LogWarning("⚠️ WARNING: This method uses USER PROFILE data, not ID image OCR. For accurate verification, use ID scan instead.");
+                _logger.LogWarning(" WARNING: This method uses USER PROFILE data, not ID image OCR. For accurate verification, use ID scan instead.");
                 _logger.LogInformation("Admin triggered verification for user: {UserId}", id);
                 
                 // Find the user
@@ -1010,7 +1010,7 @@ namespace Barangay.Pages.Admin
                 }
                 
                 _logger.LogInformation("User Barangay field from PROFILE: {Barangay}", barangayValue);
-                _logger.LogWarning("⚠️ NOTE: This is profile data, not verified from ID image. Please use 'Scan ID for Auto-Approval' for accurate verification.");
+                _logger.LogWarning(" NOTE: This is profile data, not verified from ID image. Please use 'Scan ID for Auto-Approval' for accurate verification.");
                 
                 // Use regex to extract exact barangay number (more accurate than Contains)
                 string detectedBarangay = null;
@@ -1042,7 +1042,7 @@ namespace Barangay.Pages.Admin
                     // Validate that detected barangay is in eligible list
                     if (!string.IsNullOrEmpty(detectedBarangay) && !validBarangays.Contains(detectedBarangay))
                     {
-                        _logger.LogError($"❌ INVALID: Detected {detectedBarangay} but it's not in eligible list (158-161)");
+                        _logger.LogError($" INVALID: Detected {detectedBarangay} but it's not in eligible list (158-161)");
                         detectedBarangay = null;
                     }
                 }
@@ -1113,7 +1113,7 @@ namespace Barangay.Pages.Admin
                         
                         var emailBody = $@"
                             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                                <h2 style='color: #4CAF50;'>✅ BHCare Account Approved</h2>
+                                <h2 style='color: #4CAF50;'> BHCare Account Approved</h2>
                                 <p>Hi <strong>{firstName}</strong>,</p>
                                 <p>Great news! Your residency in <strong>Barangay {detectedBarangay}</strong> has been verified.</p>
                                 <p>Your BHCare account is now <strong>active</strong>. You can log in anytime.</p>
@@ -1132,7 +1132,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new 
                     { 
                         success = true, 
-                        message = $"✅ Verification Success! User auto-approved for Barangay {detectedBarangay} based on profile information.",
+                        message = $" Verification Success! User auto-approved for Barangay {detectedBarangay} based on profile information.",
                         barangay = detectedBarangay,
                         autoApproved = true
                     });
@@ -1146,7 +1146,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new 
                     { 
                         success = false, 
-                        message = $"❌ Barangay {barangayValue} is not in the service area (158-161). Please manually approve or reject.",
+                        message = $" Barangay {barangayValue} is not in the service area (158-161). Please manually approve or reject.",
                         autoApproved = false
                     });
                 }
@@ -1299,17 +1299,17 @@ namespace Barangay.Pages.Admin
                 if (anyBarangayMatch.Success && anyBarangayMatch.Groups.Count > 1)
                 {
                     anyBarangayFound = anyBarangayMatch.Groups[1].Value;
-                    _logger.LogInformation($"🔍 Found BARANGAY {anyBarangayFound} in OCR text");
+                    _logger.LogInformation($" Found BARANGAY {anyBarangayFound} in OCR text");
                     
                     // If it's NOT in the eligible list, REJECT immediately
                     if (!validBarangays.Contains(anyBarangayFound))
                     {
-                        _logger.LogError($"❌ REJECTED: BARANGAY {anyBarangayFound} detected in ID, but it is NOT eligible (158-161 only)");
+                        _logger.LogError($" REJECTED: BARANGAY {anyBarangayFound} detected in ID, but it is NOT eligible (158-161 only)");
                         _logger.LogError($"Full OCR address section: {extractedText}");
                         return new JsonResult(new 
                         { 
                             success = false, 
-                            message = $"❌ REJECTED: Barangay {anyBarangayFound} detected in ID image, but it is NOT in the eligible service area (158-161 only). This application must be rejected.",
+                            message = $" REJECTED: Barangay {anyBarangayFound} detected in ID image, but it is NOT in the eligible service area (158-161 only). This application must be rejected.",
                             detectedBarangay = (string)null,
                             autoApproved = false,
                             foundBarangay = anyBarangayFound,
@@ -1327,7 +1327,7 @@ namespace Barangay.Pages.Admin
                 if (rawMatch.Success && rawMatch.Groups.Count > 1)
                 {
                     detectedBarangay = rawMatch.Groups[1].Value;
-                    _logger.LogInformation($"✅ Barangay {detectedBarangay} detected directly from RAW OCR text");
+                    _logger.LogInformation($" Barangay {detectedBarangay} detected directly from RAW OCR text");
                 }
                 else
                 {
@@ -1345,7 +1345,7 @@ namespace Barangay.Pages.Admin
                         if (rawMatch.Success && rawMatch.Groups.Count > 1)
                         {
                             detectedBarangay = rawMatch.Groups[1].Value;
-                            _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from RAW OCR text using pattern: {pattern}");
+                            _logger.LogInformation($" Barangay {detectedBarangay} detected from RAW OCR text using pattern: {pattern}");
                             break;
                         }
                     }
@@ -1357,7 +1357,7 @@ namespace Barangay.Pages.Admin
                     detectedBarangay = DetectEligibleBarangayFromAddress(parsedData.Address);
                     if (!string.IsNullOrEmpty(detectedBarangay))
                     {
-                        _logger.LogInformation($"✅ Barangay {detectedBarangay} detected from parsed address");
+                        _logger.LogInformation($" Barangay {detectedBarangay} detected from parsed address");
                     }
                 }
                 
@@ -1366,18 +1366,18 @@ namespace Barangay.Pages.Admin
                 {
                     if (!validBarangays.Contains(detectedBarangay))
                     {
-                        _logger.LogError($"❌ INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
+                        _logger.LogError($" INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
                         _logger.LogError($"Full OCR text: {extractedText}");
                         detectedBarangay = null; // Reject invalid barangay
                     }
                     else
                     {
-                        _logger.LogInformation($"🎯 FINAL DETECTED BARANGAY FROM ID IMAGE: {detectedBarangay} (VALIDATED)");
+                        _logger.LogInformation($" FINAL DETECTED BARANGAY FROM ID IMAGE: {detectedBarangay} (VALIDATED)");
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("⚠️ No eligible barangay (158-161) detected in ID image OCR text");
+                    _logger.LogWarning(" No eligible barangay (158-161) detected in ID image OCR text");
                     _logger.LogWarning($"Full OCR text preview: {extractedText.Substring(0, Math.Min(1000, extractedText.Length))}...");
                 }
                 
@@ -1435,7 +1435,7 @@ namespace Barangay.Pages.Admin
                     return new JsonResult(new 
                     { 
                         success = true, 
-                        message = $"✅ User auto-approved! Barangay {detectedBarangay} detected from ID scan.",
+                        message = $" User auto-approved! Barangay {detectedBarangay} detected from ID scan.",
                         detectedBarangay = detectedBarangay,
                         autoApproved = true
                     });

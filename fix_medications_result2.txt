@@ -1,3 +1,0 @@
-Changed database context to 'Barangay'.
-Msg 134, Level 15, State 1, Server Ben\MSSQLSERVER01, Line 109
-The variable name '@invalidCount' has already been declared. Variable names must be unique within a query batch or stored procedure.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Linq;
 using Barangay.Models;
@@ -1254,7 +1254,7 @@ namespace Barangay.Pages.User
             return (newFamilyNo, false);
         }
 
-        // Helper method to get form value with default
+        
         private string GetFormValueOrDefault(string key, string defaultValue = "Not provided")
         {
             if (Request.Form.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value.ToString()))
@@ -1264,7 +1264,7 @@ namespace Barangay.Pages.User
             return defaultValue;
         }
         
-        // Helper method to get boolean form value with default
+        
         private bool? GetFormBooleanValueOrDefault(string key, bool? defaultValue = false)
         {
             if (Request.Form.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value.ToString()))

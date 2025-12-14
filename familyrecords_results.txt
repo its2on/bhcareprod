@@ -1,5 +1,0 @@
-Creating FamilyRecords table...
-FamilyRecords table created successfully.
-
-(1 rows affected)
-Added sample record to FamilyRecords table.

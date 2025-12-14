@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.Account.LoginModel
 @{
     ViewData["Title"] = "Log in";
@@ -191,7 +191,7 @@
                 const email = (emailInput.value || '').toLowerCase();
                 if (email.includes('admin') || email.includes('administrator')) {
                     e.preventDefault();
-                    alert('❌ ACCESS DENIED: Admin users must use the Admin Login page. Please use the "Admin Login Only" button below.');
+                    alert(' ACCESS DENIED: Admin users must use the Admin Login page. Please use the "Admin Login Only" button below.');
                     return false;
                 }
             });

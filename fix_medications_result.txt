@@ -1,9 +1,0 @@
-Changed database context to 'Barangay'.
-Msg 207, Level 16, State 1, Server Ben\MSSQLSERVER01, Line 68
-Invalid column name 'CreatedAt'.
-Msg 207, Level 16, State 1, Server Ben\MSSQLSERVER01, Line 69
-Invalid column name 'UpdatedAt'.
-Msg 8116, Level 16, State 1, Server Ben\MSSQLSERVER01, Line 51
-Argument data type int is invalid for argument 1 of substring function.
-Msg 8116, Level 16, State 1, Server Ben\MSSQLSERVER01, Line 85
-Argument data type int is invalid for argument 1 of substring function.

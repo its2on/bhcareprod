@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -43,7 +43,7 @@ namespace Barangay.Services
 
             if (!string.IsNullOrEmpty(_apiKey))
             {
-                _logger.LogInformation("✓ Gemini Vision API configured - Key length: {KeyLength}, Source: {Source}",
+                _logger.LogInformation(" Gemini Vision API configured - Key length: {KeyLength}, Source: {Source}",
                     _apiKey.Length, !string.IsNullOrEmpty(envKey) ? "Environment Variable" : "IConfiguration");
             }
             else
@@ -174,7 +174,7 @@ Return the information in JSON format with these exact keys:
                         {
                             successfulModel = modelName;
                             successfulVersion = apiVersion;
-                            _logger.LogInformation("✓ Gemini API call successful: {Version} / {Model}", apiVersion, modelName);
+                            _logger.LogInformation(" Gemini API call successful: {Version} / {Model}", apiVersion, modelName);
                             break;
                         }
                         else
@@ -267,7 +267,7 @@ Return the information in JSON format with these exact keys:
                         result.IsBarangayValid = !string.IsNullOrEmpty(result.BarangayNumber) &&
                                                new[] { "158", "159", "160", "161" }.Contains(result.BarangayNumber.Trim());
 
-                        _logger.LogInformation("✓ Gemini AI extracted - FirstName: {FirstName}, LastName: {LastName}, BirthDate: {BirthDate}, Barangay: {Barangay}",
+                        _logger.LogInformation(" Gemini AI extracted - FirstName: {FirstName}, LastName: {LastName}, BirthDate: {BirthDate}, Barangay: {Barangay}",
                             result.FirstName, result.LastName, result.BirthDate, result.BarangayNumber);
                     }
                     catch (Exception ex)

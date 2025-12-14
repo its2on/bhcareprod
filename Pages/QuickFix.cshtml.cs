@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -96,15 +96,15 @@ namespace Barangay.Pages
 
                 await _context.SaveChangesAsync();
 
-                StatusMessage = $"🎉 SUCCESS! Fixed weekend appointments for {doctors.Count} doctors! " +
+                StatusMessage = $" SUCCESS! Fixed weekend appointments for {doctors.Count} doctors! " +
                               $"Updated {updatedCount} existing records and created {createdCount} new records. " +
-                              $"Now try booking a weekend 'Libreng Tuli' appointment - it should work! 🏥✨";
+                              $"Now try booking a weekend 'Libreng Tuli' appointment - it should work! 🏥";
 
                 _logger.LogInformation($"Fixed weekend appointments: {updatedCount} updated, {createdCount} created");
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"❌ Error fixing weekend appointments: {ex.Message}";
+                ErrorMessage = $" Error fixing weekend appointments: {ex.Message}";
                 _logger.LogError(ex, "Error fixing weekend appointments");
             }
 

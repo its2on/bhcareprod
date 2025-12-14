@@ -211,7 +211,7 @@ namespace Barangay.Models
             }
         }
 
-        // Helper methods for encryption/decryption
+
         private string EncryptField(string? value)
         {
             if (string.IsNullOrEmpty(value))

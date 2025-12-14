@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Barangay.Extensions
@@ -15,7 +15,7 @@ namespace Barangay.Extensions
             return str ?? string.Empty;
         }
         
-        // Helper method for checking if a method group has a value
+
         // Ensure method is invoked
         public static bool HasValue(this object obj, string methodName)
         {
@@ -30,7 +30,7 @@ namespace Barangay.Extensions
             return result != null;
         }
         
-        // Helper method for getting a value from a method group
+
         public static T Value<T>(this object? obj, string methodName, T defaultValue = default!) where T : class
         {
             if (obj == null) return defaultValue;
@@ -41,7 +41,7 @@ namespace Barangay.Extensions
             return result as T ?? defaultValue;
         }
         
-        // Helper method to convert string to List<string>
+        
         public static List<string> ToStringList(this string str)
         {
             if (string.IsNullOrEmpty(str))
@@ -50,7 +50,7 @@ namespace Barangay.Extensions
             return new List<string> { str };
         }
         
-        // Helper method to convert List<string> to string
+        
         public static string ToSingleString(this List<string> list, string defaultValue = "")
         {
             if (list == null || list.Count == 0)
@@ -59,7 +59,7 @@ namespace Barangay.Extensions
             return list[0];
         }
         
-        // Helper method for null coalescing with List<string>
+
         public static List<string> CoalesceWithList(this List<string> list, string defaultValue)
         {
             if (list == null || list.Count == 0)

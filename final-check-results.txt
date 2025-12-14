@@ -1,9 +1,0 @@
-COLUMN_NAME                                                                                                                      DATA_TYPE                                                                                                                        IS_NULLABLE
--------------------------------------------------------------------------------------------------------------------------------- -------------------------------------------------------------------------------------------------------------------------------- -----------
-MiddleName                                                                                                                       nvarchar                                                                                                                         YES        
-Suffix                                                                                                                           nvarchar                                                                                                                         YES        
-Status                                                                                                                           nvarchar                                                                                                                         YES        
-HasAgreedToTerms                                                                                                                 bit                                                                                                                              NO         
-AgreedAt                                                                                                                         datetime2                                                                                                                        YES        
-
-(5 rows affected)

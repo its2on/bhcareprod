@@ -1,4 +1,4 @@
-using Barangay.Data;
+﻿using Barangay.Data;
 using Barangay.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -103,7 +103,7 @@ namespace Barangay.Controllers
             }
         }
         
-        // Helper method to calculate age
+        
         private static int CalculateAge(DateTime birthDate)
         {
             var today = DateTime.Today;

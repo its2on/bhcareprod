@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Barangay Health Center - Registration Form Debugging Script
  * 
  * This script helps debug issues with the user registration form.
@@ -146,7 +146,7 @@
             color: #212529;
             z-index: 9999;
         `;
-        debugBadge.innerHTML = '🔍 Form Debug Active';
+        debugBadge.innerHTML = ' Form Debug Active';
         document.body.appendChild(debugBadge);
         
         // Print conclusion

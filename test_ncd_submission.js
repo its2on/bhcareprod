@@ -3,7 +3,7 @@
 
 async function testNCDSubmission() {
     console.log("=== Testing NCD Risk Assessment Submission ===");
-    
+
     try {
         // Test data that matches the form structure
         const testData = {
@@ -24,7 +24,7 @@ async function testNCDSubmission() {
             LastName: "Name",
             Occupation: "Software Developer",
             AppointmentType: "General Checkup",
-            
+
             // Medical History
             HasDiabetes: false,
             DiabetesYear: "",
@@ -41,7 +41,7 @@ async function testNCDSubmission() {
             LungDiseaseYear: "",
             LungDiseaseMedication: "",
             HasEyeDisease: false,
-            
+
             // Family History
             FamilyHasHypertension: false,
             FamilyHasHeartDisease: false,
@@ -51,7 +51,7 @@ async function testNCDSubmission() {
             FamilyHasKidneyDisease: false,
             FamilyHasOtherDisease: false,
             FamilyOtherDiseaseDetails: "",
-            
+
             // Lifestyle Factors
             SmokingStatus: "Non-smoker",
             HighSaltIntake: false,
@@ -59,21 +59,21 @@ async function testNCDSubmission() {
             AlcoholConsumption: "None",
             ExerciseDuration: "30 minutes daily",
             HasNoRegularExercise: false,
-            
+
             // Health Conditions
             HasDifficultyBreathing: false,
             HasAsthma: false,
-            
+
             // Risk Status
             RiskStatus: "Low Risk"
         };
-        
+
         console.log("Test data prepared:", testData);
-        
+
         // Encrypt the data (simplified version - you'll need the actual encryption function)
         const jsonData = JSON.stringify(testData);
         console.log("JSON data:", jsonData);
-        
+
         // For testing, we'll send the data directly without encryption first
         const response = await fetch('/User/NCDRiskAssessment?handler=SubmitAssessment', {
             method: 'POST',
@@ -83,20 +83,20 @@ async function testNCDSubmission() {
             },
             body: `encryptedData=${encodeURIComponent(jsonData)}`
         });
-        
+
         const result = await response.json();
         console.log("Response:", result);
-        
+
         if (result.success) {
-            console.log("✅ NCD Assessment submitted successfully!");
+            console.log("NCD Assessment submitted successfully!");
             console.log("Assessment ID:", result.assessmentId);
             console.log("Rows affected:", result.rowsAffected);
         } else {
-            console.error("❌ NCD Assessment submission failed:", result.error);
+            console.error("NCD Assessment submission failed:", result.error);
         }
-        
+
     } catch (error) {
-        console.error("❌ Test failed:", error);
+        console.error("Test failed:", error);
     }
 }
 

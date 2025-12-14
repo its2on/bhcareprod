@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.Admin.AuditTrailDiagnosticModel
 @{
     ViewData["Title"] = "Audit Trail Diagnostic";
@@ -23,11 +23,11 @@
                     <td>
                         @if (Model.TableExists)
                         {
-                            <span class="badge bg-success">✅ YES</span>
+                            <span class="badge bg-success"> YES</span>
                         }
                         else
                         {
-                            <span class="badge bg-danger">❌ NO</span>
+                            <span class="badge bg-danger"> NO</span>
                         }
                     </td>
                     <td>@Model.TableExistsMessage</td>
@@ -51,11 +51,11 @@
                     <td>
                         @if (Model.CanWrite)
                         {
-                            <span class="badge bg-success">✅ YES</span>
+                            <span class="badge bg-success"> YES</span>
                         }
                         else
                         {
-                            <span class="badge bg-danger">❌ NO</span>
+                            <span class="badge bg-danger"> NO</span>
                         }
                     </td>
                     <td>@Model.WriteTestMessage</td>
@@ -81,7 +81,7 @@
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="alert alert-danger mt-3">
-            <h5>❌ Error Detected</h5>
+            <h5> Error Detected</h5>
             <pre>@Model.ErrorMessage</pre>
         </div>
     }

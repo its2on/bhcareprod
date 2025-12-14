@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -74,11 +74,11 @@ namespace Barangay.Services
 
                 _logger.LogInformation("Attempting to send email to {Email} with subject: {Subject}", email, subject);
                 await client.SendMailAsync(message);
-                _logger.LogInformation("✅ Immunization reminder email sent successfully to {Email}", email);
+                _logger.LogInformation(" Immunization reminder email sent successfully to {Email}", email);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Failed to send immunization reminder email to {Email}. Error: {ErrorMessage}", email, ex.Message);
+                _logger.LogError(ex, " Failed to send immunization reminder email to {Email}. Error: {ErrorMessage}", email, ex.Message);
                 _logger.LogError("Full exception details: {Exception}", ex.ToString());
             }
         }

@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.User.TestDatabaseModel
 @{
     ViewData["Title"] = "Database Test";
@@ -32,12 +32,12 @@ document.getElementById('testBtn').addEventListener('click', async function() {
         if (data.success) {
             resultsDiv.innerHTML = `
                 <div class="alert alert-success">
-                    <h5>✅ Test Results</h5>
+                    <h5> Test Results</h5>
                     <ul>
-                        <li>Database Connection: ${data.canConnect ? '✅ Working' : '❌ Failed'}</li>
-                        <li>Encryption Service: ${data.encryptionWorking ? '✅ Working' : '❌ Failed'}</li>
-                        <li>Table Structure: ${data.tableExists ? '✅ Valid' : '❌ Invalid'}</li>
-                        <li>Test Insert: ${data.testInsertSuccessful ? '✅ Successful' : '❌ Failed'}</li>
+                        <li>Database Connection: ${data.canConnect ? ' Working' : ' Failed'}</li>
+                        <li>Encryption Service: ${data.encryptionWorking ? ' Working' : ' Failed'}</li>
+                        <li>Table Structure: ${data.tableExists ? ' Valid' : ' Invalid'}</li>
+                        <li>Test Insert: ${data.testInsertSuccessful ? ' Successful' : ' Failed'}</li>
                     </ul>
                     <p><strong>Message:</strong> ${data.message}</p>
                 </div>
@@ -45,7 +45,7 @@ document.getElementById('testBtn').addEventListener('click', async function() {
         } else {
             resultsDiv.innerHTML = `
                 <div class="alert alert-danger">
-                    <h5>❌ Test Failed</h5>
+                    <h5> Test Failed</h5>
                     <p><strong>Error:</strong> ${data.error}</p>
                     ${data.stackTrace ? `<details><summary>Stack Trace</summary><pre>${data.stackTrace}</pre></details>` : ''}
                 </div>
@@ -54,7 +54,7 @@ document.getElementById('testBtn').addEventListener('click', async function() {
     } catch (error) {
         resultsDiv.innerHTML = `
             <div class="alert alert-danger">
-                <h5>❌ Test Error</h5>
+                <h5> Test Error</h5>
                 <p><strong>Error:</strong> ${error.message}</p>
             </div>
         `;

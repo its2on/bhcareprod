@@ -1,8 +1,0 @@
-Creating Prescriptions table...
-Warning: AspNetUsers table not found. Foreign key for DoctorId not created.
-Warning: Patients table not found. Foreign key for PatientId not created.
-Prescriptions table created successfully.
-Creating PrescriptionMedicines table...
-PrescriptionMedicines table created successfully.
-Warning: EF Migrations history table not found. Unable to update migration history.
-Database update completed successfully.

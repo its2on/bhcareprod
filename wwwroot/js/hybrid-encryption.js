@@ -19,7 +19,7 @@ class HybridEncryptionService {
      */
     async generateRSAKeyPair() {
         try {
-            console.log('🔑 Generating RSA key pair...');
+            console.log('Generating RSA key pair...');
             
             const keyPair = await window.crypto.subtle.generateKey(
                 {
@@ -32,10 +32,10 @@ class HybridEncryptionService {
                 ['encrypt', 'decrypt']
             );
 
-            console.log('✅ RSA key pair generated successfully');
+            console.log('RSA key pair generated successfully');
             return keyPair;
         } catch (error) {
-            console.error('❌ Error generating RSA key pair:', error);
+            console.error('Error generating RSA key pair:', error);
             throw new Error('Failed to generate RSA key pair: ' + error.message);
         }
     }
@@ -52,7 +52,7 @@ class HybridEncryptionService {
             const keyBuffer = await window.crypto.subtle.exportKey(format, key);
             return this.arrayBufferToBase64(keyBuffer);
         } catch (error) {
-            console.error('❌ Error exporting RSA key:', error);
+            console.error('Error exporting RSA key:', error);
             throw new Error('Failed to export RSA key: ' + error.message);
         }
     }
@@ -65,7 +65,7 @@ class HybridEncryptionService {
      */
     async encrypt(plaintext, publicKeyPem) {
         try {
-            console.log('🔒 Starting hybrid encryption...');
+            console.log('Starting hybrid encryption...');
             
             if (!plaintext || !publicKeyPem) {
                 throw new Error('Plaintext and public key are required');
@@ -80,14 +80,14 @@ class HybridEncryptionService {
             // Encrypt AES key with RSA
             const encryptedKey = await this.encryptAESKeyWithRSA(aesKey, publicKeyPem);
             
-            console.log('✅ Hybrid encryption completed');
+            console.log('Hybrid encryption completed');
             return {
                 encryptedData: encryptedResult.encryptedData,
                 encryptedKey: encryptedKey,
                 iv: encryptedResult.iv
             };
         } catch (error) {
-            console.error('❌ Error in hybrid encryption:', error);
+            console.error('Error in hybrid encryption:', error);
             throw new Error('Encryption failed: ' + error.message);
         }
     }
@@ -100,7 +100,7 @@ class HybridEncryptionService {
      */
     async decrypt(encryptedObject, privateKeyPem) {
         try {
-            console.log('🔓 Starting hybrid decryption...');
+            console.log('Starting hybrid decryption...');
             
             if (!encryptedObject || !privateKeyPem) {
                 throw new Error('Encrypted object and private key are required');
@@ -114,10 +114,10 @@ class HybridEncryptionService {
             // Decrypt data with AES
             const decryptedData = this.decryptWithAES(encryptedData, aesKey);
             
-            console.log('✅ Hybrid decryption completed');
+            console.log('Hybrid decryption completed');
             return decryptedData;
         } catch (error) {
-            console.error('❌ Error in hybrid decryption:', error);
+            console.error('Error in hybrid decryption:', error);
             throw new Error('Decryption failed: ' + error.message);
         }
     }
@@ -148,7 +148,7 @@ class HybridEncryptionService {
 
             return this.arrayBufferToBase64(encryptedKeyBuffer);
         } catch (error) {
-            console.error('❌ Error encrypting AES key with RSA:', error);
+            console.error('Error encrypting AES key with RSA:', error);
             throw new Error('RSA encryption failed: ' + error.message);
         }
     }
@@ -179,7 +179,7 @@ class HybridEncryptionService {
 
             return new TextDecoder().decode(decryptedKeyBuffer);
         } catch (error) {
-            console.error('❌ Error decrypting AES key with RSA:', error);
+            console.error('Error decrypting AES key with RSA:', error);
             throw new Error('RSA decryption failed: ' + error.message);
         }
     }
@@ -215,7 +215,7 @@ class HybridEncryptionService {
                 iv: CryptoJS.enc.Base64.stringify(iv)
             };
         } catch (error) {
-            console.error('❌ Error in AES encryption:', error);
+            console.error('Error in AES encryption:', error);
             throw new Error('AES encryption failed: ' + error.message);
         }
     }
@@ -247,7 +247,7 @@ class HybridEncryptionService {
             
             return decrypted.toString(CryptoJS.enc.Utf8);
         } catch (error) {
-            console.error('❌ Error in AES decryption:', error);
+            console.error('Error in AES decryption:', error);
             throw new Error('AES decryption failed: ' + error.message);
         }
     }
@@ -271,7 +271,7 @@ class HybridEncryptionService {
             );
             return true;
         } catch (error) {
-            console.error('❌ Invalid private key:', error);
+            console.error('Invalid private key:', error);
             return false;
         }
     }

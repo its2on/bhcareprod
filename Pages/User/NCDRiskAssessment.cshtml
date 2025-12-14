@@ -1,4 +1,4 @@
-
+﻿
 @page
 @model Barangay.Pages.User.NCDRiskAssessmentModel
 @{
@@ -2094,7 +2094,7 @@
                 console.log(`${fieldName}: value="${value}", type=${type}, isBoolean=${isBoolean}, isValidBoolean=${isValidBoolean}`);
                 
                 if (!isValidBoolean && value !== undefined && value !== null) {
-                    console.warn(`⚠️  INVALID BOOLEAN FIELD: ${fieldName} = "${value}" (type: ${type})`);
+                    console.warn(`  INVALID BOOLEAN FIELD: ${fieldName} = "${value}" (type: ${type})`);
                 }
             });
             

@@ -1,5 +1,0 @@
-Creating PrescriptionMedications table...
-Foreign key and index created.
-Warning: Medications table not found. Foreign key for MedicationId not created.
-Warning: MedicalRecords table not found. Foreign key for MedicalRecordId not created.
-PrescriptionMedications table created successfully.

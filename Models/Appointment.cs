@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
@@ -144,7 +144,7 @@ namespace Barangay.Models
         [JsonIgnore]
         public virtual ICollection<AppointmentFile> Files { get; set; } = new List<AppointmentFile>();
 
-        // Helper methods
+
         public string GetFormattedTime()
         {
             return DateTimeHelper.FormatTime(AppointmentTime);
@@ -178,20 +178,20 @@ namespace Barangay.Models
         // Helper property for age
         public string Age => AgeValue.ToString();
 
-        // Helper method to get DateTime from appointment date and time
+        
         public DateTime GetAppointmentDateTime()
         {
             return AppointmentDate.Date.Add(AppointmentTime);
         }
 
-        // Helper method to set date and time from DateTime
+        
         public void SetAppointmentDateTime(DateTime dateTime)
         {
             AppointmentDate = dateTime.Date;
             AppointmentTime = dateTime.TimeOfDay;
         }
 
-        // Helper method to compare dates
+        
         public bool IsDateGreaterThanOrEqual(DateTime date)
         {
             return DateTimeHelper.IsDateGreaterThanOrEqual(AppointmentDate, date);

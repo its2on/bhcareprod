@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Barangay.Models;
@@ -455,7 +455,7 @@ namespace Barangay.Pages.Account
                 
                 if (isScreenshot)
                 {
-                    _logger.LogWarning("❌ REJECTED: File appears to be a screenshot: {FileName}", file.FileName);
+                    _logger.LogWarning(" REJECTED: File appears to be a screenshot: {FileName}", file.FileName);
                     return new JsonResult(new 
                     { 
                         success = false, 
@@ -621,7 +621,7 @@ namespace Barangay.Pages.Account
                     else
                     {
                         // Non-eligible barangay detected (e.g., 168, 162, etc.)
-                        _logger.LogError("❌ REJECTED: Detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
+                        _logger.LogError(" REJECTED: Detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
                         _logger.LogError("OCR extracted text preview: {Text}", 
                             ocrResult.ExtractedText?.Length > 500 
                                 ? ocrResult.ExtractedText.Substring(0, 500) + "..." 
@@ -825,11 +825,11 @@ namespace Barangay.Pages.Account
                 if (validBarangays.Contains(detectedBarangay))
                 {
                     isAutoApprovalEligible = true;
-                    _logger.LogInformation("✅ Auto-approval eligible: OCR-detected Barangay {Barangay}", detectedBarangay);
+                    _logger.LogInformation(" Auto-approval eligible: OCR-detected Barangay {Barangay}", detectedBarangay);
                 }
                 else
                 {
-                    _logger.LogInformation("❌ OCR-detected barangay {Barangay} is not in eligible list", detectedBarangay);
+                    _logger.LogInformation(" OCR-detected barangay {Barangay} is not in eligible list", detectedBarangay);
                 }
             }
             
@@ -841,11 +841,11 @@ namespace Barangay.Pages.Account
                 if (validBarangays.Contains(userBarangay))
                 {
                     isAutoApprovalEligible = true;
-                    _logger.LogInformation("✅ Auto-approval eligible: User selected Barangay {Barangay}", userBarangay);
+                    _logger.LogInformation(" Auto-approval eligible: User selected Barangay {Barangay}", userBarangay);
                 }
                 else
                 {
-                    _logger.LogInformation("❌ User selected barangay {Barangay} is not in eligible list", userBarangay);
+                    _logger.LogInformation(" User selected barangay {Barangay} is not in eligible list", userBarangay);
                 }
             }
             
@@ -864,13 +864,13 @@ namespace Barangay.Pages.Account
             else if (!isAutoApprovalEligible)
             {
                 // Only require file if not auto-approved via OCR/barangay detection
-                _logger.LogWarning("❌ Residency proof document is required - user is not auto-approval eligible");
+                _logger.LogWarning(" Residency proof document is required - user is not auto-approval eligible");
                 ModelState.AddModelError(string.Empty, "Residency proof document is required.");
                 return Page();
             }
             else
             {
-                _logger.LogInformation("✅ Residency proof file not required - user is auto-approval eligible");
+                _logger.LogInformation(" Residency proof file not required - user is auto-approval eligible");
             }
 
             try
@@ -1033,7 +1033,7 @@ namespace Barangay.Pages.Account
                         }
                         else
                         {
-                            _logger.LogError("❌ REJECTED: OCR-detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
+                            _logger.LogError(" REJECTED: OCR-detected barangay {Barangay} is NOT in eligible list (158-161 only)", detectedBarangay);
                             _logger.LogError("OCR extracted text: {OcrText}", Input.OcrExtractedText ?? "(null)");
                             _logger.LogError("OCR extracted address: {OcrAddress}", Input.OcrExtractedAddress ?? "(null)");
                             detectedBarangay = null; // Reset if not eligible
@@ -1193,7 +1193,7 @@ namespace Barangay.Pages.Account
                             
                             var emailBody = $@"
                                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                                    <h2 style='color: #4CAF50;'>✅ BHCare Account Approved</h2>
+                                    <h2 style='color: #4CAF50;'> BHCare Account Approved</h2>
                                     <p>Hi <strong>{firstName}</strong>,</p>
                                     <p>Great news! Your residency in <strong>Barangay {detectedBarangay}</strong> has been automatically verified.</p>
                                     <p>Your BHCare account is now <strong>active</strong>. You can log in anytime at:</p>
@@ -1247,7 +1247,7 @@ namespace Barangay.Pages.Account
                                         </tr>
                                         <tr style='background-color: #f5f5f5;'>
                                             <td style='padding: 10px; border: 1px solid #ddd;'><strong>Status:</strong></td>
-                                            <td style='padding: 10px; border: 1px solid #ddd;'><span style='color: #4CAF50;'>✅ Active</span></td>
+                                            <td style='padding: 10px; border: 1px solid #ddd;'><span style='color: #4CAF50;'> Active</span></td>
                                         </tr>
                                     </table>
                                     <p style='color: #666; font-size: 12px;'>This account was automatically approved based on {(approvalSource.Contains("OCR") ? "OCR-detected barangay from ID scan" : "profile barangay")}.</p>
@@ -1456,7 +1456,7 @@ namespace Barangay.Pages.Account
                     {
                         // AUTO-APPROVED: Redirect to confirmation with success message
                         _logger.LogInformation("Redirecting auto-approved user to RegisterConfirmation");
-                        TempData["SuccessMessage"] = $"🎉 Your account has been verified and approved automatically! Your residency in Barangay {user.VerifiedBarangay} was confirmed.";
+                        TempData["SuccessMessage"] = $" Your account has been verified and approved automatically! Your residency in Barangay {user.VerifiedBarangay} was confirmed.";
                         TempData["AutoApproved"] = true;
                         TempData["VerifiedBarangay"] = user.VerifiedBarangay;
                         return RedirectToPage("/Account/RegisterConfirmation", new { auto = "true" });
@@ -1696,7 +1696,7 @@ namespace Barangay.Pages.Account
                 // isBarangayValid already determined above
 
                 // Format names properly (Title Case) before sending to frontend
-                // Helper method to convert names to proper Title Case
+                
                 string NormalizeDate(string raw)
                 {
                     if (string.IsNullOrWhiteSpace(raw)) return "";
@@ -2043,7 +2043,7 @@ namespace Barangay.Pages.Account
             var screenshotIndicators = new[] { "SCREENSHOT", "SCREEN SHOT", "CAPTURE", "SNAP", "WINDOWS", "MACOS", "ANDROID", "IOS" };
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                _logger.LogWarning(" Document validation failed: Screenshot indicators found in text");
                 return false;
             }
             
@@ -2123,7 +2123,7 @@ namespace Barangay.Pages.Account
             // CRITICAL: Must have a STRONG ID marker - screenshots won't have these
             if (!hasStrongIdMarker)
             {
-                _logger.LogWarning("⚠️ Document validation failed: No strong Philippine ID markers found");
+                _logger.LogWarning(" Document validation failed: No strong Philippine ID markers found");
                 _logger.LogWarning("Text preview: {Preview}", text.Substring(0, Math.Min(500, text.Length)));
                 _logger.LogWarning("Screenshots and non-ID documents are rejected. Please upload an actual Philippine ID document.");
                 return false;
@@ -2144,11 +2144,11 @@ namespace Barangay.Pages.Account
             
             if (fieldCount < 2)
             {
-                _logger.LogWarning("⚠️ Document validation failed: Insufficient ID fields found (found {Count}, need at least 2)", fieldCount);
+                _logger.LogWarning(" Document validation failed: Insufficient ID fields found (found {Count}, need at least 2)", fieldCount);
                 return false;
             }
 
-            _logger.LogInformation("✅ Document validation passed: Philippine ID detected (markers: {Markers}, fields: {Fields})", 
+            _logger.LogInformation(" Document validation passed: Philippine ID detected (markers: {Markers}, fields: {Fields})", 
                 strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
             return true;
         }

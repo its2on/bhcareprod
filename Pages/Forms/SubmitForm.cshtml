@@ -1,4 +1,4 @@
-@page "{formKey}"
+﻿@page "{formKey}"
 @model Barangay.Pages.Forms.SubmitFormModel
 @{
     ViewData["Title"] = Model.FormTemplate.FormName;
@@ -924,7 +924,7 @@
                 input.addEventListener('input', function() {
                     console.log(`TEXTBOX CHANGED: ${fieldInfo.name} = "${this.value}"`);
                     if (!this.value || this.value.trim() === '') {
-                        console.warn(`⚠️ TEXTBOX EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
+                        console.warn(`TEXTBOX EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
                         debugger; // Stop if empty (but continue - not required)
                     }
                 });
@@ -954,7 +954,7 @@
                 textarea.addEventListener('input', function() {
                     console.log(`TEXTAREA CHANGED: ${fieldInfo.name} = "${this.value}"`);
                     if (!this.value || this.value.trim() === '') {
-                        console.warn(`⚠️ TEXTAREA EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
+                        console.warn(`TEXTAREA EMPTY: ${fieldInfo.name} (${fieldInfo.label})`);
                         debugger; // Stop if empty
                     }
                 });
@@ -986,7 +986,7 @@
                     const selectedOption = this.options[this.selectedIndex];
                     console.log(`SELECT CHANGED: ${fieldInfo.name} = "${this.value}" (${selectedOption?.text || ''})`);
                     if (!this.value || this.value === '' || this.value === 'Choose...') {
-                        console.warn(`⚠️ SELECT NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                        console.warn(`SELECT NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
                         debugger; // Stop if not selected
                     }
                 });
@@ -1021,7 +1021,7 @@
                 });
                 
                 if (!checkedRadio) {
-                    console.warn(`⚠️ RADIO NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                    console.warn(`RADIO NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
                     debugger; // Stop if no radio selected
                 }
                 
@@ -1065,7 +1065,7 @@
                 });
                 
                 if (checkedBoxes.length === 0) {
-                    console.warn(`⚠️ CHECKBOX NONE SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                    console.warn(`CHECKBOX NONE SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
                     debugger; // Stop if no checkbox selected
                 }
                 
@@ -1098,7 +1098,7 @@
                 fileInput.addEventListener('change', function() {
                     console.log(`FILE CHANGED: ${fieldInfo.name} = ${this.files.length} file(s)`);
                     if (this.files.length === 0) {
-                        console.warn(`⚠️ FILE NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
+                        console.warn(`FILE NOT SELECTED: ${fieldInfo.name} (${fieldInfo.label})`);
                         debugger; // Stop if no file selected
                     }
                 });
@@ -1291,10 +1291,10 @@
                         fieldValues[key] = value;
                         if (!value || value.toString().trim() === '') {
                             emptyFields.push(key);
-                            console.warn(`⚠️ EMPTY FIELD: ${key} = "${value}"`);
+                            console.warn(`EMPTY FIELD: ${key} = "${value}"`);
                         } else {
                             filledFields.push({ key, value });
-                            console.log(`✓ FILLED FIELD: ${key} = "${value}"`);
+                            console.log(` FILLED FIELD: ${key} = "${value}"`);
                         }
                     }
                 }
@@ -1304,11 +1304,11 @@
                 checkboxFields.forEach((values, baseName) => {
                     const combinedValue = values.join(', ');
                     if (values.length > 0) {
-                        console.log(`✓ CHECKBOX GROUP: ${baseName}[] = [${combinedValue}]`);
+                        console.log(` CHECKBOX GROUP: ${baseName}[] = [${combinedValue}]`);
                         fieldValues[baseName] = combinedValue; // Store with base name for backend
                         filledFields.push({ key: baseName, value: combinedValue });
                     } else {
-                        console.warn(`⚠️ CHECKBOX GROUP EMPTY: ${baseName}[]`);
+                        console.warn(`CHECKBOX GROUP EMPTY: ${baseName}[]`);
                         emptyFields.push(baseName);
                     }
                 });
@@ -1333,7 +1333,7 @@
                 const textInputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"]');
                 textInputs.forEach(input => {
                     const value = input.value || '';
-                    const status = value.trim() ? '✓ FILLED' : '⚠️ EMPTY';
+                    const status = value.trim() ? ' FILLED' : 'EMPTY';
                     console.log(`TEXTBOX [${status}]: ${input.name} = "${value}"`);
                     if (!value.trim()) {
                         debugger; // Stop on empty textbox
@@ -1344,7 +1344,7 @@
                 const textareas = form.querySelectorAll('textarea');
                 textareas.forEach(textarea => {
                     const value = textarea.value || '';
-                    const status = value.trim() ? '✓ FILLED' : '⚠️ EMPTY';
+                    const status = value.trim() ? ' FILLED' : 'EMPTY';
                     console.log(`TEXTAREA [${status}]: ${textarea.name} = "${value}"`);
                     if (!value.trim()) {
                         debugger; // Stop on empty textarea
@@ -1355,7 +1355,7 @@
                 const selects = form.querySelectorAll('select');
                 selects.forEach(select => {
                     const value = select.value || '';
-                    const status = (value && value !== 'Choose...') ? '✓ SELECTED' : '⚠️ NOT SELECTED';
+                    const status = (value && value !== 'Choose...') ? ' SELECTED' : 'NOT SELECTED';
                     console.log(`SELECT [${status}]: ${select.name} = "${value}"`);
                     if (!value || value === 'Choose...') {
                         debugger; // Stop on unselected dropdown
@@ -1373,7 +1373,7 @@
                 
                 radioGroups.forEach((radios, groupName) => {
                     const checked = radios.find(r => r.checked);
-                    const status = checked ? '✓ SELECTED' : '⚠️ NOT SELECTED';
+                    const status = checked ? ' SELECTED' : 'NOT SELECTED';
                     console.log(`RADIO [${status}]: ${groupName} = "${checked?.value || '(none)'}"`);
                     if (!checked) {
                         debugger; // Stop on unselected radio group
@@ -1393,7 +1393,7 @@
                 checkboxGroups.forEach((checkboxes, groupName) => {
                     const checked = checkboxes.filter(cb => cb.checked);
                     const values = checked.map(cb => cb.value);
-                    const status = checked.length > 0 ? `✓ ${checked.length} SELECTED` : '⚠️ NONE SELECTED';
+                    const status = checked.length > 0 ? ` ${checked.length} SELECTED` : 'NONE SELECTED';
                     console.log(`CHECKBOX [${status}]: ${groupName} = [${values.join(', ') || '(none)'}]`);
                     if (checked.length === 0) {
                         debugger; // Stop on unchecked checkbox group
@@ -1404,7 +1404,7 @@
                 const fileInputs = form.querySelectorAll('input[type="file"]');
                 fileInputs.forEach(fileInput => {
                     const fileCount = fileInput.files.length;
-                    const status = fileCount > 0 ? `✓ ${fileCount} FILE(S)` : '⚠️ NO FILE';
+                    const status = fileCount > 0 ? ` ${fileCount} FILE(S)` : 'NO FILE';
                     console.log(`FILE [${status}]: ${fileInput.name}`);
                     if (fileCount === 0) {
                         debugger; // Stop on no file selected

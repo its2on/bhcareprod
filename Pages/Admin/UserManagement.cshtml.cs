@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -709,25 +709,25 @@ namespace Barangay.Pages.Admin
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>✅ Account Approved - Baesa Health Care</h2>
+                            <h2> Account Approved - Baesa Health Care</h2>
                         </div>
                         
                         <div class='content'>
                             <h3>Congratulations, {userName}!</h3>
                             
                             <div class='success-badge'>
-                                <strong>🎉 Your account has been approved and verified!</strong>
+                                <strong> Your account has been approved and verified!</strong>
                             </div>
                             
                             <p>We are pleased to inform you that your Baesa Health Care account has been successfully approved. You can now access all the features and services available in our system.</p>
                             
                             <p><strong>What you can do now:</strong></p>
                             <ul>
-                                <li>✅ Access your personal health dashboard</li>
-                                <li>✅ Schedule medical appointments</li>
-                                <li>✅ View your medical records</li>
-                                <li>✅ Request health services</li>
-                                <li>✅ Receive health notifications</li>
+                                <li> Access your personal health dashboard</li>
+                                <li> Schedule medical appointments</li>
+                                <li> View your medical records</li>
+                                <li> Request health services</li>
+                                <li> Receive health notifications</li>
                             </ul>
                             
                             <p>To get started, please log in to your account using your registered email: <strong>{userEmail}</strong></p>
@@ -775,14 +775,14 @@ namespace Barangay.Pages.Admin
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>❌ Account Application Status - Barangay Health Care</h2>
+                            <h2> Account Application Status - Barangay Health Care</h2>
                         </div>
                         
                         <div class='content'>
                             <h3>Dear {userName},</h3>
                             
                             <div class='warning-badge'>
-                                <strong>⚠️ Your account application requires attention</strong>
+                                <strong> Your account application requires attention</strong>
                             </div>
                             
                             <p>We regret to inform you that your Barangay Health Care account application has been reviewed and requires additional information or documentation.</p>
@@ -853,12 +853,12 @@ namespace Barangay.Pages.Admin
                             <div class='requirements'>
                                 <h5 style='color: #856404; margin-top: 0;'>📄 Document Requirements Checklist</h5>
                                 <ul style='margin: 10px 0;'>
-                                    <li>✅ Valid government-issued ID (not expired)</li>
-                                    <li>✅ Clear, readable photo of your ID</li>
-                                    <li>✅ Recent residency proof (within 3 months)</li>
-                                    <li>✅ Complete personal information</li>
-                                    <li>✅ Accurate contact details</li>
-                                    <li>✅ Emergency contact information</li>
+                                    <li> Valid government-issued ID (not expired)</li>
+                                    <li> Clear, readable photo of your ID</li>
+                                    <li> Recent residency proof (within 3 months)</li>
+                                    <li> Complete personal information</li>
+                                    <li> Accurate contact details</li>
+                                    <li> Emergency contact information</li>
                                 </ul>
                             </div>
                             
@@ -1395,7 +1395,7 @@ namespace Barangay.Pages.Admin
                         <p>Dear <strong>{userName}</strong>,</p>
                         
                         <div class='suspension-info'>
-                            <h3>⚠️ Account Suspension Notice</h3>
+                            <h3> Account Suspension Notice</h3>
                             <p>Your account has been <strong>suspended</strong> due to multiple application rejections.</p>
                             
                             <div style='text-align: center; margin: 20px 0;'>
@@ -1470,12 +1470,12 @@ namespace Barangay.Pages.Admin
                         <div class='requirements'>
                             <h5 style='color: #155724; margin-top: 0;'>📄 Required Documents Checklist</h5>
                             <ul style='margin: 10px 0;'>
-                                <li>✅ Valid government-issued ID (not expired)</li>
-                                <li>✅ Clear, readable photo of your ID</li>
-                                <li>✅ Recent residency proof (within 3 months)</li>
-                                <li>✅ Complete personal information</li>
-                                <li>✅ Accurate contact details</li>
-                                <li>✅ Emergency contact information</li>
+                                <li> Valid government-issued ID (not expired)</li>
+                                <li> Clear, readable photo of your ID</li>
+                                <li> Recent residency proof (within 3 months)</li>
+                                <li> Complete personal information</li>
+                                <li> Accurate contact details</li>
+                                <li> Emergency contact information</li>
                             </ul>
                         </div>
                         

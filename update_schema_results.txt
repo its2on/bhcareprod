@@ -1,4 +1,0 @@
-Msg 5074, Level 16, State 1, Server Ben\MSSQLSERVER01, Line 2
-The object 'DF__StaffMemb__Depar__3493CFA7' is dependent on column 'Department'.
-Msg 4922, Level 16, State 9, Server Ben\MSSQLSERVER01, Line 2
-ALTER TABLE ALTER COLUMN Department failed because one or more objects access this column.

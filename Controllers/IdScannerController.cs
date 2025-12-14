@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -307,7 +307,7 @@ namespace BHCARE.Controllers
                         var validBarangays = new[] { "158", "159", "160", "161" };
                         if (!validBarangays.Contains(detectedBarangay))
                         {
-                            _logger.LogWarning($"⚠️ INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
+                            _logger.LogWarning($"INVALID BARANGAY DETECTED: {detectedBarangay} (not in eligible list: 158, 159, 160, 161)");
                             if (!string.IsNullOrEmpty(ocrResult))
                             {
                                 _logger.LogWarning($"This may be an OCR misread. OCR text preview: {ocrResult.Substring(0, Math.Min(1000, ocrResult.Length))}...");
@@ -316,7 +316,7 @@ namespace BHCARE.Controllers
                         }
                         else
                         {
-                            _logger.LogInformation($"✅ Barangay {detectedBarangay} validated as eligible");
+                            _logger.LogInformation($"Barangay {detectedBarangay} validated as eligible");
                         }
                     }
                     
@@ -1424,7 +1424,7 @@ namespace BHCARE.Controllers
             if (!string.IsNullOrWhiteSpace(lastNameText))
             {
                 data.LastName = CleanupExtractedText(lastNameText);
-                _logger.LogInformation($"✓ Extracted LastName from label (fuzzy): {data.LastName}");
+                _logger.LogInformation($" Extracted LastName from label (fuzzy): {data.LastName}");
             }
             
             // Find "Mga Pangalan" or "Mga Pangalar" (common OCR misspelling) label
@@ -1485,7 +1485,7 @@ namespace BHCARE.Controllers
                     // Examples: "RHYLLE LANDER" -> First Name: "RHYLLE LANDER"
                     //           "JUAN PEDRO CARLOS" -> First Name: "JUAN PEDRO CARLOS"
                     data.FirstName = CleanupExtractedText(string.Join(" ", nameParts));
-                    _logger.LogInformation($"✓ Extracted FirstName from 'Mga Pangalan' (fuzzy): {data.FirstName}");
+                    _logger.LogInformation($" Extracted FirstName from 'Mga Pangalan' (fuzzy): {data.FirstName}");
                 }
             }
             
@@ -1497,7 +1497,7 @@ namespace BHCARE.Controllers
             if (!string.IsNullOrWhiteSpace(middleNameText))
             {
                 data.MiddleName = CleanupExtractedText(middleNameText);
-                _logger.LogInformation($"✓ Extracted MiddleName from 'Gitnang Apelyido' (fuzzy): {data.MiddleName}");
+                _logger.LogInformation($" Extracted MiddleName from 'Gitnang Apelyido' (fuzzy): {data.MiddleName}");
             }
             
             // Fallback: SECOND method - Extract given names from lines AFTER "Mga Pangalan" label
@@ -1543,7 +1543,7 @@ namespace BHCARE.Controllers
                 {
                     // Keep ALL collected words as First Name (don't split off as middle name)
                     data.FirstName = CleanupExtractedText(string.Join(" ", givenNameParts));
-                    _logger.LogInformation($"✓ Extracted FirstName from 'Mga Pangalan' section (fallback): {data.FirstName}");
+                    _logger.LogInformation($" Extracted FirstName from 'Mga Pangalan' section (fallback): {data.FirstName}");
                 }
             }
             
@@ -1565,7 +1565,7 @@ namespace BHCARE.Controllers
                                 !Regex.IsMatch(nextLine, @"(PETSA|DATE|BIRTH|KAPANGANAKAN|ADDRESS|TIRAHAN)", RegexOptions.IgnoreCase))
                             {
                                 data.MiddleName = CleanupExtractedText(nextLine);
-                                _logger.LogInformation($"✓ Extracted MiddleName from 'Gitnang Apelyido' section (fallback): {data.MiddleName}");
+                                _logger.LogInformation($" Extracted MiddleName from 'Gitnang Apelyido' section (fallback): {data.MiddleName}");
                                 break;
                             }
                         }
@@ -1582,7 +1582,7 @@ namespace BHCARE.Controllers
                 data.BirthDate = ParseDateFromText(dobText);
                 if (!string.IsNullOrWhiteSpace(data.BirthDate))
                 {
-                    _logger.LogInformation($"✓ Extracted BirthDate from label: {data.BirthDate}");
+                    _logger.LogInformation($" Extracted BirthDate from label: {data.BirthDate}");
                 }
             }
             
@@ -1604,7 +1604,7 @@ namespace BHCARE.Controllers
                         data.BirthDate = ParseDateFromText(match.Groups[1].Value);
                         if (!string.IsNullOrWhiteSpace(data.BirthDate))
                         {
-                            _logger.LogInformation($"✓ Extracted BirthDate from pattern: {data.BirthDate}");
+                            _logger.LogInformation($" Extracted BirthDate from pattern: {data.BirthDate}");
                             break;
                         }
                     }
@@ -1655,7 +1655,7 @@ namespace BHCARE.Controllers
             if (addressLines.Count > 0)
             {
                 data.Address = CleanupExtractedText(string.Join(", ", addressLines));
-                _logger.LogInformation($"✓ Extracted Address: {data.Address.Substring(0, Math.Min(100, data.Address.Length))}...");
+                _logger.LogInformation($" Extracted Address: {data.Address.Substring(0, Math.Min(100, data.Address.Length))}...");
             }
             
             // === GENDER EXTRACTION with fuzzy matching ===
@@ -1668,12 +1668,12 @@ namespace BHCARE.Controllers
                 if (genderUpper.Contains("M") || genderUpper.Contains("MALE") || genderUpper.Contains("LALAKI"))
                 {
                     data.Gender = "Male";
-                    _logger.LogInformation($"✓ Extracted Gender: Male");
+                    _logger.LogInformation($" Extracted Gender: Male");
                 }
                 else if (genderUpper.Contains("F") || genderUpper.Contains("FEMALE") || genderUpper.Contains("BABAE"))
                 {
                     data.Gender = "Female";
-                    _logger.LogInformation($"✓ Extracted Gender: Female");
+                    _logger.LogInformation($" Extracted Gender: Female");
                 }
             }
             
@@ -1683,7 +1683,7 @@ namespace BHCARE.Controllers
             if (phoneMatch.Success)
             {
                 data.ContactNumber = phoneMatch.Value.Trim();
-                _logger.LogInformation($"✓ Extracted ContactNumber: {data.ContactNumber}");
+                _logger.LogInformation($" Extracted ContactNumber: {data.ContactNumber}");
             }
             
             // === BARANGAY EXTRACTION from Address ===
@@ -1692,7 +1692,7 @@ namespace BHCARE.Controllers
                 data.Barangay = ExtractBarangayFromAddress(data.Address);
                 if (!string.IsNullOrWhiteSpace(data.Barangay))
                 {
-                    _logger.LogInformation($"✓ Extracted Barangay from address: {data.Barangay}");
+                    _logger.LogInformation($" Extracted Barangay from address: {data.Barangay}");
                 }
             }
             

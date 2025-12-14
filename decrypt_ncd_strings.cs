@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -64,7 +64,7 @@ namespace Barangay.Tools
                         var result = TryDecryptWithKey(encryptedValue, key);
                         if (!string.IsNullOrEmpty(result) && result != encryptedValue && result != "[ACCESS DENIED]" && IsValidDecryption(result))
                         {
-                            Console.WriteLine($"✓ Successfully decrypted with key: {key.Substring(0, Math.Min(30, key.Length))}...");
+                            Console.WriteLine($" Successfully decrypted with key: {key.Substring(0, Math.Min(30, key.Length))}...");
                             return result;
                         }
                     }

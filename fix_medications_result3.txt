@@ -1,8 +1,0 @@
-Changed database context to 'Barangay'.
-Starting simple fix for PrescriptionMedications table...
-PrescriptionId data type: int
-PrescriptionId is an integer column. Setting invalid values to NULL...
-
-(0 rows affected)
-Fixed records with non-numeric PrescriptionId values.
-Fix applied successfully. Transaction committed.

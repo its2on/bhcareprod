@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -41,7 +41,7 @@ namespace Barangay.Pages.Admin
         public List<VitalSign> VitalSigns { get; set; } = new();
         public List<string> FamilyIdentifiers { get; set; } = new();
 
-        // Helper method to normalize family numbers
+        
         private string NormalizeFamilyNumber(string familyNumber)
         {
             if (string.IsNullOrEmpty(familyNumber))
@@ -70,7 +70,7 @@ namespace Barangay.Pages.Admin
             return decrypted;
         }
 
-        // Helper method to create a consistent family key for matching
+        
         private string CreateFamilyKey(string familyNumber)
         {
             if (string.IsNullOrEmpty(familyNumber))

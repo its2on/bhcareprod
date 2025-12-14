@@ -223,7 +223,7 @@ namespace Barangay.Services
             return result;
         }
 
-        // Helper methods
+
         private string CleanOcrErrors(string text)
         {
             return text

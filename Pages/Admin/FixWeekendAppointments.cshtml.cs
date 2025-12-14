@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -101,12 +101,12 @@ namespace Barangay.Pages.Admin
 
                 await _context.SaveChangesAsync();
                 
-                StatusMessage = $"✅ Successfully enabled weekend appointments! Updated {updatedCount} existing records and created {createdCount} new records.";
+                StatusMessage = $" Successfully enabled weekend appointments! Updated {updatedCount} existing records and created {createdCount} new records.";
                 _logger.LogInformation($"Enabled weekend appointments: {updatedCount} updated, {createdCount} created");
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"❌ Error enabling weekend appointments: {ex.Message}";
+                ErrorMessage = $" Error enabling weekend appointments: {ex.Message}";
                 _logger.LogError(ex, "Error enabling weekend appointments");
             }
 
@@ -155,12 +155,12 @@ namespace Barangay.Pages.Admin
 
                 await _context.SaveChangesAsync();
                 
-                StatusMessage = $"✅ Created {createdCount} missing DoctorAvailability records with weekend support enabled.";
+                StatusMessage = $" Created {createdCount} missing DoctorAvailability records with weekend support enabled.";
                 _logger.LogInformation($"Created {createdCount} missing DoctorAvailability records");
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"❌ Error creating missing records: {ex.Message}";
+                ErrorMessage = $" Error creating missing records: {ex.Message}";
                 _logger.LogError(ex, "Error creating missing DoctorAvailability records");
             }
 
@@ -206,12 +206,12 @@ namespace Barangay.Pages.Admin
 
                 await _context.SaveChangesAsync();
                 
-                StatusMessage = $"✅ Reset all DoctorAvailability records for {doctors.Count} doctors with weekend support enabled.";
+                StatusMessage = $" Reset all DoctorAvailability records for {doctors.Count} doctors with weekend support enabled.";
                 _logger.LogInformation($"Reset all DoctorAvailability records for {doctors.Count} doctors");
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"❌ Error resetting records: {ex.Message}";
+                ErrorMessage = $" Error resetting records: {ex.Message}";
                 _logger.LogError(ex, "Error resetting DoctorAvailability records");
             }
 

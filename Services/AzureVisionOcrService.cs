@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -59,7 +59,7 @@ namespace Barangay.Services
                 var source = !string.IsNullOrEmpty(envEndpoint) ? "Environment Variable" :
                             !string.IsNullOrEmpty(configEndpointUnderscore) ? "IConfiguration (AzureOCR__Endpoint)" :
                             "IConfiguration (AzureOCR:Endpoint)";
-                _logger.LogInformation("✓ Azure Vision OCR configured - Endpoint: {Endpoint}, Key length: {KeyLength}, Source: {Source}", 
+                _logger.LogInformation(" Azure Vision OCR configured - Endpoint: {Endpoint}, Key length: {KeyLength}, Source: {Source}", 
                     _endpoint, _key.Length, source);
             }
             else
@@ -193,7 +193,7 @@ namespace Barangay.Services
                 var (isValidId, idType) = IsValidPhilippineIdDocument(extractedText);
                 if (!isValidId)
                 {
-                    _logger.LogWarning("⚠️ Invalid document: Not a recognized Philippine ID. ID Type detected: {IdType}", idType ?? "None");
+                    _logger.LogWarning(" Invalid document: Not a recognized Philippine ID. ID Type detected: {IdType}", idType ?? "None");
                     return new IdExtractionResult
                     {
                         Success = false,
@@ -202,7 +202,7 @@ namespace Barangay.Services
                     };
                 }
                 
-                _logger.LogInformation("✅ Valid Philippine ID detected: {IdType}", idType);
+                _logger.LogInformation(" Valid Philippine ID detected: {IdType}", idType);
 
                 // Use ID-specific parser for better accuracy
                 ParsedIdData parsedData;
@@ -1295,16 +1295,16 @@ namespace Barangay.Services
                         int.TryParse(day, out int d) && d >= 1 && d <= 31)
                     {
                         result.BirthDate = $"{year}-{month.PadLeft(2, '0')}-{day.PadLeft(2, '0')}";
-                        _logger.LogInformation("✅ Birth date extracted: {BirthDate} (from YYYY/MM/DD pattern near label)", result.BirthDate);
+                        _logger.LogInformation(" Birth date extracted: {BirthDate} (from YYYY/MM/DD pattern near label)", result.BirthDate);
                     }
                     else
                     {
-                        _logger.LogWarning("⚠️ Date pattern matched but validation failed: Year={Year}, Month={Month}, Day={Day}", year, month, day);
+                        _logger.LogWarning(" Date pattern matched but validation failed: Year={Year}, Month={Month}, Day={Day}", year, month, day);
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("⚠️ 'Date of Birth' label found but no YYYY/MM/DD pattern matched in search area");
+                    _logger.LogWarning(" 'Date of Birth' label found but no YYYY/MM/DD pattern matched in search area");
                 }
                 
                 // If YYYY/MM/DD not found, try DD/MM/YYYY or MM/DD/YYYY format
@@ -1900,7 +1900,7 @@ namespace Barangay.Services
 
             var upperText = text.ToUpper();
             
-            _logger.LogInformation("📝 Validating document with text length: {Length} characters", upperText.Length);
+            _logger.LogInformation(" Validating document with text length: {Length} characters", upperText.Length);
             
             // CRITICAL: Check for screenshot or illustration indicators
             // Comprehensive list of screenshot indicators based on common mobile/desktop UI elements
@@ -1924,13 +1924,13 @@ namespace Barangay.Services
             
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                _logger.LogWarning(" Document validation failed: Screenshot indicators found in text");
                 return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
             }
             
             if (invalidContentIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Invalid content indicators found");
+                _logger.LogWarning(" Document validation failed: Invalid content indicators found");
                 return (false, "Invalid Image - Please upload a photo of your official printed ID");
             }
             
@@ -1941,7 +1941,7 @@ namespace Barangay.Services
             };
             if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Handwritten document indicators found");
+                _logger.LogWarning(" Document validation failed: Handwritten document indicators found");
                 return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
             }
             
@@ -1962,7 +1962,7 @@ namespace Barangay.Services
                 
                 if (handwritingScore >= 2)
                 {
-                    _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                    _logger.LogWarning(" Document validation failed: Handwritten document detected");
                     return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
                 }
             }
@@ -2045,11 +2045,11 @@ namespace Barangay.Services
             
             if (!hasStrongIdMarker)
             {
-                _logger.LogWarning("⚠️ Document validation failed: No Philippine ID markers found");
+                _logger.LogWarning(" Document validation failed: No Philippine ID markers found");
                 return (false, "Unverified Document");
             }
 
-            _logger.LogInformation("✅ Valid Philippine ID markers found: {IdType}", detectedIdType ?? "Unknown Philippine ID");
+            _logger.LogInformation(" Valid Philippine ID markers found: {IdType}", detectedIdType ?? "Unknown Philippine ID");
             return (true, detectedIdType ?? "Philippine Government ID");
         }
     }

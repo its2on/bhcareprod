@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -284,7 +284,7 @@ namespace Barangay.Pages.VitalSigns
             }
         }
 
-        // Helper method to get patient name
+        
         private string GetPatientName(string patientId)
         {
             try

@@ -1,4 +1,4 @@
-@page "{handler?}"
+﻿@page "{handler?}"
 @model Barangay.Pages.Account.SignUpModel
 @{
     ViewData["Title"] = "Sign Up";
@@ -458,7 +458,7 @@
             </div>
             
             <script>
-                console.log('🔧 SIGNUP FIX LOADED - Version 2.0');
+                console.log(' SIGNUP FIX LOADED - Version 2.0');
                 
                 // CRITICAL FIX: Make all sections visible before form submission
                 // Hidden sections (d-none) don't submit their field values!
@@ -508,13 +508,13 @@
                     if (form && loadingIndicator && submitButton) {
                         // Intercept form submission
                         form.addEventListener('submit', function(e) {
-                            console.log('🚀 Form submit event triggered');
+                            console.log(' Form submit event triggered');
                             
                             // Check if a non-eligible barangay was detected from ID
                             const nonEligibleBarangayDetected = document.getElementById('NonEligibleBarangayDetected');
                             if (nonEligibleBarangayDetected && nonEligibleBarangayDetected.value) {
                                 e.preventDefault();
-                                console.error('❌ FORM SUBMISSION BLOCKED: Non-eligible barangay detected:', nonEligibleBarangayDetected.value);
+                                console.error(' FORM SUBMISSION BLOCKED: Non-eligible barangay detected:', nonEligibleBarangayDetected.value);
                                 alert(`Registration is disabled. The ID shows Barangay ${nonEligibleBarangayDetected.value}, which is not eligible. Please upload a valid ID showing Barangay 158, 159, 160, or 161.`);
                                 return false;
                             }
@@ -526,7 +526,7 @@
                             // Check for validation errors
                             const invalidFields = form.querySelectorAll(':invalid');
                             if (invalidFields.length > 0) {
-                                console.error('❌ VALIDATION ERRORS FOUND:', invalidFields.length);
+                                console.error(' VALIDATION ERRORS FOUND:', invalidFields.length);
                                 invalidFields.forEach((field, index) => {
                                     console.error(`  ${index + 1}. ${field.name || field.id}: ${field.validationMessage}`);
                                 });
@@ -534,7 +534,7 @@
                                 return;
                             }
                             
-                            console.log('✅ All validations passed, submitting form...');
+                            console.log(' All validations passed, submitting form...');
                             console.log('Showing loading indicator');
                             loadingIndicator.classList.remove('d-none');
                             submitButton.disabled = true;
@@ -587,7 +587,7 @@
                             // Log OCR-detected barangay value before submission
                             const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
                             if (ocrBarangayInput) {
-                                console.log('🔍 Form submission - OcrDetectedBarangay value:', ocrBarangayInput.value);
+                                console.log(' Form submission - OcrDetectedBarangay value:', ocrBarangayInput.value);
                             }
                             
                             if (!step2Valid || !checkboxesValid || !barangayVerified) {
@@ -605,7 +605,7 @@
                                 }
                             } else {
                                 // Form is valid, allow submission
-                                console.log('✅ Form validation passed - submitting...');
+                                console.log(' Form validation passed - submitting...');
                             }
                         });
 
@@ -2607,7 +2607,7 @@
                             // Reject if score is high OR if it doesn't look like an ID document
                             if (rejectionScore >= 3) {
                                 results.isValid = false;
-                                results.errors.push('⚠️ This does not appear to be an actual Philippine ID document.');
+                                results.errors.push(' This does not appear to be an actual Philippine ID document.');
                                 results.errors.push('Please upload a photo of your actual Philippine ID (Driver\'s License, National ID, PhilHealth ID, Postal ID, etc.).');
                                 results.errors.push('Screenshots, photos of screens, or other documents are not accepted.');
                                 resolve(results);
@@ -3290,7 +3290,7 @@
                             const ocrBarangayInput = document.getElementById('OcrDetectedBarangay');
                             if (ocrBarangayInput && result.barangay) {
                                 ocrBarangayInput.value = result.barangay;
-                                console.log('✅ Set OcrDetectedBarangay to:', result.barangay);
+                                console.log(' Set OcrDetectedBarangay to:', result.barangay);
                             }
                             
                             // Remove non-eligible barangay flag if exists
@@ -3394,7 +3394,7 @@
                         error.message?.includes('Invalid document') ||
                         error.message?.includes('not a valid Philippine ID') ||
                         error.message?.includes('actual Philippine ID')) {
-                        errorTitle = '⚠️ Philippine ID Required';
+                        errorTitle = ' Philippine ID Required';
                         errorMessage = error.message.replace('PHILIPPINE_ID_REQUIRED: ', '');
                         tipMessage = '<strong>Only actual Philippine ID documents are accepted:</strong><ul class="mb-0 mt-2"><li>Driver\'s License</li><li>National ID (PhilSys)</li><li>PhilHealth ID</li><li>Postal ID</li><li>UMID</li><li>TIN ID</li></ul><p class="mb-0 mt-2">Screenshots, photos of screens, or other documents will be rejected.</p>';
                     } else if (error.message?.includes('network') || error.message?.includes('Failed to fetch')) {

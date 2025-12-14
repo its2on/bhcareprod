@@ -1,4 +1,4 @@
-@using Barangay.Models
+﻿@using Barangay.Models
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,7 +199,7 @@
     <script>
         // Persistent Sidebar State Management - Run after all scripts load
         window.addEventListener('load', function() {
-            console.log('🔧 Initializing persistent sidebar...');
+            console.log('Initializing persistent sidebar...');
             
             const sidebar = document.getElementById('adminSidebar');
             const mainContent = document.getElementById('mainContent');
@@ -214,7 +214,7 @@
             });
             
             if (!sidebar || !mainContent) {
-                console.error('❌ Sidebar or main content not found!');
+                console.error('Sidebar or main content not found!');
                 return;
             }
             
@@ -236,7 +236,7 @@
             
             // Collapse button functionality
             if (collapseBtn) {
-                console.log('✅ Setting up collapse button handler');
+                console.log('Setting up collapse button handler');
                 
                 // Remove any existing handlers first
                 const newCollapseBtn = collapseBtn.cloneNode(true);
@@ -269,12 +269,12 @@
                     
                     // Save state to localStorage
                     localStorage.setItem('adminSidebarCollapsed', isCollapsed.toString());
-                    console.log('✅ State saved to localStorage:', isCollapsed);
+                    console.log('State saved to localStorage:', isCollapsed);
                 });
                 
-                console.log('✅ Collapse button handler attached');
+                console.log('Collapse button handler attached');
             } else {
-                console.error('❌ Collapse button not found!');
+                console.error('Collapse button not found!');
             }
             
             // Expand button functionality

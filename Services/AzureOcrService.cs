@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -577,8 +577,8 @@ namespace Barangay.Services
             var upperText = text.ToUpper();
             
             // DEBUG: Log extracted text to diagnose issues
-            _logger.LogInformation("📝 Extracted text length: {Length} characters", upperText.Length);
-            _logger.LogInformation("📝 Text preview (first 500 chars): {Preview}", upperText.Length > 500 ? upperText.Substring(0, 500) : upperText);
+            _logger.LogInformation(" Extracted text length: {Length} characters", upperText.Length);
+            _logger.LogInformation(" Text preview (first 500 chars): {Preview}", upperText.Length > 500 ? upperText.Substring(0, 500) : upperText);
             
             // CRITICAL: Check for screenshot indicators in text (screenshots often have UI elements)
             // Comprehensive list of screenshot indicators based on common mobile/desktop UI elements
@@ -595,7 +595,7 @@ namespace Barangay.Services
             };
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                _logger.LogWarning(" Document validation failed: Screenshot indicators found in text");
                 return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
             }
             
@@ -634,7 +634,7 @@ namespace Barangay.Services
             
             if (handwritingScore >= 2)
             {
-                _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                _logger.LogWarning(" Document validation failed: Handwritten document detected");
                 _logger.LogWarning("Handwriting indicators: Mixed case={MixedCase}, Irregular spacing={Spacing}, Irregular breaks={Breaks}", 
                     hasExcessiveMixedCase, hasIrregularSpacing, hasIrregularLineBreaks);
                 return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
@@ -731,7 +731,7 @@ namespace Barangay.Services
             else if (upperText.Contains("REPUBLIK") || upperText.Contains("PILIPINAS") || (upperText.Contains("REPUBLIC") && upperText.Contains("PHILIPP")))
                 detectedIdType = "Philippine Government ID";
             
-            _logger.LogInformation("🔍 Strong marker found: {HasMarker}, Detected type: {IdType}", hasStrongIdMarker, detectedIdType ?? "None");
+            _logger.LogInformation(" Strong marker found: {HasMarker}, Detected type: {IdType}", hasStrongIdMarker, detectedIdType ?? "None");
             
             // Also check for partial matches of strong markers (handle OCR errors)
             // VERY AGGRESSIVE: Even partial words should trigger acceptance
@@ -757,14 +757,14 @@ namespace Barangay.Services
                     
                 if (hasStrongIdMarker)
                 {
-                    _logger.LogInformation("✅ Found marker through partial matching!");
+                    _logger.LogInformation(" Found marker through partial matching!");
                 }
             }
             
             // CRITICAL: Must have a STRONG ID marker - screenshots won't have these
             if (!hasStrongIdMarker)
             {
-                _logger.LogWarning("⚠️ Document validation failed: No strong Philippine ID markers found");
+                _logger.LogWarning(" Document validation failed: No strong Philippine ID markers found");
                 _logger.LogWarning("Text preview: {Preview}", text.Substring(0, Math.Min(500, text.Length)));
                 _logger.LogWarning("Screenshots and non-ID documents are rejected. Please upload an actual Philippine ID document.");
                 return (false, "Unverified / Invalid ID Image");
@@ -798,17 +798,17 @@ namespace Barangay.Services
             {
                 if (fieldCount < 1)
                 {
-                    _logger.LogInformation("✅ Passing validation based on strong government markers (ID Type: {IdType})", detectedIdType);
+                    _logger.LogInformation(" Passing validation based on strong government markers (ID Type: {IdType})", detectedIdType);
                 }
                 // Auto-pass with strong markers - don't require field counts
             }
             else if (fieldCount < 1)
             {
-                _logger.LogWarning("⚠️ Document validation failed: No strong markers and no ID fields found");
+                _logger.LogWarning(" Document validation failed: No strong markers and no ID fields found");
                 return (false, "Unverified / Invalid ID Image");
             }
 
-            _logger.LogInformation("✅ Document validation passed: Philippine ID detected");
+            _logger.LogInformation(" Document validation passed: Philippine ID detected");
             _logger.LogInformation("   ID Type: {IdType}", detectedIdType ?? "Unknown Philippine ID");
             _logger.LogInformation("   Strong Markers: {Markers}, ID Fields: {Fields}", strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
             return (true, detectedIdType ?? "Philippine Government ID");
@@ -826,7 +826,7 @@ namespace Barangay.Services
             
             if (!isValid)
             {
-                _logger.LogError("❌ REJECTED: Document is not a valid Philippine ID");
+                _logger.LogError(" REJECTED: Document is not a valid Philippine ID");
                 _logger.LogError("The uploaded file appears to be plain text, a screenshot, or not a valid Philippine ID document.");
                 _logger.LogError("Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, etc.)");
                 
@@ -898,12 +898,12 @@ namespace Barangay.Services
                 if (match.Success && match.Groups.Count > 1)
                 {
                     var barangayNumber = match.Groups[1].Value.Trim();
-                    _logger.LogInformation("🔍 Pattern matched: {Pattern} → Found: {Barangay}", pattern, barangayNumber);
+                    _logger.LogInformation(" Pattern matched: {Pattern} → Found: {Barangay}", pattern, barangayNumber);
                     
                     // CRITICAL: Double-check that the detected barangay is EXACTLY in the valid list
                     if (validBarangays.Contains(barangayNumber))
                     {
-                        _logger.LogInformation("=== ✅ BARANGAY FOUND (VALIDATED) ===");
+                        _logger.LogInformation("===  BARANGAY FOUND (VALIDATED) ===");
                         _logger.LogInformation("Pattern: {Pattern}", pattern);
                         _logger.LogInformation("Barangay: {Barangay}", barangayNumber);
                         _logger.LogInformation("ID Type: {IdType}", idType);
@@ -941,7 +941,7 @@ namespace Barangay.Services
                     // If it's NOT in the valid list, reject it explicitly
                     if (!validBarangays.Contains(detectedNumber))
                     {
-                        _logger.LogWarning("⚠️ Detected non-eligible barangay: {Barangay} (not in 158-161)", detectedNumber);
+                        _logger.LogWarning(" Detected non-eligible barangay: {Barangay} (not in 158-161)", detectedNumber);
                         return new OcrResult
                         {
                             Success = false,

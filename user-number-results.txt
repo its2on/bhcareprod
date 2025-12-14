@@ -1,2 +1,0 @@
-Msg 207, Level 16, State 1, Server DESKTOP-NU53VS3\SQLEXPRESS, Line 18
-Invalid column name 'UserNumber'.

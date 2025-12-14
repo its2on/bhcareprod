@@ -1,3 +1,0 @@
-Changed database context to 'Barangay'.
-Migration history table does not exist. No fixes needed.
-Migration history check complete

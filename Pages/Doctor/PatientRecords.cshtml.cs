@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -398,7 +398,7 @@ namespace Barangay.Pages.Doctor
             }
         }
         
-        // Helper method to reload patients for the view
+        
         private async Task ReloadPatientsAsync()
         {
             try
@@ -490,7 +490,7 @@ namespace Barangay.Pages.Doctor
             }
         }
         
-        // Helper methods for validation
+
         private bool IsValidEmail(string email)
         {
             try

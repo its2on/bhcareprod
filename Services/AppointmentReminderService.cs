@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -535,7 +535,7 @@ namespace Barangay.Services
             </div>
             
             <div class='urgent'>
-                <h4>⚠️ Important Reminders</h4>
+                <h4>Important Reminders</h4>
                 <ul>
                     <li>Please arrive 15 minutes before your scheduled time</li>
                     <li>Bring your health card and any relevant medical documents</li>

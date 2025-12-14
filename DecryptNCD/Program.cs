@@ -67,7 +67,7 @@ namespace DecryptNCD
                         var result = TryDecryptWithKey(encryptedValue, key);
                         if (!string.IsNullOrEmpty(result) && result != encryptedValue && result != "[ACCESSDENIED]" && IsValidDecryption(result))
                         {
-                            Console.WriteLine($"✓ Successfully decrypted with key: {key.Substring(0, Math.Min(30, key.Length))}...");
+                            Console.WriteLine($" Successfully decrypted with key: {key.Substring(0, Math.Min(30, key.Length))}...");
                             return result;
                         }
                     }

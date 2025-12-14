@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
@@ -893,7 +893,7 @@ namespace Barangay.Pages.Doctor
             }
         }
 
-        // Helper method to ensure TimeSpan is valid
+        
         private void EnsureValidTimeSpan(Barangay.Models.Appointment appointment)
         {
             if (appointment == null) return;
@@ -1438,7 +1438,7 @@ namespace Barangay.Pages.Doctor
 
 
 
-        // Helper method to get the current doctor's ID from claims
+        
         private string GetCurrentDoctorId()
         {
             if (!User.Identity?.IsAuthenticated ?? false)
@@ -1469,7 +1469,7 @@ namespace Barangay.Pages.Doctor
             return userId;
         }
 
-        // Helper method to calculate age from birth date
+        
         private static int CalculateAge(DateTime birthDate)
         {
             var today = DateTime.Today;
@@ -1478,7 +1478,7 @@ namespace Barangay.Pages.Doctor
             return age;
         }
 
-        // Helper method to get doctor ID with fallback options
+        
         private async Task<string> GetCurrentDoctorIdWithFallbackAsync()
         {
             var doctorId = GetCurrentDoctorId();
@@ -1518,7 +1518,7 @@ namespace Barangay.Pages.Doctor
             return string.Empty;
         }
 
-        // Helper method for safe decryption
+
         private string SafeDecrypt(string? encryptedValue)
         {
             if (string.IsNullOrEmpty(encryptedValue))
@@ -1540,7 +1540,7 @@ namespace Barangay.Pages.Doctor
             }
         }
 
-        // Helper method to check if HEEADSSS assessment has meaningful data
+        
         public bool HasHEEADSSSData()
         {
             if (HEEADSSSAssessment == null) 
@@ -1605,7 +1605,7 @@ namespace Barangay.Pages.Doctor
             return hasMeaningfulData;
         }
 
-        // Helper method to check if NCD assessment has meaningful data
+        
         public bool HasNCDData()
         {
             if (NCDRiskAssessment == null) return false;
@@ -1687,7 +1687,7 @@ namespace Barangay.Pages.Doctor
             return hasMeaningfulData;
         }
 
-        // Helper method to check if Adolescent Health Info has meaningful data
+        
         public bool HasAdolescentHealthData()
         {
             if (AdolescentHealthInfo == null) return false;

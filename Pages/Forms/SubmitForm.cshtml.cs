@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -446,12 +446,12 @@ namespace Barangay.Pages.Forms
                         if (values.Count > 0)
                         {
                             value = string.Join(", ", values);
-                            _logger.LogInformation("✓ CHECKBOX - Selected values: {Values}", value);
+                            _logger.LogInformation(" CHECKBOX - Selected values: {Values}", value);
                         }
                         else
                         {
                             value = string.Empty; // No checkboxes selected
-                            _logger.LogWarning("⚠️ CHECKBOX - No values selected (empty) for field: {FieldName}", field.FieldName);
+                            _logger.LogWarning("CHECKBOX - No values selected (empty) for field: {FieldName}", field.FieldName);
                             _logger.LogWarning("CHECKBOX - Searched for: {FieldName}, {FieldNameWithBrackets}, normalized: {Normalized}", 
                                 checkboxFieldName, checkboxFieldNameWithBrackets, normalizedFieldName);
                             _logger.LogWarning("CHECKBOX - All available form keys: {Keys}", 
@@ -467,12 +467,12 @@ namespace Barangay.Pages.Forms
                         if (!string.IsNullOrWhiteSpace(radioValue))
                         {
                             value = radioValue;
-                            _logger.LogInformation("✓ RADIO - Selected value: {Value}", value);
+                            _logger.LogInformation(" RADIO - Selected value: {Value}", value);
                         }
                         else
                         {
                             value = string.Empty; // No radio button selected
-                            _logger.LogWarning("⚠️ RADIO - No option selected (empty) for field: {FieldName}", field.FieldName);
+                            _logger.LogWarning("RADIO - No option selected (empty) for field: {FieldName}", field.FieldName);
                             // DEBUGGER: Stop here if radio not selected
                             System.Diagnostics.Debugger.Break();
                         }
@@ -490,11 +490,11 @@ namespace Barangay.Pages.Forms
                         value = Request.Form[field.FieldName].ToString();
                         if (!string.IsNullOrWhiteSpace(value))
                         {
-                            _logger.LogInformation("✓ TEXTBOX/SELECT/TEXTAREA - Value: {Value}", value);
+                            _logger.LogInformation(" TEXTBOX/SELECT/TEXTAREA - Value: {Value}", value);
                         }
                         else
                         {
-                            _logger.LogWarning("⚠️ TEXTBOX/SELECT/TEXTAREA - Empty value for field: {FieldName} (Type: {FieldType})", 
+                            _logger.LogWarning("TEXTBOX/SELECT/TEXTAREA - Empty value for field: {FieldName} (Type: {FieldType})", 
                                 field.FieldName, field.FieldType);
                             // DEBUGGER: Stop here if text field is empty
                             System.Diagnostics.Debugger.Break();

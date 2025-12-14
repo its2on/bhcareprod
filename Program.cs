@@ -1,4 +1,4 @@
-using Barangay.Data;
+﻿using Barangay.Data;
 using Barangay.Models;
 using Barangay.Services;
 using Barangay;
@@ -71,11 +71,11 @@ if (args.Length > 0 && (args[0] == "--reset-nurse-password" || args[0] == "--res
     
     if (user == null)
     {
-        Console.WriteLine($"❌ User {userEmail} not found!");
+        Console.WriteLine($" User {userEmail} not found!");
         return;
     }
     
-    Console.WriteLine($"✓ Found user: {user.Email}");
+    Console.WriteLine($" Found user: {user.Email}");
     Console.WriteLine($"  Name: {user.Name ?? user.FullName}");
     
     // Generate password reset token and reset password
@@ -85,17 +85,17 @@ if (args.Length > 0 && (args[0] == "--reset-nurse-password" || args[0] == "--res
     
     if (result.Succeeded)
     {
-        Console.WriteLine($"\n✓ Password reset successfully!");
+        Console.WriteLine($"\n Password reset successfully!");
         Console.WriteLine($"  Email: {userEmail}");
         Console.WriteLine($"  Password: {newPassword}");
         
         // Verify the password works
         var checkResult = await userManager.CheckPasswordAsync(user, newPassword);
-        Console.WriteLine($"\n✓ Password verification: {(checkResult ? "SUCCESS ✓" : "FAILED ✗")}");
+        Console.WriteLine($"\n Password verification: {(checkResult ? "SUCCESS " : "FAILED ✗")}");
     }
     else
     {
-        Console.WriteLine("\n❌ Password reset failed:");
+        Console.WriteLine("\n Password reset failed:");
         foreach (var error in result.Errors)
         {
             Console.WriteLine($"  - {error.Description}");
@@ -221,7 +221,7 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-// ✅ Configure DbContext with SQL Server
+//  Configure DbContext with SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -244,7 +244,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
                            new SetSessionOptionsCommandInterceptor());
 });
 
-// ✅ Configure EncryptedDbContext for custom services
+//  Configure EncryptedDbContext for custom services
 builder.Services.AddDbContext<EncryptedDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -262,7 +262,7 @@ builder.Services.AddDbContext<EncryptedDbContext>(options =>
                            new SetSessionOptionsCommandInterceptor());
 });
 
-// ✅ Add Identity services
+//  Add Identity services
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -274,7 +274,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// ✅ Configure Identity Application Cookie (avoid dual-cookie mismatch)
+//  Configure Identity Application Cookie (avoid dual-cookie mismatch)
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -323,7 +323,7 @@ builder.Services.AddScoped<IDatabaseDebugService, DatabaseDebugService>();
 // Add DatabaseSchemaFixService
 builder.Services.AddScoped<IDatabaseSchemaFixService, DatabaseSchemaFixService>();
 
-// ✅ Configure Authorization
+//  Configure Authorization
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireAuthenticatedUser", policy => policy.RequireAuthenticatedUser());
@@ -385,7 +385,7 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
 
 
-// ✅ Require Authorization on Razor Pages
+//  Require Authorization on Razor Pages
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/");
@@ -420,13 +420,13 @@ builder.Services.AddRazorPages(options =>
 })
 .AddJsonOptions(options =>
 {
-    // ✅ Fix: Configure JSON serialization to use camelCase for property names
+    //  Fix: Configure JSON serialization to use camelCase for property names
     // This ensures API responses convert PascalCase (FirstName, MiddleName) to camelCase (firstName, middleName)
     // Required for OCR field prefilling where JavaScript expects camelCase properties
     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// ✅ Email Sender
+//  Email Sender
 builder.Services.AddSingleton<Barangay.Services.IEmailSender>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
@@ -446,7 +446,7 @@ builder.Services.AddSingleton<Barangay.Services.IEmailSender>(sp =>
     return new Barangay.Services.EmailSender(smtpHost, smtpPort, smtpUser, smtpPassword);
 });
 
-// ✅ Add other services
+//  Add other services
 builder.Services.AddScoped<IViewRenderService, ViewRenderService>();
 builder.Services.AddScoped<IConsultationPdfService, ConsultationPdfService>();
 builder.Services.AddScoped<IPrescriptionPdfService, PrescriptionPdfService>();
@@ -563,7 +563,7 @@ builder.Services.AddScoped<PermissionFixService>();
 
 // Local OCR Service using Tesseract - no external API configuration needed
 Console.ForegroundColor = ConsoleColor.Green;
-Console.WriteLine("✓ Local OCR Service (Tesseract) configured - no external API required");
+Console.WriteLine(" Local OCR Service (Tesseract) configured - no external API required");
 Console.ResetColor();
 
 var app = builder.Build();

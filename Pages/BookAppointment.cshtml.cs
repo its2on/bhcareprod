@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Identity;
@@ -654,7 +654,7 @@ namespace Barangay.Pages
             }
         }
 
-        // Helper method to create a temporary appointment record and return its ID
+        
         private async Task<int> CreateTemporaryAppointmentAsync(string userId, AppointmentBookingViewModel bookingModel, bool bookingForOther, string familyNumber = null)
         {
             try

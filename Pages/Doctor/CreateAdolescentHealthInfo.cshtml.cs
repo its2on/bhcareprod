@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -163,7 +163,7 @@ namespace Barangay.Pages.Doctor
             }
         }
 
-        // Helper method to calculate BMI
+        
         public string CalculateBMI(decimal weight, decimal height)
         {
             if (weight > 0 && height > 0)
@@ -175,7 +175,7 @@ namespace Barangay.Pages.Doctor
             return string.Empty;
         }
 
-        // Helper method to determine BMI category
+        
         public string GetBMICategory(decimal bmi)
         {
             if (bmi < 18.5m) return "Underweight";

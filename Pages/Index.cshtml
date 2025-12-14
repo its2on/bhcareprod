@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.IndexModel
 @{
     ViewData["Title"] = "Home";
@@ -352,7 +352,7 @@
                 // Only check admin pattern if email is provided
                 if (email && email.toLowerCase().includes('admin')) {
                     e.preventDefault();
-                    alert('❌ ACCESS DENIED: Admin users must use the Admin Login page. Please go to the Login page and use the "Admin Login Only" button.');
+                    alert('ACCESS DENIED: Admin users must use the Admin Login page. Please go to the Login page and use the "Admin Login Only" button.');
                     return false;
                 }
                 

@@ -1,4 +1,4 @@
-@page "{id:int}"
+﻿@page "{id:int}"
 @model Barangay.Pages.Doctor.PrintMedicalRecordModel
 @{
     ViewData["Title"] = "Print Medical Record";
@@ -313,7 +313,7 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <div class="assessment-label">📝 Notes:</div>
+                        <div class="assessment-label"> Notes:</div>
                         <div class="content-section">
                             @(string.IsNullOrEmpty(Model.Record.Notes) ? "No additional notes" : Model.Record.Notes)
                         </div>

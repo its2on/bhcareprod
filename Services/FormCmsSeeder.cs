@@ -1,4 +1,4 @@
-using Barangay.Data;
+﻿using Barangay.Data;
 using Barangay.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -272,11 +272,11 @@ namespace Barangay.Services
                         FieldWidth = "col-md-6",
                         FormFieldOptions = new List<FormFieldOption>
                         {
-                            new FormFieldOption { OptionLabel = "⭐⭐⭐⭐⭐ Excellent", OptionValue = "5", DisplayOrder = 1, IsActive = true },
-                            new FormFieldOption { OptionLabel = "⭐⭐⭐⭐ Good", OptionValue = "4", DisplayOrder = 2, IsActive = true },
-                            new FormFieldOption { OptionLabel = "⭐⭐⭐ Average", OptionValue = "3", DisplayOrder = 3, IsActive = true },
-                            new FormFieldOption { OptionLabel = "⭐⭐ Poor", OptionValue = "2", DisplayOrder = 4, IsActive = true },
-                            new FormFieldOption { OptionLabel = "⭐ Very Poor", OptionValue = "1", DisplayOrder = 5, IsActive = true }
+                            new FormFieldOption { OptionLabel = " Excellent", OptionValue = "5", DisplayOrder = 1, IsActive = true },
+                            new FormFieldOption { OptionLabel = " Good", OptionValue = "4", DisplayOrder = 2, IsActive = true },
+                            new FormFieldOption { OptionLabel = " Average", OptionValue = "3", DisplayOrder = 3, IsActive = true },
+                            new FormFieldOption { OptionLabel = " Poor", OptionValue = "2", DisplayOrder = 4, IsActive = true },
+                            new FormFieldOption { OptionLabel = " Very Poor", OptionValue = "1", DisplayOrder = 5, IsActive = true }
                         }
                     },
                     new FormField

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -237,7 +237,7 @@ namespace Barangay.Controllers
             }
         }
 
-        // Helper method to try multiple time formats for parsing
+        
         private bool TryParseTimeWithFormats(string timeString, out TimeSpan result)
         {
             // Clean up the input string

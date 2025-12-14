@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -266,7 +266,7 @@ namespace Barangay.Pages.Admin
             }
         }
         
-        // Helper method to determine content type based on file extension
+        
         private string GetContentType(string extension)
         {
             return extension.ToLower() switch

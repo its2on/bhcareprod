@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Barangay.Extensions;
@@ -65,7 +65,7 @@ namespace Barangay.Models
             return true;
         }
 
-        // Helper method to get DateTime from string
+        
         public DateTime GetAppointmentDateTime()
         {
             if (!DateTime.TryParseExact(AppointmentDate, "yyyy-MM-dd", 
@@ -83,7 +83,7 @@ namespace Barangay.Models
             return date.Date.Add(time);
         }
 
-        // Helper method to get formatted time string
+        
         public string GetFormattedTime()
         {
             if (TimeSpan.TryParseExact(AppointmentTime, "HH:mm", 
@@ -94,7 +94,7 @@ namespace Barangay.Models
             return "Not scheduled";
         }
 
-        // Helper method to validate date and time
+        
         public bool ValidateDateTime()
         {
             if (!DateTime.TryParseExact(AppointmentDate, "yyyy-MM-dd", 

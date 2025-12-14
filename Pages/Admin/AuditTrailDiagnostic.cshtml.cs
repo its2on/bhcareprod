@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Barangay.Data;
@@ -44,14 +44,14 @@ namespace Barangay.Pages.Admin
                     var testQuery = await _context.AuditTrails.Take(1).ToListAsync();
                     TableExists = true;
                     TableExistsMessage = "Table exists and is accessible";
-                    _logger.LogInformation("✅ Table exists");
+                    _logger.LogInformation(" Table exists");
                 }
                 catch (Exception ex)
                 {
                     TableExists = false;
                     TableExistsMessage = $"Table does not exist or is not accessible: {ex.Message}";
                     ErrorMessage = $"Table Error: {ex.Message}\n{ex.StackTrace}";
-                    _logger.LogError(ex, "❌ Table does not exist");
+                    _logger.LogError(ex, " Table does not exist");
                     return;
                 }
 
@@ -61,12 +61,12 @@ namespace Barangay.Pages.Admin
                 {
                     RecordCount = await _context.AuditTrails.CountAsync();
                     RecordCountMessage = $"Successfully counted {RecordCount} existing records";
-                    _logger.LogInformation("✅ Record count: {Count}", RecordCount);
+                    _logger.LogInformation(" Record count: {Count}", RecordCount);
                 }
                 catch (Exception ex)
                 {
                     RecordCountMessage = $"Failed to count records: {ex.Message}";
-                    _logger.LogError(ex, "❌ Failed to count records");
+                    _logger.LogError(ex, " Failed to count records");
                 }
 
                 // Test 3: Try to write a test record
@@ -95,13 +95,13 @@ namespace Barangay.Pages.Admin
                         CanWrite = true;
                         TestRecordId = testLog.Id;
                         WriteTestMessage = $"Successfully wrote test record with ID {testLog.Id}";
-                        _logger.LogInformation("✅ Test write successful. ID: {Id}", testLog.Id);
+                        _logger.LogInformation(" Test write successful. ID: {Id}", testLog.Id);
                     }
                     else
                     {
                         CanWrite = false;
                         WriteTestMessage = "SaveChangesAsync returned 0 rows affected";
-                        _logger.LogWarning("⚠️ SaveChangesAsync returned 0");
+                        _logger.LogWarning(" SaveChangesAsync returned 0");
                     }
                 }
                 catch (Exception ex)
@@ -109,7 +109,7 @@ namespace Barangay.Pages.Admin
                     CanWrite = false;
                     WriteTestMessage = $"Write test failed: {ex.Message}";
                     ErrorMessage = $"Write Error: {ex.Message}\n\nInner Exception: {ex.InnerException?.Message}\n\nStack Trace:\n{ex.StackTrace}";
-                    _logger.LogError(ex, "❌ Write test failed");
+                    _logger.LogError(ex, " Write test failed");
                 }
 
                 // Test 4: Get recent logs
@@ -120,11 +120,11 @@ namespace Barangay.Pages.Admin
                         .OrderByDescending(a => a.Timestamp)
                         .Take(5)
                         .ToListAsync();
-                    _logger.LogInformation("✅ Fetched {Count} recent logs", RecentLogs.Count);
+                    _logger.LogInformation(" Fetched {Count} recent logs", RecentLogs.Count);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Failed to fetch recent logs");
+                    _logger.LogError(ex, " Failed to fetch recent logs");
                 }
 
                 _logger.LogInformation("=== DIAGNOSTIC COMPLETE ===");
@@ -136,7 +136,7 @@ namespace Barangay.Pages.Admin
             catch (Exception ex)
             {
                 ErrorMessage = $"General diagnostic error: {ex.Message}\n{ex.StackTrace}";
-                _logger.LogError(ex, "❌ Diagnostic failed with general error");
+                _logger.LogError(ex, " Diagnostic failed with general error");
             }
         }
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -514,7 +514,7 @@ namespace Barangay.Pages.User
             return RedirectToPage();
         }
         
-        // Helper method to calculate age from birth date (Kept this one)
+        
         private int CalculateAge(DateTime birthDate)
         {
             var today = AgeReferenceDate; // Using the specified reference date

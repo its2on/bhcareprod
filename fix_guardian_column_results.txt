@@ -1,3 +1,0 @@
-Changed database context to 'Barangay'.
-Msg 207, Level 16, State 1, Server DESKTOP-NU53VS3, Line 15
-Invalid column name 'GuardianFirstName'.

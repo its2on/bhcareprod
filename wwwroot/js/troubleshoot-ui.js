@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Barangay Health Center - UI Troubleshooting Tool
  * This file can be included temporarily to diagnose UI issues.
  * 
@@ -41,7 +41,7 @@
             cursor: pointer;
         `;
         header.innerHTML = `
-            <span>🔍 UI Diagnostic Tool</span>
+            <span>UI Diagnostic Tool</span>
             <div>
                 <button id="bhc-run-tests" style="margin-right: 10px; padding: 2px 6px; background: #ffffff; border: none; border-radius: 3px; cursor: pointer;">Run Tests</button>
                 <span id="bhc-toggle-panel" style="cursor: pointer;">▼</span>
@@ -204,7 +204,7 @@
             
             if (errors.length > 0) {
                 errorSection.innerHTML = `
-                    <div><span class="bhc-status-error">⚠️</span> <strong>JavaScript Errors Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                    <div><span class="bhc-status-error"></span> <strong>JavaScript Errors Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                     <div class="bhc-detail-section">
                         <strong>${errors.length} errors found:</strong><br>
                         ${errors.map(e => `• ${e}`).join('<br>')}
@@ -212,7 +212,7 @@
                 `;
             } else {
                 errorSection.innerHTML = `
-                    <div><span class="bhc-status-ok">✓</span> <strong>No JavaScript Errors Detected</strong></div>
+                    <div><span class="bhc-status-ok"></span> <strong>No JavaScript Errors Detected</strong></div>
                 `;
             }
             
@@ -302,7 +302,7 @@
                 // Update result
                 if (issues.length > 0) {
                     notificationSection.innerHTML = `
-                        <div><span class="bhc-status-error">⚠️</span> <strong>Notification System Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                        <div><span class="bhc-status-error"></span> <strong>Notification System Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                         <div class="bhc-detail-section">
                             <strong>${issues.length} issues found:</strong><br>
                             ${issues.map(e => `• ${e}`).join('<br>')}
@@ -313,7 +313,7 @@
                     `;
                 } else {
                     notificationSection.innerHTML = `
-                        <div><span class="bhc-status-ok">✓</span> <strong>Notification System OK</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                        <div><span class="bhc-status-ok"></span> <strong>Notification System OK</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                         <div class="bhc-detail-section">
                             <strong>Notification Count:</strong> ${data.count}<br>
                             <strong>Notifications:</strong> ${data.notifications?.length || 0} items<br>
@@ -340,7 +340,7 @@
             })
             .catch(error => {
                 notificationSection.innerHTML = `
-                    <div><span class="bhc-status-error">❌</span> <strong>Notification API Error</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                    <div><span class="bhc-status-error"></span> <strong>Notification API Error</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                     <div class="bhc-detail-section">
                         <strong>Error:</strong> ${error.message}
                     </div>
@@ -408,7 +408,7 @@
             // Update result
             if (issues.length > 0) {
                 userSection.innerHTML = `
-                    <div><span class="bhc-status-error">⚠️</span> <strong>User Management Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                    <div><span class="bhc-status-error"></span> <strong>User Management Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                     <div class="bhc-detail-section">
                         <strong>${issues.length} issues found:</strong><br>
                         ${issues.map(e => `• ${e}`).join('<br>')}
@@ -416,7 +416,7 @@
                 `;
             } else {
                 userSection.innerHTML = `
-                    <div><span class="bhc-status-ok">✓</span> <strong>User Management UI Elements OK</strong></div>
+                    <div><span class="bhc-status-ok"></span> <strong>User Management UI Elements OK</strong></div>
                 `;
             }
         } else {
@@ -486,7 +486,7 @@
             // Update result
             if (issues.length > 0) {
                 apiSection.innerHTML = `
-                    <div><span class="bhc-status-error">⚠️</span> <strong>API Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                    <div><span class="bhc-status-error"></span> <strong>API Issues Detected</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                     <div class="bhc-detail-section">
                         <strong>${issues.length} issues found:</strong><br>
                         ${issues.map(e => `• ${e}`).join('<br>')}
@@ -497,7 +497,7 @@
                 `;
             } else {
                 apiSection.innerHTML = `
-                    <div><span class="bhc-status-ok">✓</span> <strong>All API Endpoints OK</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
+                    <div><span class="bhc-status-ok"></span> <strong>All API Endpoints OK</strong> <span class="bhc-toggle-details">[Show Details]</span></div>
                     <div class="bhc-detail-section">
                         <strong>API Test Results:</strong><br>
                         ${results.map(r => `• ${r.endpoint.name}: OK (${r.status})`).join('<br>')}

@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.QuickFixModel
 @{
     ViewData["Title"] = "Quick Fix Weekend Appointments";
@@ -48,8 +48,8 @@
                                     <tr>
                                         <td>@doctor.Name</td>
                                         <td>@doctor.Email</td>
-                                        <td><span class="badge @(doctor.Saturday ? "bg-success" : "bg-danger")">@(doctor.Saturday ? "✓" : "✗")</span></td>
-                                        <td><span class="badge @(doctor.Sunday ? "bg-success" : "bg-danger")">@(doctor.Sunday ? "✓" : "✗")</span></td>
+                                        <td><span class="badge @(doctor.Saturday ? "bg-success" : "bg-danger")">@(doctor.Saturday ? "" : "✗")</span></td>
+                                        <td><span class="badge @(doctor.Sunday ? "bg-success" : "bg-danger")">@(doctor.Sunday ? "" : "✗")</span></td>
                                         <td>@doctor.StartTime.ToString(@"hh\:mm") - @doctor.EndTime.ToString(@"hh\:mm")</td>
                                         <td><span class="badge @(doctor.IsAvailable ? "bg-success" : "bg-danger")">@(doctor.IsAvailable ? "Active" : "Inactive")</span></td>
                                     </tr>

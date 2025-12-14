@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -258,7 +258,7 @@ namespace Barangay.Pages.Doctor
                             <div class='highlight'>
                                 <p><span class='icon'>📧</span><strong>Account:</strong> {userEmail}</p>
                                 <p><span class='icon'>🕒</span><strong>Changed on:</strong> {DateTime.Now:MMMM dd, yyyy 'at' HH:mm}</p>
-                                <p><span class='icon'>🔒</span><strong>Status:</strong> Password updated and secured</p>
+                                <p><span class='icon'></span><strong>Status:</strong> Password updated and secured</p>
                             </div>
                             
                             <p>You can now access your dashboard with your new password. If you didn't make this change, please contact your administrator immediately.</p>
@@ -342,7 +342,7 @@ namespace Barangay.Pages.Doctor
                             </div>
                             
                             <div class='warning'>
-                                <p style='margin: 0;'><strong>⚠️ Security Notice:</strong> If you didn't request this code, please ignore this email and contact your administrator immediately.</p>
+                                <p style='margin: 0;'><strong> Security Notice:</strong> If you didn't request this code, please ignore this email and contact your administrator immediately.</p>
                             </div>
                             
                             <p>This code will expire in 5 minutes for your security.</p>

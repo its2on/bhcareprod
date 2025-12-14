@@ -1,4 +1,4 @@
-using Barangay.Data;
+﻿using Barangay.Data;
 using Barangay.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -110,12 +110,12 @@ namespace Barangay.Services
                 
                 var savedCount = await _context.SaveChangesAsync();
                 
-                _logger.LogInformation("✅ Audit log saved successfully. ID: {Id}, Rows affected: {Count}", auditLog.Id, savedCount);
+                _logger.LogInformation(" Audit log saved successfully. ID: {Id}, Rows affected: {Count}", auditLog.Id, savedCount);
             }
             catch (Exception ex)
             {
                 // Log error but don't throw - audit logging should not break the application
-                _logger.LogError(ex, "❌ AUDIT LOGGING FAILED: {Message}\nStack: {Stack}", ex.Message, ex.StackTrace);
+                _logger.LogError(ex, " AUDIT LOGGING FAILED: {Message}\nStack: {Stack}", ex.Message, ex.StackTrace);
                 Console.WriteLine($"Audit logging error: {ex.Message}");
             }
         }

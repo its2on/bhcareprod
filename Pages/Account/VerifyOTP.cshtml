@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.Account.VerifyOTPModel
 @{
     ViewData["Title"] = "Verify Code";
@@ -113,13 +113,13 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('✅ New verification code sent! Please check your email.');
+                        alert(' New verification code sent! Please check your email.');
                     } else {
-                        alert('❌ Error: ' + data.error);
+                        alert(' Error: ' + data.error);
                     }
                 })
                 .catch(error => {
-                    alert('❌ Error resending code. Please try again.');
+                    alert(' Error resending code. Please try again.');
                     console.error('Error:', error);
                 });
             }

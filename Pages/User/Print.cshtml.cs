@@ -1,4 +1,4 @@
-
+﻿
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Authorization;
@@ -45,7 +45,7 @@ namespace Barangay.Pages.User
             return Page();
         }
         
-        // Helper method to calculate age
+        
         private int CalculateAge(DateTime birthDate)
         {
             var today = DateTime.Today;

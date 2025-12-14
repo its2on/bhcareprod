@@ -1,8 +1,0 @@
-Changed database context to 'Barangay'.
-===== BEGINNING DATABASE NULL VALUE FIXES =====
-Checking UserDocuments table...
-UserDocuments table does not exist. Creating it...
-Msg 1767, Level 16, State 1, Server Thebenzzz10, Line 16
-Foreign key 'FK_UserDocuments_AspNetUsers' references invalid table 'AspNetUsers'.
-Msg 1750, Level 16, State 1, Server Thebenzzz10, Line 16
-Could not create constraint or index. See previous errors.

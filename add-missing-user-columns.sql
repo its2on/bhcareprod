@@ -1,4 +1,0 @@
-ALTER TABLE AspNetUsers
-ADD CivilStatus NVARCHAR(MAX) NULL,
-    Occupation NVARCHAR(MAX) NULL,
-    Religion NVARCHAR(MAX) NULL;

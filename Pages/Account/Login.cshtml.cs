@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
@@ -269,7 +269,7 @@ namespace Barangay.Pages.Account
                         $"Admin user {user.Email} tried to access regular login portal - ACCESS DENIED"
                     );
                     
-                    ModelState.AddModelError(string.Empty, "❌ ACCESS DENIED: Admin users must use the Admin Login page. Please use the 'Admin Login Only' button below.");
+                    ModelState.AddModelError(string.Empty, " ACCESS DENIED: Admin users must use the Admin Login page. Please use the 'Admin Login Only' button below.");
                     return Page();
                 }
 

@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.Admin.UserDetailsModel
 @{
     ViewData["Title"] = "User Details";
@@ -675,10 +675,10 @@
                 btn.innerHTML = originalHtml;
                 
                 if (data.success) {
-                    alert(`✅ ${data.message}\n\nBarangay: ${data.barangay}\n\nThe page will reload to show updated status.`);
+                    alert(` ${data.message}\n\nBarangay: ${data.barangay}\n\nThe page will reload to show updated status.`);
                     location.reload();
                 } else {
-                    alert(`❌ ${data.message}`);
+                    alert(` ${data.message}`);
                 }
             })
             .catch(error => {

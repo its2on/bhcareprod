@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -205,7 +205,7 @@ namespace Barangay.Services
             {
                 if (NativeLibrary.TryLoad(path, out var handle))
                 {
-                    _logger.LogInformation($"✓ Successfully loaded Leptonica from: {path}");
+                    _logger.LogInformation($" Successfully loaded Leptonica from: {path}");
                     NativeLibrary.Free(handle);  // We don't need to keep it loaded, just testing
                     leptonicaLoaded = true;
                     break;
@@ -219,7 +219,7 @@ namespace Barangay.Services
 
         if (!leptonicaLoaded)
         {
-            _logger.LogWarning("⚠️ Could not load Leptonica library. OCR may not work correctly.");
+            _logger.LogWarning(" Could not load Leptonica library. OCR may not work correctly.");
             
             // Try to run ldd to see what's missing
             try
@@ -230,7 +230,7 @@ namespace Barangay.Services
                 // Check for common issues
                 if (lddOutput.Output.Contains("not found"))
                 {
-                    _logger.LogError("❌ Missing dependencies detected. Try running: " +
+                    _logger.LogError(" Missing dependencies detected. Try running: " +
                         "apt-get update && apt-get install -y liblept5 libtesseract4 tesseract-ocr");
                 }
             }
@@ -244,22 +244,22 @@ namespace Barangay.Services
         try
         {
             var tesseractVersion = RunCommand("tesseract", "--version");
-            _logger.LogInformation($"✓ Tesseract version: {tesseractVersion.Output.Trim()}");
+            _logger.LogInformation($" Tesseract version: {tesseractVersion.Output.Trim()}");
         }
         catch (Exception ex)
         {
-            _logger.LogError("❌ Tesseract is not installed. Install with: apt-get install -y tesseract-ocr");
+            _logger.LogError(" Tesseract is not installed. Install with: apt-get install -y tesseract-ocr");
         }
 
         // 4. Check OpenCV
         try
         {
             Cv2.GetVersionString();
-            _logger.LogInformation($"✓ OpenCV version: {Cv2.GetVersionString()}");
+            _logger.LogInformation($" OpenCV version: {Cv2.GetVersionString()}");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning("⚠️ OpenCV not available: " + ex.Message);
+            _logger.LogWarning(" OpenCV not available: " + ex.Message);
         }
 
         // 5. Run a simple Tesseract test
@@ -267,12 +267,12 @@ namespace Barangay.Services
         {
             using (var engine = new TesseractEngine(_tesseractDataPath, "eng", EngineMode.Default))
             {
-                _logger.LogInformation("✓ Tesseract engine initialized successfully");
+                _logger.LogInformation(" Tesseract engine initialized successfully");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError("❌ Failed to initialize Tesseract engine: " + ex.Message);
+            _logger.LogError(" Failed to initialize Tesseract engine: " + ex.Message);
             if (ex.InnerException != null)
             {
                 _logger.LogError("Inner exception: " + ex.InnerException.Message);
@@ -718,7 +718,7 @@ namespace Barangay.Services
                             catch (DllNotFoundException dllEx)
                             {
                                 // Native library missing - this is a critical error that should be reported clearly
-                                _logger.LogError(dllEx, "❌ Tesseract native libraries (Leptonica) not found. " +
+                                _logger.LogError(dllEx, " Tesseract native libraries (Leptonica) not found. " +
                                     "Local OCR cannot function. Please install: apt-get install -y libleptonica-dev libtesseract-dev");
                                 
                                 // Return early with a clear error message
@@ -737,7 +737,7 @@ namespace Barangay.Services
                                 if (ex.Message.Contains("libleptonica") || ex.Message.Contains("DllNotFoundException") || 
                                     ex.InnerException?.Message?.Contains("libleptonica") == true)
                                 {
-                                    _logger.LogError(ex, "❌ Native library error detected. Local OCR cannot function.");
+                                    _logger.LogError(ex, " Native library error detected. Local OCR cannot function.");
                                     return new OcrResult
                                     {
                                         Success = false,
@@ -851,7 +851,7 @@ namespace Barangay.Services
             };
             if (screenshotIndicators.Any(indicator => upperText.Contains(indicator)))
             {
-                _logger.LogWarning("⚠️ Document validation failed: Screenshot indicators found in text");
+                _logger.LogWarning(" Document validation failed: Screenshot indicators found in text");
                 return (false, "Screenshot Detected - Please upload a photo of your actual ID, not a screenshot");
             }
             
@@ -971,7 +971,7 @@ namespace Barangay.Services
                     
                 if (hasStrongIdMarker)
                 {
-                    _logger.LogInformation("✅ Found marker through partial matching!");
+                    _logger.LogInformation(" Found marker through partial matching!");
                 }
             }
 
@@ -986,7 +986,7 @@ namespace Barangay.Services
                 var validBarangayPattern = Regex.IsMatch(upperText, @"BARANGAY\s*(158|159|160|161)|BRGY\.?\s*(158|159|160|161)|(158|159|160|161)\s+BARANGAY", RegexOptions.IgnoreCase);
                 if (validBarangayPattern)
                 {
-                    _logger.LogInformation("✅ Found valid barangay (158-161) in text - passing validation as valid ID");
+                    _logger.LogInformation(" Found valid barangay (158-161) in text - passing validation as valid ID");
                     hasStrongIdMarker = true;
                     detectedIdType = detectedIdType ?? "Driver's License";
                 }
@@ -1007,14 +1007,14 @@ namespace Barangay.Services
                     // If we have multiple indicators (at least 2), it's likely a valid ID with OCR errors
                     if (hasLenientPatterns >= 2)
                     {
-                        _logger.LogInformation("✅ Passing validation based on lenient pattern matching ({PatternCount} patterns found)", hasLenientPatterns);
+                        _logger.LogInformation(" Passing validation based on lenient pattern matching ({PatternCount} patterns found)", hasLenientPatterns);
                         _logger.LogInformation("Text preview: {Preview}", text.Substring(0, Math.Min(500, text.Length)));
                         hasStrongIdMarker = true; // Override to pass validation
                         detectedIdType = detectedIdType ?? "Driver's License"; // Default to Driver's License if not detected
                     }
                     else
                     {
-                        _logger.LogWarning("⚠️ Document validation failed: No strong Philippine ID markers found");
+                        _logger.LogWarning(" Document validation failed: No strong Philippine ID markers found");
                         _logger.LogWarning("Text length: {Length} characters", text.Length);
                         _logger.LogWarning("Text preview (first 1000 chars): {Preview}", text.Length > 1000 ? text.Substring(0, 1000) + "..." : text);
                         _logger.LogWarning("Pattern matches found: {PatternCount}", hasLenientPatterns);
@@ -1088,7 +1088,7 @@ namespace Barangay.Services
                 };
                 if (handwrittenPhrases.Any(phrase => upperText.Contains(phrase)))
                 {
-                    _logger.LogWarning("⚠️ Document validation failed: Handwritten document indicators found");
+                    _logger.LogWarning(" Document validation failed: Handwritten document indicators found");
                     return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
                 }
                 
@@ -1116,7 +1116,7 @@ namespace Barangay.Services
                     
                     if (handwritingScore >= 2)
                     {
-                        _logger.LogWarning("⚠️ Document validation failed: Handwritten document detected");
+                        _logger.LogWarning(" Document validation failed: Handwritten document detected");
                         _logger.LogWarning("Handwriting indicators: Mixed case={MixedCase}, Irregular spacing={Spacing}, Irregular breaks={Breaks}", 
                             hasExcessiveMixedCase, hasIrregularSpacing, hasIrregularLineBreaks);
                         return (false, "Handwritten Document Detected - Please upload a photo of your official printed ID, not a handwritten document");
@@ -1125,7 +1125,7 @@ namespace Barangay.Services
             }
             else
             {
-                _logger.LogInformation("✅ Skipping handwriting check - strong ID markers detected (ID Type: {IdType})", detectedIdType);
+                _logger.LogInformation(" Skipping handwriting check - strong ID markers detected (ID Type: {IdType})", detectedIdType);
             }
             
             // VERY LENIENT: If we have strong ID markers, ALWAYS pass validation
@@ -1134,18 +1134,18 @@ namespace Barangay.Services
             {
                 if (fieldCount < 1)
                 {
-                    _logger.LogInformation("✅ Passing validation based on strong government markers (ID Type: {IdType})", detectedIdType);
+                    _logger.LogInformation(" Passing validation based on strong government markers (ID Type: {IdType})", detectedIdType);
                 }
                 // Auto-pass with strong markers - don't require field counts
             }
             else if (fieldCount < 1)
             {
-                _logger.LogWarning("⚠️ Document validation failed: No strong markers and no ID fields found");
+                _logger.LogWarning(" Document validation failed: No strong markers and no ID fields found");
                 _logger.LogWarning("Extracted text: {Text}", text.Substring(0, Math.Min(500, text.Length)));
                 return (false, "Unverified / Invalid ID Image");
             }
 
-            _logger.LogInformation("✅ Document validation passed: Philippine ID detected");
+            _logger.LogInformation(" Document validation passed: Philippine ID detected");
             _logger.LogInformation("   ID Type: {IdType}", detectedIdType ?? "Unknown Philippine ID");
             _logger.LogInformation("   Strong Markers: {Markers}, ID Fields: {Fields}", strongIdMarkers.Count(m => upperText.Contains(m)), fieldCount);
             return (true, detectedIdType ?? "Philippine Government ID");
@@ -1163,7 +1163,7 @@ namespace Barangay.Services
             
             if (!isValid)
             {
-                _logger.LogError("❌ REJECTED: Document is not a valid Philippine ID");
+                _logger.LogError(" REJECTED: Document is not a valid Philippine ID");
                 _logger.LogError("The uploaded file appears to be plain text, a screenshot, or not a valid Philippine ID document.");
                 _logger.LogError("Please upload an actual Philippine ID document (Driver's License, National ID, PhilHealth ID, etc.)");
                 
@@ -1280,7 +1280,7 @@ namespace Barangay.Services
                     // If it's NOT in the valid list, reject it explicitly
                     if (!validBarangays.Contains(detectedNumber))
                     {
-                        _logger.LogWarning("⚠️ Detected non-eligible barangay: {Barangay} (not in 158-161)", detectedNumber);
+                        _logger.LogWarning(" Detected non-eligible barangay: {Barangay} (not in 158-161)", detectedNumber);
                         return new OcrResult
                         {
                             Success = false,

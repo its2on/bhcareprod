@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 
@@ -29,7 +29,7 @@ namespace BHCARE.Services
         {
             if (string.IsNullOrWhiteSpace(ocrText))
             {
-                _logger.LogWarning("⚠️ Empty OCR text provided for barangay validation");
+                _logger.LogWarning(" Empty OCR text provided for barangay validation");
                 return new BarangayValidationResult
                 {
                     Success = false,
@@ -54,7 +54,7 @@ namespace BHCARE.Services
             // If valid barangay (158-161) is found, accept it immediately
             if (!string.IsNullOrWhiteSpace(extractedBarangay) && ValidBarangays.Contains(extractedBarangay.Trim()))
             {
-                _logger.LogInformation("✅ VALID BARANGAY {Barangay} FOUND - ACCEPTING", extractedBarangay);
+                _logger.LogInformation(" VALID BARANGAY {Barangay} FOUND - ACCEPTING", extractedBarangay);
                 return new BarangayValidationResult
                 {
                     Success = true,
@@ -68,7 +68,7 @@ namespace BHCARE.Services
             // If invalid barangay found (not 158-161), reject with specific message
             if (!string.IsNullOrWhiteSpace(extractedBarangay) && !ValidBarangays.Contains(extractedBarangay.Trim()))
             {
-                _logger.LogWarning("❌ INVALID BARANGAY DETECTED: {Barangay} - Not eligible (158-161 only)", extractedBarangay);
+                _logger.LogWarning(" INVALID BARANGAY DETECTED: {Barangay} - Not eligible (158-161 only)", extractedBarangay);
                 return new BarangayValidationResult
                 {
                     Success = false,
@@ -80,7 +80,7 @@ namespace BHCARE.Services
             }
             
             // No barangay found at all
-            _logger.LogWarning("⚠️ No barangay number detected in OCR text");
+            _logger.LogWarning(" No barangay number detected in OCR text");
             return new BarangayValidationResult
             {
                 Success = false,
@@ -216,7 +216,7 @@ namespace BHCARE.Services
             }
             else
             {
-                _logger.LogWarning("⚠️ No valid barangay numbers (158-161) found anywhere in the text!");
+                _logger.LogWarning(" No valid barangay numbers (158-161) found anywhere in the text!");
             }
 
             foreach (var pattern in patterns)
@@ -248,7 +248,7 @@ namespace BHCARE.Services
                             // Double-check it's a valid number
                             if (ValidBarangays.Contains(barangayNumber))
                             {
-                                _logger.LogInformation("✅ Pattern matched: {Pattern} → Found: {Barangay}", pattern, barangayNumber);
+                                _logger.LogInformation(" Pattern matched: {Pattern} → Found: {Barangay}", pattern, barangayNumber);
                                 var contextStart = Math.Max(0, match.Index - 50);
                                 var contextLength = Math.Min(150, upperText.Length - contextStart);
                                 _logger.LogInformation("Match context: {Context}", upperText.Substring(contextStart, contextLength));
@@ -291,7 +291,7 @@ namespace BHCARE.Services
             // try to extract them from the address context directly
             if (numberTest.Count > 0)
             {
-                _logger.LogWarning("⚠️ Found valid numbers but patterns didn't match. Trying direct extraction...");
+                _logger.LogWarning(" Found valid numbers but patterns didn't match. Trying direct extraction...");
                 // Check if any of the found numbers are near address keywords
                 foreach (Match numMatch in numberTest)
                 {
@@ -302,13 +302,13 @@ namespace BHCARE.Services
                     // Check if this number is in address context
                     if (Regex.IsMatch(context, @"(?:ADDRESS|ADDR|CITY|KALOOKAN|REPARO|LIBIS|LT|LTS|BLK|BLOCK|BARANG|BRGY)", RegexOptions.IgnoreCase))
                     {
-                        _logger.LogInformation("✅ Found valid barangay {Barangay} in address context (direct extraction)", numMatch.Value);
+                        _logger.LogInformation(" Found valid barangay {Barangay} in address context (direct extraction)", numMatch.Value);
                         return numMatch.Value;
                     }
                 }
             }
 
-            _logger.LogWarning("❌ No barangay number found in text");
+            _logger.LogWarning(" No barangay number found in text");
             _logger.LogWarning("Text searched (full): {Text}", upperText);
             return null;
         }
@@ -479,18 +479,18 @@ namespace BHCARE.Services
 
             if (hasBarangayCertificate)
             {
-                _logger.LogInformation("✅ Valid document detected: Certificate of Barangay");
+                _logger.LogInformation(" Valid document detected: Certificate of Barangay");
                 return (true, "Valid Certificate of Barangay detected.");
             }
 
             if (hasPhilippineId)
             {
-                _logger.LogInformation("✅ Valid document detected: Philippine ID");
+                _logger.LogInformation(" Valid document detected: Philippine ID");
                 return (true, "Valid Philippine ID detected.");
             }
 
             // If neither marker is found, reject
-            _logger.LogWarning("❌ Document validation failed: No valid document markers found");
+            _logger.LogWarning(" Document validation failed: No valid document markers found");
             _logger.LogWarning("Document must be either:");
             _logger.LogWarning("  1. Certificate of Barangay (must contain 'Certificate', 'Barangay', 'Residency', etc.)");
             _logger.LogWarning("  2. Philippine ID (Driver's License, National ID, PhilHealth ID, Postal ID, etc.)");

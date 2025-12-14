@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model Barangay.Pages.User.HEEADSSSAssessmentModel
 @{
     ViewData["Title"] = "HEEADSSS Health Assessment";
@@ -931,7 +931,7 @@
             });
             
             if (hasExistingData) {
-                console.log('✓ Form appears to have existing data loaded');
+                console.log(' Form appears to have existing data loaded');
             } else {
                 console.log('⚠ Form appears to be empty - no existing data detected');
             }
@@ -1348,7 +1348,7 @@
                         console.log(`MISSING REQUIRED FIELD: ${field.label}`);
                     } else {
                         $field.removeClass('is-invalid');
-                        console.log(`✓ ${field.label} has value: "${value}"`);
+                        console.log(` ${field.label} has value: "${value}"`);
                     }
                 });
                 
